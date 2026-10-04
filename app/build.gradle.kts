@@ -8,9 +8,28 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// CI release signing: values are injected as env vars by the workflow (see
+// .github/workflows/build.yml). Without them (e.g. local builds) the release
+// build stays unsigned.
+val keystoreFile = System.getenv("KEYSTORE_FILE")
+val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+val hasSigning = !keystoreFile.isNullOrEmpty() && !keystorePassword.isNullOrEmpty()
+
 android {
     namespace = "com.furflix.app"
     compileSdk = 37
+
+    signingConfigs {
+        if (hasSigning) {
+            create("release") {
+                storeFile = file(keystoreFile!!)
+                storePassword = keystorePassword
+                keyAlias = System.getenv("KEY_ALIAS") ?: "furflix-release"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: keystorePassword
+                storeType = "PKCS12"
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.furflix.app"
@@ -18,6 +37,13 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        // CI release builds pass -Pabi=arm64-v8a; builds without the property stay universal
+        (project.findProperty("abi") as? String)
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?.let { ndk { abiFilters += it } }
     }
 
     buildTypes {
@@ -28,6 +54,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (hasSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

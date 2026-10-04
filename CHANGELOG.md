@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Baseline profile for startup hot paths (`app/src/main/baseline-prof.txt`) with
   `androidx.profileinstaller` — improves cold start and first-frame scrolling.
+- Consistent release signing: PKCS12 keystore stored as GitHub Actions secrets,
+  applied to release builds via `signingConfigs`; CI prints the certificate
+  fingerprint on every build (`apksigner verify --print-certs`) so signature
+  consistency is auditable.
+- Default CI build is now a **signed release APK for arm64-v8a**; debug builds
+  (all ABIs) are available on demand via `workflow_dispatch` (`build_type: debug`).
+- Privacy audit: the app contains **no telemetry** — no analytics, crash
+  reporting or tracking SDKs; all network traffic goes to furaffinity.net only.
 
 ### Changed
 - **SEO / website**: meta description, Open Graph and JSON-LD structured data,
