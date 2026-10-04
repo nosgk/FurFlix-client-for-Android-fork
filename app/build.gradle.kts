@@ -69,6 +69,17 @@ android {
         compose = true
     }
 
+    androidResources {
+        // Keep only the app's supported locales (drops ~80 unused AAR locale tables)
+        localeFilters += listOf("en", "ru", "uk", "zh-rCN")
+    }
+
+    lint {
+        // i18n audit is report-style: missing/extra translations surface in the lint
+        // report but must not break CI during upstream rebase windows.
+        warning += listOf("MissingTranslation", "ExtraTranslation")
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FurFlix 简体中文翻译。键与 values/strings.xml 一一对应、顺序镜像,缺键自动回落英文。
+     占位符 %s 与默认文件保持一致;译者说明(ctx)以注释写在对应键上方。 -->
+<resources>
+    <!-- 品牌名不译,仅保证键集与默认文件对齐 -->
+    <string name="app_name">FurFlix</string>
+
+    <!-- Navigation tabs -->
+    <string name="nav_tab_browse">浏览</string>
+    <string name="nav_tab_latest">最新</string>
+    <string name="nav_tab_search">搜索</string>
+    <string name="nav_tab_profile">我的</string>
+
+    <!-- Common actions -->
+    <string name="action_cancel">取消</string>
+    <string name="action_back">返回</string>
+    <string name="action_favorite">收藏</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_download">下载</string>
+    <string name="cd_share">分享</string>
+
+    <!-- Search -->
+
+    <!-- Filter labels -->
+
+    <!-- Post detail -->
+
+    <!-- User profile -->
+
+    <!-- Profile tabs -->
+
+    <!-- States -->
+
+    <!-- Species picker -->
+
+    <!-- Settings -->
+    <string name="settings_title">设置</string>
+    <string name="settings_account">账号</string>
+    <string name="settings_general">通用</string>
+    <string name="settings_storage">存储</string>
+    <string name="settings_appearance">外观</string>
+    <string name="settings_about">关于</string>
+    <string name="settings_appearance_desc">主题、配色与布局</string>
+    <string name="settings_theme">主题</string>
+
+    <string name="theme_default">默认</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_cherry_blossom">樱花</string>
+    <string name="theme_mint_fresh">薄荷清爽</string>
+    <string name="theme_gold">金色</string>
+    <string name="theme_pride">彩虹</string>
+    <string name="theme_neon_galaxy">霓虹星河</string>
+    <string name="theme_summer_sky">夏日晴空</string>
+    <string name="theme_dark">深色</string>
+
+    <string name="settings_grid_view">网格视图</string>
+    <string name="settings_list_view">列表视图</string>
+    <string name="settings_view_desc">以网格或紧凑列表方式浏览作品。</string>
+    <string name="settings_app_icon">应用图标</string>
+
+    <!-- About Developer -->
+    <string name="about_developer_title">关于开发者</string>
+    <string name="about_dev_role">FurFlix 创作者与开发者</string>
+    <string name="about_dev_bio">在乌克兰 🇺🇦 用 ❤️ 开发\n如果你喜欢 FurFlix 并想支持这个项目(或者帮作者攒一套兽装的钱!🐾),欢迎打赏!</string>
+    <string name="about_connect">联系方式</string>
+    <string name="about_support">支持项目</string>
+    <string name="about_card_monobank">Monobank</string>
+    <string name="about_card_monobank_sub">Google Pay</string>
+    <string name="about_card_monobank_number">4874 1000 3088 2800</string>
+    <string name="about_btn_donate">捐赠</string>
+    <string name="about_btn_copy">复制地址</string>
+    <!-- %s = 被复制的条目名(卡号/地址等) -->
+    <string name="about_copied_toast">已将 %s 复制到剪贴板!</string>
+    <string name="about_telegram">Telegram</string>
+    <string name="about_twitter">Twitter</string>
+
+    <!-- Settings General -->
+    <string name="settings_image_cache">图片缓存</string>
+    <string name="settings_clearing">清理中…</string>
+    <string name="settings_downloads_folder">下载文件夹</string>
+    <string name="settings_filters_content">筛选与内容</string>
+    <string name="settings_filters_desc">内容隐藏与黑名单。</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_desc">应用界面语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_about_desc">非官方 FurAffinity 客户端</string>
+
+    <!-- Settings Download Dialog -->
+    <string name="settings_download_dialog_title">下载文件夹</string>
+    <string name="settings_download_base_dir">基础目录</string>
+    <!-- Pictures/Downloads/DCIM 是系统真实目录名,保留英文不译 -->
+    <string name="settings_download_pictures">Pictures</string>
+    <string name="settings_download_downloads">Downloads</string>
+    <string name="settings_download_dcim">DCIM</string>
+    <string name="settings_download_subfolder">子文件夹名称</string>
+    <string name="settings_download_path_preview">保存至:%s</string>
+    <string name="action_save">保存</string>
+    <!-- Extra missing translations -->
+    <string name="profile_favorites">收藏夹</string>
+    <string name="profile_watchlist">关注列表</string>
+
+    <string name="post_view_profile">个人主页</string>
+    <string name="post_description">简介</string>
+    <string name="post_meta_info">详细信息</string>
+    <string name="post_comments">评论</string>
+
+    <string name="user_watching">正在关注</string>
+    <string name="user_watch">关注</string>
+    <string name="user_gallery">图库</string>
+    <string name="user_watchers">关注者</string>
+
+    <!-- Search Filters -->
+    <string name="search_filters">筛选</string>
+    <string name="search_clear_all">清除全部</string>
+    <!-- 分级(FurAffinity 内容分级),非内容类型 -->
+    <string name="filter_rating">分级</string>
+    <string name="filter_general">普通向</string>
+    <string name="filter_mature">成熟向</string>
+    <string name="filter_adult">成人向</string>
+
+    <string name="filter_match_mode">标签匹配模式</string>
+    <string name="filter_require_all">全部匹配</string>
+    <string name="filter_require_any">任一匹配</string>
+    <!-- FA = FurAffinity 自带的进阶搜索语法 -->
+    <string name="filter_advanced">FA 语法</string>
+
+    <string name="filter_order_by">排序依据</string>
+    <string name="filter_sort_date">日期</string>
+    <string name="filter_sort_relevancy">相关度</string>
+    <string name="filter_sort_popularity">热度</string>
+
+    <string name="filter_sort_direction">排序方向</string>
+    <string name="filter_dir_desc">降序</string>
+    <string name="filter_dir_asc">升序</string>
+
+    <string name="filter_time_range">时间范围</string>
+    <string name="filter_time_1d">1 天</string>
+    <string name="filter_time_3d">3 天</string>
+    <string name="filter_time_1w">1 周</string>
+    <string name="filter_time_1m">1 个月</string>
+    <string name="filter_time_1y">1 年</string>
+    <string name="filter_time_3y">3 年</string>
+    <string name="filter_time_5y">5 年</string>
+    <string name="filter_time_all">全部时间</string>
+
+    <string name="filter_content_type">内容类型</string>
+    <string name="filter_type_art">绘画</string>
+    <string name="filter_type_flash">Flash</string>
+    <string name="filter_type_photo">摄影</string>
+    <string name="filter_type_music">音乐</string>
+    <string name="filter_type_story">小说</string>
+    <string name="filter_type_poetry">诗歌</string>
+
+
+    <string name="profile_following_list">正在关注</string>
+    <string name="profile_followers_list">关注者</string>
+    <string name="nav_tab_downloads">下载</string>
+
+    <string name="search_hint">搜索,或输入 # 查找标签…</string>
+    <string name="search_recent">最近搜索</string>
+    <string name="search_clear_recent">清除</string>
+    <string name="search_furaffinity">搜索 FurAffinity</string>
+
+    <string name="profile_about">个人简介</string>
+    <string name="profile_show_more">展开更多</string>
+    <string name="profile_show_less">收起</string>
+
+    <string name="downloads_empty_title">暂无下载</string>
+    <string name="downloads_empty_desc">你保存的作品会显示在这里。</string>
+    <string name="settings_filters_live_preview">实时预览</string>
+    <string name="settings_filters_live_preview_desc">在下方添加筛选条件,即可看到帖子被隐藏的效果。</string>
+    <string name="settings_filters_all_hidden">所有帖子均已隐藏</string>
+    <string name="settings_filters_muted_words">标题屏蔽词</string>
+    <string name="settings_filters_muted_words_desc">标题含这些词的帖子将被隐藏。</string>
+    <!-- 示例词保留英文:用户实际按 FA 标签的英文原文设置屏蔽 -->
+    <string name="settings_filters_muted_words_placeholder">如:YCH, Commission, Adopt</string>
+    <string name="meta_resolution">分辨率</string>
+    <string name="meta_file_size">文件大小</string>
+    <string name="meta_file_type">文件类型</string>
+    <string name="meta_date">日期</string>
+
+    <string name="settings_not_logged_in">未登录</string>
+    <string name="settings_login_to_furaffinity">登录 FurAffinity</string>
+    <string name="login_sign_in">登录 FurAffinity</string>
+    <string name="home_not_logged_in">未登录,部分内容可能无法查看。</string>
+    <string name="settings_startup_tab">默认启动页</string>
+    <string name="settings_startup_tab_desc">选择启动应用时打开的页面</string>
+
+    <string name="login_title">登录</string>
+    <string name="login_username">用户名</string>
+    <string name="login_password">密码</string>
+    <string name="login_button">登录</string>
+    <string name="login_browser">通过浏览器登录</string>
+</resources>

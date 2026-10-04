@@ -27,6 +27,11 @@ jobs:
       - name: Setup Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Lint (i18n translation audit included)
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:lintDebug
+
       - name: Decode signing keystore
         if: env.BUILD_TYPE != 'debug'
         env:

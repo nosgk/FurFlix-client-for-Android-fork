@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 本应用支持的界面语言;Android 13+ 系统设置"应用语言"依据此文件展示 -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="ru" />
+    <locale android:name="uk" />
+    <locale android:name="zh-CN" />
+</locale-config>

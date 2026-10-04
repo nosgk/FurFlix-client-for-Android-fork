@@ -78,6 +78,7 @@
     <string name="settings_filters_desc">Content hiding and blacklists.</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_desc">App interface language</string>
+    <string name="settings_language_system">System default</string>
     <string name="settings_about_desc">Unofficial FurAffinity client</string>
     
     <!-- Settings Download Dialog -->

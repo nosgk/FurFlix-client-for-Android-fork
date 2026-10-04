@@ -62,9 +62,12 @@ fun SettingsScreen(
     var showDownloadFolderDialog by remember { mutableStateOf(false) }
 
     var showLanguageDialog by remember { mutableStateOf(false) }
-    val currentLanguageCode = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()[0]?.language ?: "en"
-    val languageNameMap = mapOf("en" to "English", "ru" to "Русский", "uk" to "Українська")
-    val currentLanguageName = languageNameMap[currentLanguageCode] ?: "English"
+    val appLocales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+    val currentLanguageCode = appLocales[0]?.language
+    // 语言锚点恒显母语名(不参与翻译);"zh" 仅作比对键,应用侧实际写入 zh-CN
+    val languageNameMap = mapOf("en" to "English", "ru" to "Русский", "uk" to "Українська", "zh" to "中文")
+    val currentLanguageName = currentLanguageCode?.let { languageNameMap[it] }
+        ?: stringResource(R.string.settings_language_system)
 
     val context = LocalContext.current
     val repository = remember { FurRepository.getInstance(context) }
@@ -214,6 +217,37 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val isSystemSelected = appLocales.isEmpty
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isSystemSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                                .border(
+                                    1.dp,
+                                    if (isSystemSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.Transparent,
+                                    RoundedCornerShape(14.dp)
+                                )
+                                .clickable {
+                                    androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(
+                                        androidx.core.os.LocaleListCompat.getEmptyLocaleList()
+                                    )
+                                    showLanguageDialog = false
+                                }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_language_system),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (isSystemSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSystemSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isSystemSelected) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
                         languageNameMap.forEach { (code, name) ->
                             val isSelected = currentLanguageCode == code
                             Row(
@@ -227,8 +261,9 @@ fun SettingsScreen(
                                         RoundedCornerShape(14.dp)
                                     )
                                     .clickable {
+                                        val tag = if (code == "zh") "zh-CN" else code
                                         androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(
-                                            androidx.core.os.LocaleListCompat.forLanguageTags(code)
+                                            androidx.core.os.LocaleListCompat.forLanguageTags(tag)
                                         )
                                         showLanguageDialog = false
                                     }
