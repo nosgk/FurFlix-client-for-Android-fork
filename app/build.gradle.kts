@@ -146,4 +146,7 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
+
+    // Translation engine unit tests (pure JVM, no Android framework)
+    testImplementation("junit:junit:4.13.2")
 }

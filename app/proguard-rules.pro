@@ -20,3 +20,12 @@
 -keepclasseswithmembers class com.furflix.app.data.model.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Translation feature: kotlinx.serialization models live outside data.model
+-keepclassmembers class com.furflix.app.translate.** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.furflix.app.translate.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class com.furflix.app.translate.**$$serializer { *; }
