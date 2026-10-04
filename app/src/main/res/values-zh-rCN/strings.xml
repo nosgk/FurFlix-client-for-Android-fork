@@ -231,4 +231,62 @@
     <!-- %s = 站点抓取的注册日期,本身为英文 -->
     <string name="profile_joined">加入时间:%s</string>
     <string name="profile_links">链接</string>
+
+    <!-- Translation -->
+    <string name="settings_translation">翻译</string>
+    <string name="settings_translation_desc">翻译描述、标签与评论</string>
+    <string name="translation_title">翻译</string>
+    <string name="translation_enabled">启用翻译</string>
+    <string name="translation_enabled_desc">在作品页显示翻译按钮</string>
+    <string name="translation_auto">自动翻译内容</string>
+    <string name="translation_auto_desc">描述、评论与用户简介</string>
+    <string name="translation_tags_auto">自动翻译标签</string>
+    <string name="translation_tags_auto_desc">无页面开关时自动翻译标签</string>
+    <string name="translation_target_language">目标语言</string>
+    <string name="translation_provider">翻译服务商</string>
+    <string name="translation_provider_google">Google（免费）</string>
+    <string name="translation_provider_chrome">Google Chrome API</string>
+    <string name="translation_provider_edge">Microsoft Edge（免费）</string>
+    <string name="translation_provider_azure">Azure 翻译（需密钥）</string>
+    <string name="translation_provider_openai">OpenAI 兼容 AI</string>
+    <string name="translation_azure_key">Azure 密钥</string>
+    <string name="translation_api_key">API 密钥</string>
+    <string name="translation_base_url">接口地址</string>
+    <!-- 自定义端点必须可经 HTTPS 访问(网络安全配置限制) -->
+    <string name="translation_base_url_https_hint">自定义端点须使用 HTTPS</string>
+    <string name="translation_model">模型</string>
+    <string name="translation_system_prompt">系统提示词</string>
+    <string name="translation_user_prompt">用户提示词</string>
+    <string name="translation_prompt_default_hint">留空使用内置默认提示词</string>
+    <!-- @toLang/@text 为模板占位符,保持原样 -->
+    <string name="translation_prompt_tokens_hint">支持 @toLang 与 @text 占位符</string>
+    <string name="translation_prompts_reset">恢复默认</string>
+    <string name="translation_display_modes">显示方式</string>
+    <string name="translation_mode_bilingual">双语对照</string>
+    <string name="translation_mode_translation_only">仅显示译文</string>
+    <string name="translation_content_description">作品描述</string>
+    <string name="translation_content_tags">标签</string>
+    <string name="translation_content_comments">评论</string>
+    <string name="translation_content_profile">用户简介</string>
+    <string name="translation_cache">翻译缓存</string>
+    <!-- %1$d = 条目数, %2$s = 格式化大小 -->
+    <string name="translation_cache_stats">%1$d 条 · %2$s</string>
+    <string name="translation_cache_clear">清空缓存</string>
+    <string name="translation_cache_cleared">翻译缓存已清空</string>
+    <string name="translated_by">由 %s 翻译</string>
+    <string name="translation_show_original">显示原文</string>
+    <string name="translation_show_translation">显示译文</string>
+    <string name="translation_collapse">收起</string>
+    <string name="translation_retry">重试</string>
+    <string name="translation_error_timeout">连接超时</string>
+    <string name="translation_error_connection">网络连接失败</string>
+    <string name="translation_error_invalid_key">API 密钥无效</string>
+    <string name="translation_error_rate_limited">请求过于频繁</string>
+    <string name="translation_error_server">服务器错误（HTTP %d）</string>
+    <string name="translation_error_network">网络错误</string>
+    <string name="translation_error_empty">未取得译文</string>
+    <string name="translation_error_bad_response">响应格式异常</string>
+    <string name="translation_error_no_key">未配置 API 密钥</string>
+    <!-- %1$d = HTTP 状态码, %2$s = 服务器响应摘录 -->
+    <string name="translation_error_http_detail">HTTP %1$d · %2$s</string>
 </resources>

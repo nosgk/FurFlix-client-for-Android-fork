@@ -222,4 +222,62 @@
     <!-- %s = registration date scraped from the site (English by nature) -->
     <string name="profile_joined">Joined %s</string>
     <string name="profile_links">Links</string>
+
+    <!-- Translation -->
+    <string name="settings_translation">Translation</string>
+    <string name="settings_translation_desc">Translate descriptions, tags and comments</string>
+    <string name="translation_title">Translation</string>
+    <string name="translation_enabled">Enable translation</string>
+    <string name="translation_enabled_desc">Show translate buttons on posts</string>
+    <string name="translation_auto">Auto-translate content</string>
+    <string name="translation_auto_desc">Descriptions, comments and profiles</string>
+    <string name="translation_tags_auto">Auto-translate tags</string>
+    <string name="translation_tags_auto_desc">Translate tags when the page toggle is off</string>
+    <string name="translation_target_language">Target language</string>
+    <string name="translation_provider">Provider</string>
+    <string name="translation_provider_google">Google (free)</string>
+    <string name="translation_provider_chrome">Google Chrome API</string>
+    <string name="translation_provider_edge">Microsoft Edge (free)</string>
+    <string name="translation_provider_azure">Azure Translator (key)</string>
+    <string name="translation_provider_openai">OpenAI-compatible AI</string>
+    <string name="translation_azure_key">Azure key</string>
+    <string name="translation_api_key">API key</string>
+    <string name="translation_base_url">Base URL</string>
+    <!-- Custom endpoints must be reachable over HTTPS (network security config) -->
+    <string name="translation_base_url_https_hint">Custom endpoints must use HTTPS</string>
+    <string name="translation_model">Model</string>
+    <string name="translation_system_prompt">System prompt</string>
+    <string name="translation_user_prompt">User prompt</string>
+    <string name="translation_prompt_default_hint">Leave empty to use the built-in default</string>
+    <!-- @toLang/@text are template tokens, keep verbatim -->
+    <string name="translation_prompt_tokens_hint">Supports @toLang and @text tokens</string>
+    <string name="translation_prompts_reset">Restore defaults</string>
+    <string name="translation_display_modes">Display mode</string>
+    <string name="translation_mode_bilingual">Bilingual</string>
+    <string name="translation_mode_translation_only">Translation only</string>
+    <string name="translation_content_description">Description</string>
+    <string name="translation_content_tags">Tags</string>
+    <string name="translation_content_comments">Comments</string>
+    <string name="translation_content_profile">User profile</string>
+    <string name="translation_cache">Translation cache</string>
+    <!-- %1$d = entry count, %2$s = formatted size -->
+    <string name="translation_cache_stats">%1$d entries · %2$s</string>
+    <string name="translation_cache_clear">Clear cache</string>
+    <string name="translation_cache_cleared">Translation cache cleared</string>
+    <string name="translated_by">Translated by %s</string>
+    <string name="translation_show_original">Show original</string>
+    <string name="translation_show_translation">Show translation</string>
+    <string name="translation_collapse">Collapse</string>
+    <string name="translation_retry">Retry</string>
+    <string name="translation_error_timeout">Connection timed out</string>
+    <string name="translation_error_connection">Connection failed</string>
+    <string name="translation_error_invalid_key">Invalid API key</string>
+    <string name="translation_error_rate_limited">Rate limited</string>
+    <string name="translation_error_server">Server error (HTTP %d)</string>
+    <string name="translation_error_network">Network error</string>
+    <string name="translation_error_empty">Empty translation</string>
+    <string name="translation_error_bad_response">Unexpected response format</string>
+    <string name="translation_error_no_key">API key not configured</string>
+    <!-- %1$d = HTTP status, %2$s = server response excerpt -->
+    <string name="translation_error_http_detail">HTTP %1$d · %2$s</string>
 </resources>
