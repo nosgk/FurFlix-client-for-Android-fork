@@ -102,7 +102,7 @@ dependencies {
     // LeakCanary for memory leak detection
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 
-    val roomVersion = "2.11.0"
+    val roomVersion = "2.8.5"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
