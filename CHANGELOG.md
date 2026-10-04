@@ -17,8 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Google Search Console verification; repository links added to the page footer.
 - **Tech stack upgrade** (required by the Haze 2.x cascade):
   - Kotlin 2.1.10 → 2.4.20 (compose & serialization plugins aligned), KSP → 2.3.12
-  - Android Gradle Plugin stays at 8.13.2; `compileSdk` 36 → 37 (required by
-    Haze 2.x; `targetSdk` intentionally kept at 36)
+  - Android Gradle Plugin 8.13.2 → 9.4.1, Gradle 8.13 → 9.6.0 (required by
+    Compose 1.12.x AAR metadata); KGP kept via the AGP 9 built-in-Kotlin opt-out
+  - `compileSdk` 36 → 37 (required by Haze 2.x; `targetSdk` intentionally kept at 36)
   - Compose BOM 2024.11.00 → 2026.09.00 (Compose 1.12.1, Material 3 1.4.0)
   - Lifecycle 2.8.7 → 2.11.0, Navigation Compose 2.8.4 → 2.10.2
   - Room 2.6.1 → 2.8.5, DataStore unchanged
