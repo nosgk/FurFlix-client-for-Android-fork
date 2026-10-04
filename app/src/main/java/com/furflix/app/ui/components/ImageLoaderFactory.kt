@@ -6,7 +6,7 @@ import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.furflix.app.data.remote.FurAffinityScraper
 import okhttp3.OkHttpClient
-import okio.toPath
+import okio.Path.Companion.toPath
 import java.util.concurrent.TimeUnit
 
 object ImageLoaderFactory {
