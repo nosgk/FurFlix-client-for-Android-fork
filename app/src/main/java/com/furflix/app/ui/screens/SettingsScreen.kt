@@ -49,6 +49,7 @@ fun SettingsScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToAppearance: () -> Unit,
     onNavigateToFilters: () -> Unit,
+    onNavigateToTranslation: () -> Unit,
     onNavigateToAbout: () -> Unit,
     viewModel: MainViewModel = viewModel()
 ) {
@@ -139,6 +140,14 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_filters_content),
                         subtitle = stringResource(R.string.settings_filters_desc),
                         onClick = onNavigateToFilters
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = Icons.Default.Translate,
+                        iconColor = Color(0xFF00BCD4),
+                        title = stringResource(R.string.settings_translation),
+                        subtitle = stringResource(R.string.settings_translation_desc),
+                        onClick = onNavigateToTranslation
                     )
                     SettingsDivider()
                     SettingsRow(

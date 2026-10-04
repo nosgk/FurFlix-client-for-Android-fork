@@ -66,6 +66,14 @@ import kotlin.math.sin
 import kotlin.random.Random
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import androidx.compose.ui.text.TextStyle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.furflix.app.translate.data.TranslationCategory
+import com.furflix.app.translate.ui.TranslatableAutoEffect
+import com.furflix.app.translate.ui.TranslatableText
+import com.furflix.app.translate.ui.TranslationIconButton
+import com.furflix.app.translate.ui.rememberTranslationEntry
+import com.furflix.app.translate.ui.rememberTranslationPrefs
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -897,6 +905,9 @@ private fun StatDivider() {
 private fun BioCard(text: String, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     var hasOverflow by remember { mutableStateOf(false) }
+    val translationPrefs = rememberTranslationPrefs()
+    val entry = rememberTranslationEntry(text, text, TranslationCategory.USER_PROFILE)
+    TranslatableAutoEffect(entry, translationPrefs)
 
     Column(
         modifier = modifier
@@ -922,13 +933,14 @@ private fun BioCard(text: String, modifier: Modifier = Modifier) {
                 fontSize = 14.sp,
                 color = Color.White
             )
+            Spacer(modifier = Modifier.weight(1f))
+            TranslationIconButton(entry = entry, enabled = translationPrefs.enabled)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = text,
-            fontSize = 13.sp,
-            lineHeight = 19.sp,
-            color = DarkOnSurface,
+        TranslatableText(
+            entry = entry,
+            prefs = translationPrefs,
+            style = TextStyle(fontSize = 13.sp, lineHeight = 19.sp, color = DarkOnSurface),
             maxLines = if (expanded) Int.MAX_VALUE else 4,
             overflow = TextOverflow.Ellipsis,
             onTextLayout = { result ->

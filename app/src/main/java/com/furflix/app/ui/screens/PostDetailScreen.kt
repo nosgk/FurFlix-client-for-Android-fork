@@ -84,6 +84,23 @@ import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
+import androidx.compose.animation.animateContentSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.text.TextStyle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.furflix.app.translate.data.TranslationCategory
+import com.furflix.app.translate.data.TranslationDisplayMode
+import com.furflix.app.translate.data.TranslationUiState
+import com.furflix.app.translate.ui.LocalTagTranslationEnabled
+import com.furflix.app.translate.ui.TranslatableAutoEffect
+import com.furflix.app.translate.ui.TranslatableText
+import com.furflix.app.translate.ui.TranslationCaption
+import com.furflix.app.translate.ui.TranslationEntry
+import com.furflix.app.translate.ui.TranslationIconButton
+import com.furflix.app.translate.ui.rememberTranslationEntry
+import com.furflix.app.translate.ui.rememberTranslationPrefs
+import com.furflix.app.translate.ui.translationErrorBase
+import com.furflix.app.translate.ui.translationErrorText
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +118,10 @@ fun PostDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+
+    // 翻译功能：页面级标签开关（初始值来自全局设置；存在即完全接管本页）
+    val translationPrefs = rememberTranslationPrefs()
+    val tagTranslateToggle = remember(translationPrefs.tagsAuto) { mutableStateOf(translationPrefs.tagsAuto) }
 
     val foundInList = submissions.any { it.id == initialPostId }
     val effectiveSubmissions = remember(submissions, initialPostId) {
@@ -247,7 +268,12 @@ fun PostDetailScreen(
                             // ── Tags ────────────────────────────────────────
                             if (sub.tags.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(24.dp))
-                                TagsSection(tags = sub.tags, onTagClick = onTagClick)
+                                CompositionLocalProvider(
+                                    LocalTagTranslationEnabled provides
+                                        tagTranslateToggle.takeIf { translationPrefs.enabled }
+                                ) {
+                                    TagsSection(tags = sub.tags, onTagClick = onTagClick)
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(24.dp))
@@ -783,7 +809,30 @@ private fun StatDivider() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TagsSection(tags: List<String>, onTagClick: (String) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    val prefs = rememberTranslationPrefs()
+    val tagToggle = LocalTagTranslationEnabled.current
+    // 页面开关存在时完全接管；否则读全局 translateTagsAuto（蓝本两层开关）
+    val auto = tagToggle?.value ?: prefs.tagsAuto
+    val entries = remember(tags) {
+        tags.map { TranslationEntry(it, TranslationCategory.TAG, singleRequest = true) }
+    }
+    DisposableEffect(entries) {
+        onDispose { entries.forEach { it.cancel() } }
+    }
+
+    // 批量翻译靠缓存 + in-flight 合并；页面开关再次打开时对失败条目重试
+    LaunchedEffect(auto) {
+        if (prefs.enabled && auto) {
+            entries.forEach { entry ->
+                val s = entry.state.value
+                if (s is TranslationUiState.Idle && !s.autoAttempted || s is TranslationUiState.Failed) {
+                    entry.translate()
+                }
+            }
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Icon(
             Icons.Default.LocalOffer,
             contentDescription = null,
@@ -797,13 +846,33 @@ private fun TagsSection(tags: List<String>, onTagClick: (String) -> Unit) {
             fontWeight = FontWeight.SemiBold,
             color = Color.White
         )
+        Spacer(modifier = Modifier.weight(1f))
+        if (tagToggle != null) {
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .clickable { tagToggle.value = !tagToggle.value },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Translate,
+                    contentDescription = stringResource(R.string.settings_translation),
+                    tint = if (tagToggle.value) MaterialTheme.colorScheme.primary else SubtleGray,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
     }
     Spacer(modifier = Modifier.height(10.dp))
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        tags.forEach { tag ->
+        val mode = prefs.displayMode(TranslationCategory.TAG)
+        tags.forEachIndexed { index, tag ->
+            val entry = entries[index]
+            val chipState by entry.state.collectAsStateWithLifecycle()
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
@@ -812,11 +881,30 @@ private fun TagsSection(tags: List<String>, onTagClick: (String) -> Unit) {
                     .clickable { onTagClick(tag) }
                     .padding(horizontal = 12.dp, vertical = 7.dp)
             ) {
-                Text(
-                    text = "#$tag",
-                    fontSize = 12.sp,
-                    color = DarkOnSurface
-                )
+                // loading 用静态 "…" 而非 spinner（几十个 chip 同时转圈会卡列表）
+                when (val s = chipState) {
+                    is TranslationUiState.Success -> when (mode) {
+                        TranslationDisplayMode.BILINGUAL -> Column {
+                            Text(text = "#$tag", fontSize = 12.sp, color = DarkOnSurface)
+                            Text(text = s.translated, fontSize = 10.sp, color = MutedText)
+                        }
+                        TranslationDisplayMode.TRANSLATION_ONLY ->
+                            Text(text = s.translated, fontSize = 12.sp, color = DarkOnSurface)
+                    }
+                    is TranslationUiState.Loading ->
+                        Text(text = "#$tag…", fontSize = 12.sp, color = DarkOnSurface)
+                    is TranslationUiState.Failed -> Column {
+                        Text(text = "#$tag", fontSize = 12.sp, color = DarkOnSurface)
+                        Text(
+                            text = translationErrorBase(s.message, s.code),
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.75f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    else -> Text(text = "#$tag", fontSize = 12.sp, color = DarkOnSurface)
+                }
             }
         }
     }
@@ -832,59 +920,7 @@ private fun DescriptionContent(
     onAuthorClick: (String) -> Unit,
     onNavigateToPost: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
-    if (sub.description.isNotEmpty()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(CardBackground)
-                .border(1.dp, BorderDark, RoundedCornerShape(16.dp))
-                .padding(16.dp)
-        ) {
-            val textColor = "#E0E0E0".toColorInt()
-            val linkColor = LinkColor.hashCode()
-            AndroidView(
-                factory = { ctx ->
-                    TextView(ctx).apply {
-                        setTextColor(textColor)
-                        setLinkTextColor(linkColor)
-                        textSize = 15f
-                        movementMethod = LinkMovementMethod.getInstance()
-                    }
-                },
-                update = { textView ->
-                    val htmlSpannable = android.text.SpannableStringBuilder(
-                        HtmlCompat.fromHtml(sub.description, HtmlCompat.FROM_HTML_MODE_COMPACT)
-                    )
-                    val spans = htmlSpannable.getSpans(0, htmlSpannable.length, android.text.style.URLSpan::class.java)
-                    for (span in spans) {
-                        val start = htmlSpannable.getSpanStart(span)
-                        val end = htmlSpannable.getSpanEnd(span)
-                        val flags = htmlSpannable.getSpanFlags(span)
-                        val url = span.url
-                        htmlSpannable.removeSpan(span)
-                        htmlSpannable.setSpan(object : android.text.style.ClickableSpan() {
-                            override fun onClick(widget: android.view.View) {
-                                if (url.contains("/user/")) {
-                                    val username = url.substringAfter("/user/").substringBefore("/")
-                                    if (username.isNotEmpty()) onAuthorClick(username)
-                                } else if (url.contains("/view/")) {
-                                    val id = url.substringAfter("/view/").substringBefore("/")
-                                    if (id.isNotEmpty()) onNavigateToPost(id)
-                                } else {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
-                                }
-                            }
-                        }, start, end, flags)
-                    }
-                    textView.text = htmlSpannable
-                }
-            )
-        }
-    } else {
+    if (sub.description.isEmpty()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -896,7 +932,127 @@ private fun DescriptionContent(
         ) {
             Text(stringResource(R.string.post_no_description), color = MutedText, fontSize = 14.sp)
         }
+        return
     }
+
+    val prefs = rememberTranslationPrefs()
+    val entry = rememberTranslationEntry(
+        key = sub.id,
+        text = sub.description,
+        category = TranslationCategory.DESCRIPTION,
+        contentIsHtml = true
+    )
+    val state by entry.state.collectAsStateWithLifecycle()
+    val mode = prefs.displayMode(TranslationCategory.DESCRIPTION)
+    TranslatableAutoEffect(entry, prefs)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(CardBackground)
+            .border(1.dp, BorderDark, RoundedCornerShape(16.dp))
+            .padding(16.dp)
+            .animateContentSize()
+    ) {
+        if (prefs.enabled) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TranslationIconButton(entry = entry, enabled = true)
+            }
+        }
+
+        val success = state as? TranslationUiState.Success
+        // 仅译文模式：原地替换原文（htmlIn 服务商保留链接与排版，见 translation-plan）
+        HtmlTextView(
+            html = if (success != null && success.showing && mode == TranslationDisplayMode.TRANSLATION_ONLY) {
+                success.translated
+            } else {
+                sub.description
+            },
+            onAuthorClick = onAuthorClick,
+            onNavigateToPost = onNavigateToPost
+        )
+
+        if (success != null && success.showing && mode == TranslationDisplayMode.BILINGUAL) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(BorderDark)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            HtmlTextView(
+                html = success.translated,
+                onAuthorClick = onAuthorClick,
+                onNavigateToPost = onNavigateToPost
+            )
+        }
+
+        if (success != null && success.showing) {
+            TranslationCaption(entry, success, mode)
+        }
+
+        val failure = state as? TranslationUiState.Failed
+        if (failure != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = translationErrorText(failure),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+// HTML 渲染（原文与译文共用；URLSpan 重写为站内导航）
+@Composable
+private fun HtmlTextView(
+    html: String,
+    onAuthorClick: (String) -> Unit,
+    onNavigateToPost: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val textColor = "#E0E0E0".toColorInt()
+    val linkColor = LinkColor.hashCode()
+    AndroidView(
+        factory = { ctx ->
+            TextView(ctx).apply {
+                setTextColor(textColor)
+                setLinkTextColor(linkColor)
+                textSize = 15f
+                movementMethod = LinkMovementMethod.getInstance()
+            }
+        },
+        update = { textView ->
+            val htmlSpannable = android.text.SpannableStringBuilder(
+                HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_COMPACT)
+            )
+            val spans = htmlSpannable.getSpans(0, htmlSpannable.length, android.text.style.URLSpan::class.java)
+            for (span in spans) {
+                val start = htmlSpannable.getSpanStart(span)
+                val end = htmlSpannable.getSpanEnd(span)
+                val flags = htmlSpannable.getSpanFlags(span)
+                val url = span.url
+                htmlSpannable.removeSpan(span)
+                htmlSpannable.setSpan(object : android.text.style.ClickableSpan() {
+                    override fun onClick(widget: android.view.View) {
+                        if (url.contains("/user/")) {
+                            val username = url.substringAfter("/user/").substringBefore("/")
+                            if (username.isNotEmpty()) onAuthorClick(username)
+                        } else if (url.contains("/view/")) {
+                            val id = url.substringAfter("/view/").substringBefore("/")
+                            if (id.isNotEmpty()) onNavigateToPost(id)
+                        } else {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            context.startActivity(intent)
+                        }
+                    }
+                }, start, end, flags)
+            }
+            textView.text = htmlSpannable
+        }
+    )
 }
 
 // -----------------------------------------------------------------------------------------
@@ -986,6 +1142,10 @@ private fun CommentsContent(
 
 @Composable
 private fun CommentCard(comment: Comment, onAuthorClick: (String) -> Unit) {
+    val prefs = rememberTranslationPrefs()
+    val entry = rememberTranslationEntry(comment.id, comment.text, TranslationCategory.COMMENT)
+    TranslatableAutoEffect(entry, prefs)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1055,6 +1215,10 @@ private fun CommentCard(comment: Comment, onAuthorClick: (String) -> Unit) {
                 }
             }
 
+            if (comment.text.isNotEmpty()) {
+                TranslationIconButton(entry = entry, enabled = prefs.enabled)
+            }
+
             if (comment.timestamp > 0) {
                 val dateStr = remember(comment.timestamp) {
                     try {
@@ -1073,11 +1237,10 @@ private fun CommentCard(comment: Comment, onAuthorClick: (String) -> Unit) {
 
         if (comment.text.isNotEmpty()) {
             Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                text = comment.text,
-                fontSize = 13.sp,
-                color = CommentBodyColor,
-                lineHeight = 18.sp
+            TranslatableText(
+                entry = entry,
+                prefs = prefs,
+                style = TextStyle(fontSize = 13.sp, color = CommentBodyColor, lineHeight = 18.sp)
             )
         }
     }

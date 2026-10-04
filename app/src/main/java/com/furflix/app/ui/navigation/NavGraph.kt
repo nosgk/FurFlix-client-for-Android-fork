@@ -18,6 +18,7 @@ object Routes {
     const val DOWNLOADS = "downloads"
     const val APPEARANCE_SETTINGS = "appearance_settings"
     const val FILTERS_SETTINGS = "filters_settings"
+    const val TRANSLATION_SETTINGS = "translation_settings"
     const val LOGIN = "login"
     const val USER_PROFILE = "user/{username}"
     const val TAG_SEARCH = "tag_search/{tag}"
@@ -121,8 +122,15 @@ fun FurFlixNavGraph() {
                 onNavigateToLogin = { navController.navigate(Routes.LOGIN) },
                 onNavigateToAppearance = { navController.navigate(Routes.APPEARANCE_SETTINGS) },
                 onNavigateToFilters = { navController.navigate(Routes.FILTERS_SETTINGS) },
+                onNavigateToTranslation = { navController.navigate(Routes.TRANSLATION_SETTINGS) },
                 onNavigateToAbout = { navController.navigate(Routes.ABOUT_DEVELOPER) },
                 viewModel = mainViewModel
+            )
+        }
+
+        composable(Routes.TRANSLATION_SETTINGS) {
+            com.furflix.app.translate.ui.TranslationSettingsScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 
