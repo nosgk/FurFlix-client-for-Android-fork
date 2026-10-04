@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (drops ~80 unused AAR locale tables). All previously hardcoded UI strings —
   including upstream Russian literals that leaked to non-Russian users — are
   extracted into resources; comment dates now render in the active locale.
-  Design blueprint: `docs/chinese-localization-plan.md`.
+  Design blueprint: internal planning document (intentionally not committed).
 - Baseline profile for startup hot paths (`app/src/main/baseline-prof.txt`) with
   `androidx.profileinstaller` — improves cold start and first-frame scrolling.
 - Consistent release signing: PKCS12 keystore stored as GitHub Actions secrets,
