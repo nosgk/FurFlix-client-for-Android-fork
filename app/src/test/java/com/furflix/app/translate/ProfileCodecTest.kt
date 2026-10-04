@@ -96,8 +96,10 @@ class ProfileCodecTest {
 
     @Test
     fun `custom user prompt supports toLang and text tokens`() {
-        val config = TranslationConfig(userPrompt = "Into @toLangName (@toLang): @text")
+        // 蓝本 §3.5：prompt 内 @toLang 渲染为目标语言【母语名】（供 AI 阅读）；
+        // 且先长后短替换——若顺序颠倒，@toLangName 会被 @toLang 吃掉前缀变成"简体中文Name"
+        val config = TranslationConfig(userPrompt = "Name @toLangName code @toLang: @text")
         val vars = translationTemplateVars(config, "hi")
-        assertEquals("Into 简体中文 (zh-CN): hi", vars["userPrompt"])
+        assertEquals("Name 简体中文 code 简体中文: hi", vars["userPrompt"])
     }
 }

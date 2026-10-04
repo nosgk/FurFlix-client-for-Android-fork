@@ -55,12 +55,18 @@ fun renderJsonTemplate(template: String, vars: Map<String, String>): String {
     }
 }
 
-/** 渲染 url 模板后按 key=value 追加 query（? 或 & 自动选择）。 */
+/**
+ * 渲染 url 模板后按 key=value 追加 query（? 或 & 自动选择）。
+ * 蓝本 §12.4 坑位：query 值必须"先按原样渲染变量、再整体 encodeComponent"——
+ * 若在渲染期编码会与整体编码叠加成双重编码，且不含 token 的常量值会漏编码。
+ */
 fun buildRequestUrl(profile: TranslationRequestProfile, vars: Map<String, String>): String {
     val rendered = renderUrlTemplate(profile.url, vars)
     if (profile.query.isEmpty()) return rendered
     val qs = profile.query.joinToString("&") { pair ->
-        "${renderUrlTemplate(pair[0], vars)}=${renderUrlTemplate(pair.getOrElse(1) { "" }, vars)}"
+        val key = renderPlainTemplate(pair[0], vars)
+        val value = renderPlainTemplate(pair.getOrElse(1) { "" }, vars)
+        "${encodeComponent(key)}=${encodeComponent(value)}"
     }
     return rendered + (if (rendered.contains('?')) "&" else "?") + qs
 }
