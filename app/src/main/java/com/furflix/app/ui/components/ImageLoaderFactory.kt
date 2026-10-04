@@ -6,6 +6,7 @@ import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.furflix.app.data.remote.FurAffinityScraper
 import okhttp3.OkHttpClient
+import okio.toPath
 import java.util.concurrent.TimeUnit
 
 object ImageLoaderFactory {
@@ -59,13 +60,13 @@ object ImageLoaderFactory {
                 }
             }
             .memoryCache {
-                coil3.memory.MemoryCache.Builder(context)
-                    .maxSizePercent(0.25)
+                coil3.memory.MemoryCache.Builder()
+                    .maxSizePercent(context, 0.25)
                     .build()
             }
             .diskCache(
                 DiskCache.Builder()
-                    .directory(context.cacheDir.resolve("image_cache"))
+                    .directory(context.cacheDir.resolve("image_cache").absolutePath.toPath())
                     .maxSizePercent(0.25)
                     .build()
             )
