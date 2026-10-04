@@ -59,7 +59,7 @@ fun AboutDeveloperScreen(
                 title = { Text(stringResource(R.string.about_developer_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 hazeState = hazeState
@@ -264,7 +264,7 @@ fun DonationCard(
             
             if (secondaryIcon != null && onSecondaryClick != null) {
                 IconButton(onClick = onSecondaryClick, modifier = Modifier.size(32.dp)) {
-                    Icon(secondaryIcon, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Icon(secondaryIcon, contentDescription = stringResource(R.string.cd_copy), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
             }

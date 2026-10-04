@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.furflix.app.R
 import com.furflix.app.ui.theme.FA_Accent
 
 @Composable
@@ -67,7 +69,7 @@ fun PawPullIndicator(
 
         Icon(
             imageVector = Icons.Default.Pets,
-            contentDescription = "Pull to refresh",
+            contentDescription = stringResource(R.string.cd_pull_to_refresh),
             tint = if (isActive) FA_Accent else Color.White.copy(alpha = 0.6f),
             modifier = Modifier.size(24.dp)
         )

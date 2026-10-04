@@ -140,7 +140,7 @@ fun HomeScreen(
             activity?.finish()
         } else {
             backPressedTime = System.currentTimeMillis()
-            android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.exit_press_back_again), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -188,7 +188,7 @@ fun HomeScreen(
                     IconButton(onClick = { showTitles = !showTitles }, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.Title,
-                            contentDescription = "Toggle titles",
+                            contentDescription = stringResource(R.string.cd_toggle_titles),
                             tint = if (showTitles) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                             modifier = Modifier.size(20.dp)
                         )
@@ -198,7 +198,7 @@ fun HomeScreen(
                     IconButton(onClick = onNavigateToSettings, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
+                            contentDescription = stringResource(R.string.cd_settings),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
@@ -365,7 +365,7 @@ fun HomeScreen(
                                         onClick = { viewModel.clearError() },
                                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
-                                        Text("OK")
+                                        Text(stringResource(R.string.action_ok))
                                     }
                                 }
                             }
@@ -570,7 +570,7 @@ fun HomeScreen(
                                                     ) {
                                                         Icon(
                                                             Icons.Default.Close,
-                                                            contentDescription = "Remove",
+                                                            contentDescription = stringResource(R.string.cd_remove),
                                                             modifier = Modifier.size(14.dp),
                                                             tint = SubtleGray
                                                         )
@@ -635,7 +635,7 @@ fun HomeScreen(
                                         onClick = { viewModel.clearError() },
                                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
-                                        Text("OK")
+                                        Text(stringResource(R.string.action_ok))
                                     }
                                 }
                             }
@@ -653,7 +653,7 @@ fun HomeScreen(
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
-                                        text = "No results found",
+                                        text = stringResource(R.string.search_no_results),
                                         style = MaterialTheme.typography.titleMedium,
                                         color = SubtleGray
                                     )
@@ -866,7 +866,7 @@ fun SearchBar(
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 Icons.Default.Close,
-                                contentDescription = "Remove",
+                                contentDescription = stringResource(R.string.cd_remove),
                                 modifier = Modifier
                                     .size(14.dp)
                                     .clickable { tags = tags - tag },
@@ -998,7 +998,7 @@ fun SearchBar(
                 IconButton(onClick = onFilterClick, modifier = Modifier.size(36.dp)) {
                     Icon(
                         if (isFilterOpen) Icons.Default.KeyboardArrowUp else Icons.Default.FilterList,
-                        contentDescription = "Filters",
+                        contentDescription = stringResource(R.string.cd_filters),
                         tint = if (activeFilterCount > 0 || isFilterOpen) MaterialTheme.colorScheme.primary else MutedText
                     )
                 }

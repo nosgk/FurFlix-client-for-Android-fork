@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.furflix.app.R
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.LoadingMoreFooter
 import com.furflix.app.ui.screens.InlineFiltersRow
@@ -63,7 +65,7 @@ fun TagSearchScreen(
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                     Box(modifier = Modifier.weight(1f)) {
                         SearchBar(
@@ -145,7 +147,7 @@ fun TagSearchScreen(
                             onClick = { viewModel.clearError() },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("OK")
+                            Text(stringResource(R.string.action_ok))
                         }
                     }
                 }

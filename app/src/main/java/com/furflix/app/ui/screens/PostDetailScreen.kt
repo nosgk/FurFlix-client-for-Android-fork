@@ -299,7 +299,7 @@ fun PostDetailScreen(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.action_back),
                     tint = Color.White
                 )
             }
@@ -496,7 +496,7 @@ private fun HeroImage(sub: Submission, onImageClick: () -> Unit = {}) {
             ) {
                 Icon(
                     Icons.Default.ZoomIn,
-                    contentDescription = "Zoom artwork",
+                    contentDescription = stringResource(R.string.cd_zoom_artwork),
                     tint = Color.White.copy(alpha = 0.9f),
                     modifier = Modifier.size(18.dp)
                 )
@@ -792,7 +792,7 @@ private fun TagsSection(tags: List<String>, onTagClick: (String) -> Unit) {
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
-            text = "Теги",
+            text = stringResource(R.string.post_tags),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.White
@@ -894,7 +894,7 @@ private fun DescriptionContent(
                 .padding(20.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("No description", color = MutedText, fontSize = 14.sp)
+            Text(stringResource(R.string.post_no_description), color = MutedText, fontSize = 14.sp)
         }
     }
 }
@@ -969,7 +969,7 @@ private fun CommentsContent(
                     modifier = Modifier.size(32.dp)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                Text("No comments yet", color = MutedText, fontSize = 14.sp)
+                Text(stringResource(R.string.post_no_comments), color = MutedText, fontSize = 14.sp)
             }
         }
     } else {
@@ -1058,8 +1058,11 @@ private fun CommentCard(comment: Comment, onAuthorClick: (String) -> Unit) {
             if (comment.timestamp > 0) {
                 val dateStr = remember(comment.timestamp) {
                     try {
-                        val sdf = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.getDefault())
-                        sdf.format(java.util.Date(comment.timestamp * 1000))
+                        // Locale-aware date (zh: 2026年10月5日 / en: Oct 5, 2026)
+                        val df = java.text.DateFormat.getDateInstance(
+                            java.text.DateFormat.MEDIUM, java.util.Locale.getDefault()
+                        )
+                        df.format(java.util.Date(comment.timestamp * 1000))
                     } catch (_: Exception) { "" }
                 }
                 if (dateStr.isNotEmpty()) {

@@ -75,7 +75,7 @@ fun FiltersScreen(
                 hazeState = hazeState,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 }
             )
@@ -185,7 +185,7 @@ fun FiltersScreen(
                                 newWord = ""
                             }
                         }) {
-                            Icon(Icons.Default.Add, contentDescription = "Add Word", tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_word), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 )
@@ -222,7 +222,7 @@ private fun FilterChip(label: String, onRemove: () -> Unit) {
         ) {
             Text(text = label, style = MaterialTheme.typography.labelLarge)
             Spacer(modifier = Modifier.width(6.dp))
-            Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp))
+            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove), modifier = Modifier.size(14.dp))
         }
     }
 }

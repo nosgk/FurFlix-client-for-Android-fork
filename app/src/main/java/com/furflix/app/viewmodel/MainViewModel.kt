@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import coil3.ImageLoader
+import com.furflix.app.R
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.remote.FurAffinityScraper
 import com.furflix.app.data.repository.FurRepository
@@ -554,11 +555,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), "Saved: $fileName", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(getApplication(), getApplication<Application>().getString(R.string.toast_download_saved, fileName), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(getApplication(), getApplication<Application>().getString(R.string.toast_download_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -618,7 +619,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 coil3.SingletonImageLoader.setUnsafe(newLoader)
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(ctx, "Image cache cleared", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, ctx.getString(R.string.toast_cache_cleared), Toast.LENGTH_SHORT).show()
                 }
             } finally {
                 _isClearingCache.value = false

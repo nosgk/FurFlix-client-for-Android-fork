@@ -17,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
+import com.furflix.app.R
 import com.furflix.app.data.model.WatchlistUser
 import com.furflix.app.ui.theme.*
 
@@ -49,7 +51,7 @@ fun WatchlistItem(user: WatchlistUser, onClick: () -> Unit) {
 
         AsyncImage(
             model = avatarUrl,
-            contentDescription = "Avatar of ${user.displayName}",
+            contentDescription = stringResource(R.string.cd_avatar_of, user.displayName),
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(50.dp)
@@ -87,7 +89,7 @@ fun WatchlistGridItem(user: WatchlistUser, onClick: () -> Unit) {
     ) {
         AsyncImage(
             model = avatarUrl,
-            contentDescription = "Avatar of ${user.displayName}",
+            contentDescription = stringResource(R.string.cd_avatar_of, user.displayName),
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(64.dp)

@@ -215,14 +215,14 @@ fun UserProfileScreen(
                 hazeState = hazeState,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = {
                         openUrl(context, "https://www.furaffinity.net/user/$username/")
                     }) {
-                        Icon(Icons.Default.OpenInBrowser, contentDescription = "Open in browser")
+                        Icon(Icons.Default.OpenInBrowser, contentDescription = stringResource(R.string.cd_open_in_browser))
                     }
                 }
             )
@@ -426,7 +426,7 @@ private fun ProfileHeader(profile: UserProfile) {
                 if (profile.bannerUrl.isNotEmpty()) {
                     AsyncImage(
                         model = profile.bannerUrl,
-                        contentDescription = "Banner",
+                        contentDescription = stringResource(R.string.cd_banner),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -485,7 +485,7 @@ private fun ProfileHeader(profile: UserProfile) {
                 )
                 AsyncImage(
                     model = profile.avatarUrl,
-                    contentDescription = "Avatar",
+                    contentDescription = stringResource(R.string.cd_avatar),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(86.dp)
@@ -558,7 +558,7 @@ private fun ProfileHeader(profile: UserProfile) {
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "Joined ${profile.registeredText}",
+                                text = stringResource(R.string.profile_joined, profile.registeredText),
                                 fontSize = 12.sp,
                                 color = SubtleGray
                             )
@@ -603,13 +603,13 @@ private fun ProfileActions(
         if (profile.noteUrl.isNotEmpty()) {
             ActionIconButton(
                 icon = Icons.Default.Mail,
-                contentDescription = "Send note",
+                contentDescription = stringResource(R.string.cd_send_note),
                 onClick = { openUrl(context, profile.noteUrl) }
             )
         }
         ActionIconButton(
             icon = Icons.Default.Share,
-            contentDescription = "Share profile",
+            contentDescription = stringResource(R.string.cd_share_profile),
             onClick = {
                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
@@ -629,19 +629,19 @@ private fun ProfileActions(
             containerColor = DarkSurface,
             titleContentColor = Color.White,
             textContentColor = SubtleGray,
-            title = { Text("Отписаться") },
-            text = { Text("Перестать читать ${profile.displayName}?") },
+            title = { Text(stringResource(R.string.user_unfollow)) },
+            text = { Text(stringResource(R.string.user_unfollow_confirm, profile.displayName)) },
             confirmButton = {
                 TextButton(onClick = {
                     showUnwatchDialog = false
                     onToggleWatch()
                 }) {
-                    Text("Отписаться", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.user_unfollow), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showUnwatchDialog = false }) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.action_cancel), color = MaterialTheme.colorScheme.primary)
                 }
             }
         )
@@ -1042,7 +1042,7 @@ private fun ContactLinksRow(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Links",
+            text = stringResource(R.string.profile_links),
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             color = Color.White,

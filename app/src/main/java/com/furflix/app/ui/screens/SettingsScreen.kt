@@ -93,7 +93,7 @@ fun SettingsScreen(
                 hazeState = hazeState,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 }
             )
@@ -453,7 +453,7 @@ private fun AccountHeroCard(
                         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF2EA043)))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Connected",
+                            text = stringResource(R.string.settings_account_connected),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF2EA043)
@@ -479,7 +479,7 @@ private fun AccountHeroCard(
                         .background(Color(0xFFFF5252).copy(alpha = 0.08f))
                         .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.22f), CircleShape)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout", tint = Color(0xFFFF5252), modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = stringResource(R.string.cd_logout), tint = Color(0xFFFF5252), modifier = Modifier.size(18.dp))
                 }
             } else {
                 Box(

@@ -132,7 +132,7 @@ fun DownloadsScreen(
                     }, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = if (isGrid) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
-                            contentDescription = "Toggle layout",
+                            contentDescription = stringResource(R.string.cd_toggle_layout),
                             tint = FA_Accent,
                             modifier = Modifier.size(20.dp)
                         )
@@ -248,7 +248,7 @@ private fun DownloadCard(
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(context).data(item.uri).crossfade(300).build(),
                     imageLoader = ImageLoaderFactory.getInstance(context),
-                    contentDescription = "Downloaded image",
+                    contentDescription = stringResource(R.string.cd_downloaded_image),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -299,7 +299,7 @@ private fun DownloadCard(
                             .background(DarkSurface)
                             .padding(12.dp)
                     ) {
-                        Text("Удалить это изображение?", style = MaterialTheme.typography.bodySmall, color = Color.White)
+                        Text(stringResource(R.string.downloads_delete_confirm), style = MaterialTheme.typography.bodySmall, color = Color.White)
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ActionPill(

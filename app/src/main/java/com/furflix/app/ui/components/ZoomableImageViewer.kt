@@ -29,10 +29,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.furflix.app.R
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.FA_Accent
 import kotlinx.coroutines.launch
@@ -95,7 +97,7 @@ fun ZoomableImageViewer(
                 .crossfade(200)
                 .build(),
             imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
-            contentDescription = "Artwork",
+            contentDescription = stringResource(R.string.cd_artwork),
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize()
@@ -127,7 +129,7 @@ fun ZoomableImageViewer(
         ) {
             Icon(
                 Icons.Default.Close,
-                contentDescription = "Close",
+                contentDescription = stringResource(R.string.cd_close),
                 tint = Color.White
             )
         }

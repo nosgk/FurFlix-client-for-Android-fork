@@ -64,7 +64,7 @@ fun LoginScreen(
                 hazeState = hazeState,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 }
             )
@@ -180,7 +180,7 @@ fun LoginContent(
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
                                 imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = "Toggle password",
+                                contentDescription = stringResource(R.string.cd_toggle_password),
                                 tint = SubtleGray
                             )
                         }
@@ -339,7 +339,7 @@ fun LoginContent(
                                 IconButton(onClick = { showWebLogin = false }) {
                                     Icon(
                                         Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Close",
+                                        contentDescription = stringResource(R.string.cd_close),
                                         tint = SubtleGray
                                     )
                                 }
