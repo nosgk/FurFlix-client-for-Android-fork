@@ -135,12 +135,13 @@ fun HomeScreen(
 
     var backPressedTime by remember { mutableLongStateOf(0L) }
     val activity = context as? android.app.Activity
+    val exitToastText = stringResource(R.string.exit_press_back_again)
     androidx.activity.compose.BackHandler {
         if (System.currentTimeMillis() - backPressedTime < 2000) {
             activity?.finish()
         } else {
             backPressedTime = System.currentTimeMillis()
-            android.widget.Toast.makeText(context, context.getString(R.string.exit_press_back_again), android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, exitToastText, android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
