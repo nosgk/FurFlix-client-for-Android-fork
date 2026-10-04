@@ -32,6 +32,11 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:lintDebug
 
+      - name: Unit tests
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest
+
       - name: Decode signing keystore
         if: env.BUILD_TYPE != 'debug'
         env:
