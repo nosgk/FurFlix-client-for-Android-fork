@@ -401,6 +401,13 @@ class TranslationService private constructor(private val context: Context) {
         return out
     }
 
+    /** 蓝本 §5.2：删 <think> 块；若整体是一个代码围栏则剥掉只留内容。 */
+    private fun stripThink(text: String): String {
+        var s = THINK_REGEX.replace(text, "").trim()
+        FENCE_REGEX.matchEntire(s)?.let { s = it.groupValues[1].trim() }
+        return s
+    }
+
     // [FurFlix 增补] htmlIn=false 的服务商面对 HTML 内容：剥标签保换行 + 反转义
     private fun htmlToText(html: String): String {
         var s = BR_REGEX.replace(html, "\n")
