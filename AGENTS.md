@@ -13,7 +13,7 @@
 ## 构建与验证
 
 - **禁止本地构建**。所有验证一律走 GitHub Actions(push 后观察 Build workflow:
-  `lintDebug` + `assembleRelease`,debug APK 可手动 dispatch)。
+  `lintDebug` + `testDebugUnitTest` + `assembleRelease`,debug APK 可手动 dispatch)。
 - 提交前最低自检:XML 改动用解析器验良构;Kotlin 改动靠 CI 把关。
 
 ## i18n 规范(中文本地化)
@@ -27,7 +27,8 @@
 3. **缺键回落英文是设计而非错误**:zh 允许暂时落后,rebase 后跑
    `./gradlew :app:lintDebug`,按 `MissingTranslation`/`ExtraTranslation` 报告对账补齐。
 4. **占位符**:与默认文件保持一致的 `%s` 写法;站点抓取的内容(FA 标签、注册日期等)
-   本身是英文,不翻译。
+   不进入 i18n 字符串资源体系——其用户侧翻译由在线翻译功能承担(`translate/` 包,
+   设置 → 翻译),而非字符串本地化。
 5. **不变量**:不要往 `MainActivity` 的 `android:configChanges` 里加 `locale`——
    那会静默打断语言切换(界面残留旧语言)。
 6. 语言选择器里的语言名(English/Русский/Українська/中文)是视觉锚点,恒显母语名,

@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Online translation** (opt-in, Settings → General → Translation): on-demand
+  and auto translation of post descriptions (HTML-preserving for capable
+  providers), tags, comments and user bios. Five built-in providers —
+  Microsoft Edge (default: keyless and reachable from mainland China), two
+  Google free endpoints, Azure Translator, and OpenAI-compatible APIs with
+  custom base URLs for relays. Bilingual / translation-only display modes per
+  content category, page-level tag toggle, persistent LRU translation cache,
+  concurrency + request-interval limiting, retry with backoff, in-flight
+  request coalescing, and Chinese-skip detection for zh targets. Zero new
+  runtime dependencies; introduces the repo's first JVM unit test source set
+  (template renderer / JSONPath / text splitter / Chinese detection / profile
+  codec) now gating CI via `testDebugUnitTest`.
 - **Simplified Chinese (zh-CN) localization**: full `values-zh-rCN/strings.xml`
   dictionary (172 keys, 1:1 with the default file), a Chinese entry plus a
   "system default" option in the in-app language switcher, `locales_config` for
