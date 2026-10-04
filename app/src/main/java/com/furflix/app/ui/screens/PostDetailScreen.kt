@@ -58,8 +58,8 @@ import androidx.core.text.HtmlCompat
 import androidx.core.graphics.toColorInt
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
+import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
 import com.furflix.app.R
 import com.furflix.app.data.model.Comment
 import com.furflix.app.data.model.Submission

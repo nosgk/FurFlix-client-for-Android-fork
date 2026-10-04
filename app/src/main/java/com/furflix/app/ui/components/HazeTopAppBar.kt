@@ -8,7 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.blur.HazeInput
+import dev.chrisbanes.haze.blur.hazeBlur
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,8 +24,8 @@ fun HazeTopAppBar(
         title = title,
         navigationIcon = navigationIcon,
         actions = actions,
-        modifier = modifier.hazeEffect(
-            state = hazeState,
+        modifier = modifier.hazeBlur(
+            input = HazeInput.Sources(hazeState),
             style = DefaultHazeStyle
         ),
         colors = TopAppBarDefaults.topAppBarColors(

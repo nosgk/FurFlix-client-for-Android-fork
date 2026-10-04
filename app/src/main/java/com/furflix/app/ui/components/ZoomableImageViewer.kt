@@ -30,8 +30,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
+import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.FA_Accent
 import kotlinx.coroutines.launch

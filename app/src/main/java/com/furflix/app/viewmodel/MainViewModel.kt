@@ -8,7 +8,7 @@ import android.provider.MediaStore
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import coil.ImageLoader
+import coil3.ImageLoader
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.remote.FurAffinityScraper
 import com.furflix.app.data.repository.FurRepository
@@ -615,7 +615,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val newLoader = com.furflix.app.ui.components.ImageLoaderFactory.getInstance(ctx)
                     .newBuilder()
                     .build()
-                coil.Coil.setImageLoader(newLoader)
+                coil3.Coil.setImageLoader(newLoader)
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(ctx, "Image cache cleared", Toast.LENGTH_SHORT).show()

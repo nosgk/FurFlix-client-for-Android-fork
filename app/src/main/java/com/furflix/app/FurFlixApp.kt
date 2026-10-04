@@ -1,7 +1,7 @@
 package com.furflix.app
 
 import android.app.Application
-import coil.Coil
+import coil3.Coil
 import com.furflix.app.data.remote.FurAffinityScraper
 import com.furflix.app.ui.components.ImageLoaderFactory
 

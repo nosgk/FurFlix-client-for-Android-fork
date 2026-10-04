@@ -57,8 +57,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.HazeInput
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
 
 /**
@@ -418,10 +420,13 @@ fun GlassmorphicBottomBar(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(shape)
-                .hazeEffect(state = hazeState) {
-                    this.blurRadius = blurRadius
-                    tints = listOf(HazeTint(Color.Black.copy(alpha = 0.4f)))
-                }
+                .hazeBlur(
+                    input = HazeInput.Sources(hazeState),
+                    style = HazeBlurStyle {
+                        blurRadius(blurRadius)
+                        colorEffects(listOf(HazeColorEffect.tint(Color.Black.copy(alpha = 0.4f))))
+                    }
+                )
         )
         Box(
             modifier = Modifier

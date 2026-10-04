@@ -41,7 +41,6 @@ import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.theme.*
 import com.furflix.app.viewmodel.MainViewModel
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 
 @Composable

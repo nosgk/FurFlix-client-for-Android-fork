@@ -1,0 +1,13 @@
+# FurFlix baseline profile (hand-maintained, startup hot path).
+# Compiled by AGP into assets/dexopt data; applied at install time via
+# androidx.profileinstaller. Regenerate a full profile with the official
+# androidx.baselineprofile tooling on a device/emulator when convenient.
+HSPLcom/furflix/app/FurFlixApp;-><init>()V
+HSPLcom/furflix/app/FurFlixApp;->onCreate()V
+HSPLcom/furflix/app/MainActivity;-><init>()V
+HSPLcom/furflix/app/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/furflix/app/ui/components/ImageLoaderFactory;-><clinit>()V
+HSPLcom/furflix/app/ui/components/ImageLoaderFactory;->getInstance(**)**
+HSPLcom/furflix/app/ui/components/ImageLoaderFactory;->createLoader(**)**
+HSPLcom/furflix/app/data/remote/FurAffinityScraper;->init(**)**
+HSPLcom/furflix/app/ui/theme/**;->**(**)**

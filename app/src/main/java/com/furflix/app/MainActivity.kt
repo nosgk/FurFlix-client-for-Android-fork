@@ -15,9 +15,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.os.Build
-import coil.Coil
-import coil.decode.GifDecoder
-import coil.decode.ImageDecoderDecoder
+import coil3.Coil
+import coil3.decode.GifDecoder
+import coil3.decode.ImageDecoderDecoder
 import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.ui.navigation.FurFlixNavGraph
 import com.furflix.app.ui.screens.SplashScreen
