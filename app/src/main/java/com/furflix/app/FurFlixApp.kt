@@ -1,7 +1,7 @@
 package com.furflix.app
 
 import android.app.Application
-import coil3.Coil
+import coil3.SingletonImageLoader
 import com.furflix.app.data.remote.FurAffinityScraper
 import com.furflix.app.ui.components.ImageLoaderFactory
 
@@ -12,7 +12,7 @@ class FurFlixApp : Application() {
         FurAffinityScraper.init(this)
         // Route ALL Coil loads (even bare AsyncImage calls) through our loader,
         // which carries FA headers/cookies and the GIF decoder for animated avatars.
-        Coil.setImageLoader(ImageLoaderFactory.getInstance(this))
+        SingletonImageLoader.setUnsafe(ImageLoaderFactory.getInstance(this))
     }
 
     companion object {

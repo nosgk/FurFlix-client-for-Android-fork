@@ -60,6 +60,7 @@ import android.text.method.LinkMovementMethod
 import android.widget.TextView
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.furflix.app.R
 import com.furflix.app.data.model.Comment
 import com.furflix.app.data.model.Submission

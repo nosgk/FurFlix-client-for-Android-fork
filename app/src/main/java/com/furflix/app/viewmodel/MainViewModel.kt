@@ -615,7 +615,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val newLoader = com.furflix.app.ui.components.ImageLoaderFactory.getInstance(ctx)
                     .newBuilder()
                     .build()
-                coil3.Coil.setImageLoader(newLoader)
+                coil3.SingletonImageLoader.setUnsafe(newLoader)
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(ctx, "Image cache cleared", Toast.LENGTH_SHORT).show()

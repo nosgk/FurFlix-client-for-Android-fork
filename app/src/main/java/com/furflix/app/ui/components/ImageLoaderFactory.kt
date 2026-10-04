@@ -53,9 +53,9 @@ object ImageLoaderFactory {
                 add(OkHttpNetworkFetcherFactory(callFactory = okHttpClient))
                 // Animated avatars: GIFs need an explicit decoder
                 if (android.os.Build.VERSION.SDK_INT >= 28) {
-                    add(coil3.decode.ImageDecoderDecoder.Factory())
+                    add(coil3.gif.AnimatedImageDecoder.Factory())
                 } else {
-                    add(coil3.decode.GifDecoder.Factory())
+                    add(coil3.gif.GifDecoder.Factory())
                 }
             }
             .memoryCache {

@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeInput
+import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.blur.hazeBlur
 
 @OptIn(ExperimentalMaterial3Api::class)

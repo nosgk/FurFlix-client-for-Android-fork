@@ -15,9 +15,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.os.Build
-import coil3.Coil
-import coil3.decode.GifDecoder
-import coil3.decode.ImageDecoderDecoder
+import coil3.SingletonImageLoader
+import coil3.gif.GifDecoder
+import coil3.gif.AnimatedImageDecoder
 import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.ui.navigation.FurFlixNavGraph
 import com.furflix.app.ui.screens.SplashScreen
@@ -36,13 +36,13 @@ class MainActivity : AppCompatActivity() {
             .newBuilder()
             .components {
                 if (Build.VERSION.SDK_INT >= 28) {
-                    add(ImageDecoderDecoder.Factory())
+                    add(AnimatedImageDecoder.Factory())
                 } else {
                     add(GifDecoder.Factory())
                 }
             }
             .build()
-        Coil.setImageLoader(imageLoader)
+        SingletonImageLoader.setUnsafe(imageLoader)
 
         enableEdgeToEdge()
         setContent {

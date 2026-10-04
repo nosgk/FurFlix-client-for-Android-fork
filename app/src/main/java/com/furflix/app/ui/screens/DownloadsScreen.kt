@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.furflix.app.data.local.DownloadHelper
 import com.furflix.app.data.local.DownloadedItem
 import com.furflix.app.data.repository.FurRepository
