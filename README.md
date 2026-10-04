@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/Compose-Material_3-4285F4?logo=jetpackcompose&logoColor=white" alt="Compose">
 </p>
 
-<p align="center"><a href="README.md">English</a> · <a href="README_RU.md">Русский</a> · <a href="README_UA.md">Українська</a></p>
+<p align="center"><a href="README.md">English</a> · <a href="README_RU.md">Русский</a> · <a href="README_UA.md">Українська</a> · <a href="README_ZH.md">简体中文</a></p>
 
 <p align="center">
   <sub><b>Keywords:</b> furaffinity android app · furaffinity client · furaffinity apk · furaffinity mobile · furry android client · furry art viewer android · anthro art viewer</sub>

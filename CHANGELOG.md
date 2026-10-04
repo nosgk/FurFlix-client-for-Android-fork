@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Simplified Chinese (zh-CN) localization**: full `values-zh-rCN/strings.xml`
+  dictionary (172 keys, 1:1 with the default file), a Chinese entry plus a
+  "system default" option in the in-app language switcher, `locales_config` for
+  Android 13+ per-app language settings, and `localeFilters` resource shrinking
+  (drops ~80 unused AAR locale tables). All previously hardcoded UI strings —
+  including upstream Russian literals that leaked to non-Russian users — are
+  extracted into resources; comment dates now render in the active locale.
+  Design blueprint: `docs/chinese-localization-plan.md`.
 - Baseline profile for startup hot paths (`app/src/main/baseline-prof.txt`) with
   `androidx.profileinstaller` — improves cold start and first-frame scrolling.
 - Consistent release signing: PKCS12 keystore stored as GitHub Actions secrets,
