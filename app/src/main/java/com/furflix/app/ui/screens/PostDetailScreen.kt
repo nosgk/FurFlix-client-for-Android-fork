@@ -90,8 +90,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.furflix.app.translate.data.TranslationCategory
 import com.furflix.app.translate.data.TranslationDisplayMode
-import com.furflix.app.translate.data.TranslationUiState
 import com.furflix.app.translate.ui.LocalTagTranslationEnabled
+import com.furflix.app.translate.ui.TranslationUiState
 import com.furflix.app.translate.ui.TranslatableAutoEffect
 import com.furflix.app.translate.ui.TranslatableText
 import com.furflix.app.translate.ui.TranslationCaption

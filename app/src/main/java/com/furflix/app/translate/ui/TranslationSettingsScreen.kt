@@ -21,7 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cache
+import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GTranslate
@@ -250,7 +250,7 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
             SectionTitle(stringResource(R.string.translation_cache))
             SettingsCard {
                 SelectRow(
-                    icon = Icons.Default.Cache,
+                    icon = Icons.Default.Cached,
                     title = stringResource(R.string.translation_cache),
                     current = stringResource(
                         R.string.translation_cache_stats,

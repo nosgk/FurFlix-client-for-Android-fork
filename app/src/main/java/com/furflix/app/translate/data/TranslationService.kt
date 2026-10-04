@@ -59,6 +59,12 @@ class TranslationService private constructor(private val context: Context) {
             instance ?: synchronized(this) {
                 instance ?: TranslationService(context.applicationContext).also { instance = it }
             }
+
+        private val THINK_REGEX = Regex("<think>[\\s\\S]*?</think>")
+        private val FENCE_REGEX = Regex("^```[a-zA-Z]*\\n([\\s\\S]*)\\n```$")
+        private val BR_REGEX = Regex("(?i)<br\\s*/?>")
+        private val BLOCK_END_REGEX = Regex("(?i)</(p|div)>")
+        private val TAG_REGEX = Regex("<[^>]+>")
     }
 
     private val settings = TranslationSettings.getInstance(context)
@@ -309,6 +315,7 @@ class TranslationService private constructor(private val context: Context) {
                     val respBody = resp.body?.string().orEmpty()
                     val respHeaders = resp.headers.names().map { it to resp.header(it).orEmpty() }
                     val base = TranslationProbeResult(
+                        ok = false,
                         elapsedMs = SystemClock.elapsedRealtime() - startedAt,
                         httpStatus = status,
                         method = method,
@@ -400,13 +407,5 @@ class TranslationService private constructor(private val context: Context) {
         s = BLOCK_END_REGEX.replace(s, "\n")
         s = TAG_REGEX.replace(s, "")
         return Parser.unescapeEntities(s, false).trim()
-    }
-
-    private companion object {
-        val THINK_REGEX = Regex("<think>[\\s\\S]*?</think>")
-        val FENCE_REGEX = Regex("^```[a-zA-Z]*\\n([\\s\\S]*)\\n```$")
-        val BR_REGEX = Regex("(?i)<br\\s*/?>")
-        val BLOCK_END_REGEX = Regex("(?i)</(p|div)>")
-        val TAG_REGEX = Regex("<[^>]+>")
     }
 }
