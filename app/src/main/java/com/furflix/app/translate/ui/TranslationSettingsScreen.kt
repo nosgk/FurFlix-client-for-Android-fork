@@ -260,6 +260,8 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
                     onClick = {}
                 )
                 CardDivider()
+                // 组合内解析文案（配置感知），lambda 只捕获结果值
+                val clearedMessage = stringResource(R.string.translation_cache_cleared)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -268,11 +270,7 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
                             scope.launch {
                                 cache.clear()
                                 cacheEpoch++
-                                Toast.makeText(
-                                    context,
-                                    context.getString(R.string.translation_cache_cleared),
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(context, clearedMessage, Toast.LENGTH_SHORT).show()
                             }
                         }
                         .padding(horizontal = 16.dp, vertical = 14.dp)
