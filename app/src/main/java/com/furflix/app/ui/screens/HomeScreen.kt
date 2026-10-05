@@ -426,7 +426,7 @@ fun HomeScreen(
                                         bottom = gridPadding + bottomBarClearance
                                     ),
                                     horizontalArrangement = Arrangement.spacedBy(itemSpacing),
-                                    verticalArrangement = Arrangement.spacedBy(itemSpacing)
+                                    verticalItemSpacing = itemSpacing
                                 ) {
                                     staggeredItems(
                                         items = submissions,
@@ -799,7 +799,7 @@ fun HomeScreen(
                                         bottom = gridPadding + 120.dp
                                     ),
                                     horizontalArrangement = Arrangement.spacedBy(itemSpacing),
-                                    verticalArrangement = Arrangement.spacedBy(itemSpacing)
+                                    verticalItemSpacing = itemSpacing
                                 ) {
                                     staggeredItems(
                                         items = searchSubmissions,
