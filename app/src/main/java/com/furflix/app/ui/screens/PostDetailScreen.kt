@@ -58,6 +58,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
@@ -102,6 +103,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.delay
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 import androidx.compose.animation.animateContentSize
@@ -196,6 +198,11 @@ fun PostDetailScreen(
             ?.thumbnailUrl?.takeIf { it.isNotEmpty() }
         val hazeState = remember { HazeState() }
         val scrollState = rememberScrollState()
+        // 评论图标跳转评论区：滚动容器与 Tab 行的窗口坐标持续采集，
+        // 点击时换算出 Tab 行在内容里的偏移再滚动（单栏/双栏各自成立）
+        val pagerScope = rememberCoroutineScope()
+        var scrollRootY by remember { mutableFloatStateOf(0f) }
+        var tabsAnchorY by remember { mutableFloatStateOf(Float.NaN) }
         var showZoom by remember { mutableStateOf(false) }
         val downloadTask by DownloadManager.tasks.collectAsState()
         val myDownloadTask = downloadTask.lastOrNull { it.submissionId == currentPostId }
@@ -320,7 +327,16 @@ fun PostDetailScreen(
                             StatsRow(
                                 sub = sub,
                                 onToggleFavorite = { viewModel.toggleFavorite(currentPostId) },
-                                onCommentsClick = { selectedTab = 2 }
+                                onCommentsClick = {
+                                    selectedTab = 2
+                                    pagerScope.launch {
+                                        if (!tabsAnchorY.isNaN()) {
+                                            // Tab 行内容偏移 = (窗口坐标差) + 已滚动距离；留一点余量
+                                            val target = (tabsAnchorY - scrollRootY + scrollState.value - 12.dp.toPx()).roundToInt()
+                                            scrollState.animateScrollTo(target.coerceAtLeast(0))
+                                        }
+                                    }
+                                }
                             )
 
                             // ── Date ────────────────────────────────────────
@@ -382,7 +398,8 @@ fun PostDetailScreen(
                             CustomTabRow(
                                 tabs = tabs,
                                 selectedTab = selectedTab,
-                                onTabSelected = { selectedTab = it }
+                                onTabSelected = { selectedTab = it },
+                                modifier = Modifier.onGloballyPositioned { tabsAnchorY = it.positionInRoot().y }
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -419,6 +436,7 @@ fun PostDetailScreen(
                                 Modifier
                                     .weight((100 - detailSplit).toFloat())
                                     .verticalScroll(scrollState)
+                                    .onGloballyPositioned { scrollRootY = it.positionInRoot().y }
                             )
                         }
                     } else {
@@ -426,6 +444,7 @@ fun PostDetailScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .verticalScroll(scrollState)
+                                .onGloballyPositioned { scrollRootY = it.positionInRoot().y }
                         ) {
                             // ── Hero image ──────────────────────────────────────
                             HeroImage(sub, placeholderUrl = listThumbnailUrl, onImageClick = { showZoom = true })
