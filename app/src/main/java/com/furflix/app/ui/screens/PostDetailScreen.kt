@@ -313,7 +313,8 @@ fun PostDetailScreen(
                                     username = sub.authorUsername.ifEmpty { sub.author },
                                     currentPostId = currentPostId,
                                     cardStats = cardStats,
-                                    onNavigateToPost = onNavigateToPost
+                                    onNavigateToPost = onNavigateToPost,
+                                    onWarmStats = { viewModel.prefetchSubmissionStats(it) }
                                 )
                             }
 
@@ -1161,7 +1162,8 @@ private fun AuthorGallerySection(
     username: String,
     currentPostId: String,
     cardStats: Map<String, com.furflix.app.data.model.CardStats>,
-    onNavigateToPost: (String) -> Unit
+    onNavigateToPost: (String) -> Unit,
+    onWarmStats: (List<String>) -> Unit
 ) {
     val context = LocalContext.current
     val repository = remember { FurRepository.getInstance(context) }
@@ -1216,6 +1218,20 @@ private fun AuthorGallerySection(
                     extending = false
                 }
             }
+    }
+
+    // 可见块统计预热：浮层不限于本地看过的帖子——滚到视野里的块就静默抓
+    // 详情回填统计（VM 侧串行限速、按 id 去重）
+    val warmedIds = remember { mutableSetOf<String>() }
+    LaunchedEffect(galleryItems) {
+        if (galleryItems.isEmpty()) return@LaunchedEffect
+        snapshotFlow {
+            listState.layoutInfo.visibleItemsInfo
+                .mapNotNull { galleryItems.getOrNull(it.index)?.id }
+        }.collect { visibleIds ->
+            val fresh = visibleIds.filter { warmedIds.add(it) }
+            if (fresh.isNotEmpty()) onWarmStats(fresh)
+        }
     }
 
     // 命中当前作品时把它放到条带偏左位置，左右都能看到"前后"

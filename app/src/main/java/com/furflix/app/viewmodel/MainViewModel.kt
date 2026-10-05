@@ -14,12 +14,15 @@ import com.furflix.app.data.model.Submission
 import com.furflix.app.data.remote.FurAffinityScraper
 import com.furflix.app.data.repository.FurRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -196,6 +199,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearCardStats() {
         viewModelScope.launch { cardStatsCache.clear() }
+    }
+
+    // 作者画廊等场景的可见块统计预热：静默抓详情并回填缓存，不触碰
+    // isLoading/errorMessage，避免打断详情页的加载态
+    private val statsPrefetchMutex = Mutex()
+    private val statsPrefetchAttempted = mutableSetOf<String>()
+
+    fun prefetchSubmissionStats(ids: List<String>) {
+        val fresh = ids.filter { it.isNotEmpty() && statsPrefetchAttempted.add(it) }
+        if (fresh.isEmpty()) return
+        viewModelScope.launch {
+            statsPrefetchMutex.withLock {
+                for (id in fresh) {
+                    if (_submissionDetails.value.containsKey(id)) continue
+                    try {
+                        val result = repository.getSubmission(id)
+                        if (result != null) {
+                            _submissionDetails.update { current ->
+                                val newMap = current.toMutableMap()
+                                newMap[id] = result
+                                newMap
+                            }
+                            cardStatsCache.put(id, cardStatsOf(result))
+                        }
+                    } catch (_: Exception) {
+                    }
+                    delay(150)
+                }
+            }
+        }
     }
 
     fun removeRecentSearch(query: String) {
