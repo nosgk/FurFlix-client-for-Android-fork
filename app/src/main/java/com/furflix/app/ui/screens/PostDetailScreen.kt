@@ -65,6 +65,7 @@ import com.furflix.app.R
 import com.furflix.app.data.model.Comment
 import com.furflix.app.data.model.Submission
 import com.furflix.app.ui.components.CustomTabRow
+import com.furflix.app.ui.components.CommentsSection
 import com.furflix.app.ui.components.DefaultHazeStyle
 import com.furflix.app.ui.screens.GlassActionBar
 import com.furflix.app.ui.screens.GlassActionItem
@@ -1130,120 +1131,7 @@ private fun CommentsContent(
             }
         }
     } else {
-        Column {
-            comments.forEachIndexed { index, comment ->
-                CommentCard(comment = comment, onAuthorClick = onAuthorClick)
-                if (index < comments.size - 1) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CommentCard(comment: Comment, onAuthorClick: (String) -> Unit) {
-    val prefs = rememberTranslationPrefs()
-    val entry = rememberTranslationEntry(comment.id, comment.text, TranslationCategory.COMMENT)
-    TranslatableAutoEffect(entry, prefs)
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(CardBackground)
-            .border(1.dp, BorderDark, RoundedCornerShape(14.dp))
-            .padding(14.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // Avatar with subtle ring
-            Box(
-                modifier = Modifier.size(36.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (comment.authorAvatar.isNotEmpty()) {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(comment.authorAvatar)
-                            .crossfade(true)
-                            .build(),
-                        imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
-                        contentDescription = comment.author,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape)
-                            .background(DarkSurfaceVariant)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape)
-                            .background(DarkSurfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            tint = SubtleGray,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = comment.author.ifEmpty { comment.authorUsername },
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.clickable { onAuthorClick(comment.authorUsername) }
-                )
-                if (comment.title.isNotEmpty()) {
-                    Text(
-                        text = comment.title,
-                        fontSize = 11.sp,
-                        color = SubtleGray
-                    )
-                }
-            }
-
-            if (comment.text.isNotEmpty()) {
-                TranslationIconButton(entry = entry, enabled = prefs.enabled)
-            }
-
-            if (comment.timestamp > 0) {
-                val dateStr = remember(comment.timestamp) {
-                    try {
-                        // Locale-aware date (zh: 2026年10月5日 / en: Oct 5, 2026)
-                        val df = java.text.DateFormat.getDateInstance(
-                            java.text.DateFormat.MEDIUM, java.util.Locale.getDefault()
-                        )
-                        df.format(java.util.Date(comment.timestamp * 1000))
-                    } catch (_: Exception) { "" }
-                }
-                if (dateStr.isNotEmpty()) {
-                    Text(text = dateStr, fontSize = 11.sp, color = MutedText)
-                }
-            }
-        }
-
-        if (comment.text.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(10.dp))
-            TranslatableText(
-                entry = entry,
-                prefs = prefs,
-                style = TextStyle(fontSize = 13.sp, color = CommentBodyColor, lineHeight = 18.sp)
-            )
-        }
+        CommentsSection(comments = comments, onAuthorClick = onAuthorClick)
     }
 }
 

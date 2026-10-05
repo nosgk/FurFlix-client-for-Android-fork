@@ -105,6 +105,11 @@
     <string name="post_description">简介</string>
     <string name="post_meta_info">详细信息</string>
     <string name="post_comments">评论</string>
+    <!-- 评论楼中楼 -->
+    <string name="comments_replies_count">%d 条回复</string>
+    <string name="comments_parents_hidden">已隐藏 %d 条父评论</string>
+    <string name="comments_show_all">显示全部评论</string>
+    <string name="comments_hidden_author">（已隐藏）</string>
 
     <string name="user_watching">正在关注</string>
     <string name="user_watch">关注</string>

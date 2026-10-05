@@ -99,6 +99,11 @@
     <string name="post_description">Description</string>
     <string name="post_meta_info">Meta Info</string>
     <string name="post_comments">Comments</string>
+    <!-- Comment threading -->
+    <string name="comments_replies_count">%d replies</string>
+    <string name="comments_parents_hidden">%d parent comments hidden</string>
+    <string name="comments_show_all">Show all comments</string>
+    <string name="comments_hidden_author">(hidden)</string>
     
     <string name="user_watching">Watching</string>
     <string name="user_watch">Watch</string>
