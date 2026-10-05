@@ -73,6 +73,11 @@ fun StorageScreen(
 
     LaunchedEffect(Unit) { viewModel.refreshCacheSize() }
 
+    // Toast 文案在组合期解析（LocalContext.getString 非配置感知，lint 会报错）
+    val translationClearedText = stringResource(R.string.translation_cache_cleared)
+    val historyClearedText = stringResource(R.string.storage_history_cleared)
+    val browseDataClearedText = stringResource(R.string.storage_browse_data_cleared)
+
     val hazeState = remember { HazeState() }
 
     Scaffold(
@@ -124,7 +129,7 @@ fun StorageScreen(
                         scope.launch {
                             translationCache.clear()
                             translationEpoch++
-                            Toast.makeText(context, context.getString(R.string.translation_cache_cleared), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, translationClearedText, Toast.LENGTH_SHORT).show()
                         }
                     }
                 )
@@ -137,7 +142,7 @@ fun StorageScreen(
                     onClick = {
                         scope.launch {
                             repository.saveRecentSearches(emptyList())
-                            Toast.makeText(context, context.getString(R.string.storage_history_cleared), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, historyClearedText, Toast.LENGTH_SHORT).show()
                         }
                     }
                 )
@@ -149,7 +154,7 @@ fun StorageScreen(
                     subtitle = stringResource(R.string.storage_entries_count, cardStats.size),
                     onClick = {
                         viewModel.clearCardStats()
-                        Toast.makeText(context, context.getString(R.string.storage_browse_data_cleared), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, browseDataClearedText, Toast.LENGTH_SHORT).show()
                     }
                 )
                 SettingsDivider()
