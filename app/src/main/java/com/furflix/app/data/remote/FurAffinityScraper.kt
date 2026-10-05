@@ -428,7 +428,7 @@ object FurAffinityScraper {
 
     /** FA 文本多为 UTF-8；老上传可能是 cp1252——先按 UTF-8 严格解码，失败回落单字节。 */
     private fun decodeText(bytes: ByteArray): String = try {
-        java.nio.charset.Charsets.UTF_8.newDecoder()
+        Charsets.UTF_8.newDecoder()
             .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
             .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
             .decode(java.nio.ByteBuffer.wrap(bytes)).toString()

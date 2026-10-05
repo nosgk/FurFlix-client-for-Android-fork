@@ -39,6 +39,7 @@ import com.furflix.app.ui.theme.*
 import com.furflix.app.viewmodel.MainViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -165,12 +166,12 @@ fun SettingsScreen(
                         iconColor = Color(0xFF8BC34A),
                         title = stringResource(R.string.settings_clipboard_link),
                         subtitle = stringResource(R.string.settings_clipboard_link_desc),
-                        onClick = { scope2.launch { repository.saveClipboardLinkEnabled(!clipboardLinkEnabled) } },
+                        onClick = { scope2.launch { repository2.saveClipboardLinkEnabled(!clipboardLinkEnabled) } },
                         trailing = {
                             Switch(
                                 checked = clipboardLinkEnabled,
                                 onCheckedChange = { checked ->
-                                    scope2.launch { repository.saveClipboardLinkEnabled(checked) }
+                                    scope2.launch { repository2.saveClipboardLinkEnabled(checked) }
                                 }
                             )
                         }
