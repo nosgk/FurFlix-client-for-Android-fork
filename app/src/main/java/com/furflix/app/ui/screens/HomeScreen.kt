@@ -127,6 +127,7 @@ fun HomeScreen(
     val selectedTab by viewModel.selectedTab.collectAsState()
     val hasSearched by viewModel.hasSearched.collectAsState()
     val recentSearches by viewModel.recentSearches.collectAsState()
+    val quickPresets by viewModel.quickPresets.collectAsState()
     // 收藏夹页(page 3)的下拉刷新走 WatchlistViewModel,复位条件要一并看它的加载态
     val watchlistIsLoading by watchlistViewModel.isLoading.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -667,6 +668,69 @@ fun HomeScreen(
                         }
 
                         if (!hasSearched) {
+                            // Quick presets — saved tag queries, one tap replays them
+                            if (quickPresets.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp, top = 12.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.search_presets),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = SubtleGray
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        quickPresets.forEach { preset ->
+                                            val displayPreset = if (preset.startsWith("@keywords ")) {
+                                                preset.removePrefix("@keywords ")
+                                                    .split(" ").filter { it.isNotEmpty() }
+                                                    .joinToString(" ") { "#$it" }
+                                            } else preset
+                                            Surface(
+                                                shape = RoundedCornerShape(16.dp),
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                                onClick = { viewModel.loadSearch(preset) }
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Bookmark,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(14.dp),
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = displayPreset,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = DarkOnSurface
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    IconButton(
+                                                        onClick = { viewModel.removeQuickPreset(preset) },
+                                                        modifier = Modifier.size(16.dp)
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.Close,
+                                                            contentDescription = stringResource(R.string.cd_remove),
+                                                            modifier = Modifier.size(14.dp),
+                                                            tint = SubtleGray
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             if (recentSearches.isNotEmpty()) {
                                 Column(
                                     modifier = Modifier

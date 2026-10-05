@@ -19,9 +19,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
@@ -49,6 +51,8 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -113,6 +117,7 @@ fun PostDetailScreen(
     onAuthorClick: (String) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
     onTagClick: (String) -> Unit = {},
+    onTagAppend: (String) -> Unit = {},
     viewModel: MainViewModel
 ) {
     val submissionDetailsMap by viewModel.submissionDetails.collectAsState()
@@ -273,7 +278,12 @@ fun PostDetailScreen(
                                     LocalTagTranslationEnabled provides
                                         tagTranslateToggle.takeIf { translationPrefs.enabled }
                                 ) {
-                                    TagsSection(tags = sub.tags, onTagClick = onTagClick)
+                                    TagsSection(
+                                        tags = sub.tags,
+                                        onTagClick = onTagClick,
+                                        onTagAppend = onTagAppend,
+                                        onTagSavePreset = { viewModel.addQuickPreset("@keywords $it") }
+                                    )
                                 }
                             }
 
@@ -807,9 +817,14 @@ private fun StatDivider() {
 // Tags section
 // -----------------------------------------------------------------------------------------
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
-private fun TagsSection(tags: List<String>, onTagClick: (String) -> Unit) {
+private fun TagsSection(
+    tags: List<String>,
+    onTagClick: (String) -> Unit,
+    onTagAppend: (String) -> Unit,
+    onTagSavePreset: (String) -> Unit
+) {
     val prefs = rememberTranslationPrefs()
     val tagToggle = LocalTagTranslationEnabled.current
     // 页面开关存在时完全接管；否则读全局 translateTagsAuto（蓝本两层开关）
@@ -875,14 +890,27 @@ private fun TagsSection(tags: List<String>, onTagClick: (String) -> Unit) {
         tags.forEachIndexed { index, tag ->
             val entry = entries[index]
             val chipState by entry.state.collectAsStateWithLifecycle()
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(ChipBackground)
-                    .border(1.dp, ChipBorder, RoundedCornerShape(10.dp))
-                    .clickable { onTagClick(tag) }
-                    .padding(horizontal = 12.dp, vertical = 7.dp)
-            ) {
+            val context = LocalContext.current
+            val clipboard = LocalClipboardManager.current
+            val haptic = LocalHapticFeedback.current
+            val copiedToast = stringResource(R.string.toast_tag_copied)
+            val savedToast = stringResource(R.string.toast_preset_saved)
+            var menuOpen by remember { mutableStateOf(false) }
+            Box {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(ChipBackground)
+                        .border(1.dp, ChipBorder, RoundedCornerShape(10.dp))
+                        .combinedClickable(
+                            onClick = { onTagClick(tag) },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                menuOpen = true
+                            }
+                        )
+                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                ) {
                 // loading 用静态 "…" 而非 spinner（几十个 chip 同时转圈会卡列表）
                 // auto 关闭时即使已有 Success 缓存也回落原文——开关要能收起双语展示
                 when (val s = chipState) {
@@ -912,6 +940,39 @@ private fun TagsSection(tags: List<String>, onTagClick: (String) -> Unit) {
                         }
                     }
                     else -> Text(text = "#$tag", fontSize = 12.sp, color = DarkOnSurface)
+                }
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.tag_action_search)) },
+                        onClick = {
+                            menuOpen = false
+                            onTagClick(tag)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.tag_action_append)) },
+                        onClick = {
+                            menuOpen = false
+                            onTagAppend(tag)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.tag_action_save_preset)) },
+                        onClick = {
+                            menuOpen = false
+                            onTagSavePreset(tag)
+                            Toast.makeText(context, savedToast, Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.tag_action_copy)) },
+                        onClick = {
+                            menuOpen = false
+                            clipboard.setText(AnnotatedString(tag))
+                            Toast.makeText(context, copiedToast, Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 }
             }
         }

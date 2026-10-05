@@ -125,6 +125,21 @@ fun FurFlixNavGraph() {
                 onTagClick = { tag ->
                     navController.navigate(Routes.tagSearch("@keywords $tag"))
                 },
+                onTagAppend = { tag ->
+                    // 追加搜索：以来源列表的标签集为基础并入新标签，重开标签搜索；
+                    // 来源是主搜索且无 @keywords 组时，退化为单标签搜索
+                    val currentQuery = if (source.startsWith("tag_")) {
+                        "@keywords ${source.removePrefix("tag_")}"
+                    } else {
+                        mainViewModel.searchQuery.value
+                    }
+                    val tokens = Regex("@keywords\\s+(.+)$").find(currentQuery)
+                        ?.groupValues?.get(1)?.split(" ")
+                        ?.filter { it.isNotEmpty() }?.toMutableList()
+                        ?: mutableListOf()
+                    if (tokens.none { it.removePrefix("!") == tag }) tokens.add(tag)
+                    navController.navigate(Routes.tagSearch("@keywords ${tokens.joinToString(" ")}"))
+                },
                 viewModel = mainViewModel
             )
         }

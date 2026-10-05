@@ -183,6 +183,15 @@
     <string name="search_clear_recent">清除</string>
     <string name="search_furaffinity">搜索 FurAffinity</string>
 
+    <!-- 快捷预设与标签长按菜单 -->
+    <string name="search_presets">快捷预设</string>
+    <string name="tag_action_search">搜索此标签</string>
+    <string name="tag_action_append">追加到搜索</string>
+    <string name="tag_action_save_preset">保存为快捷预设</string>
+    <string name="tag_action_copy">复制标签</string>
+    <string name="toast_tag_copied">标签已复制</string>
+    <string name="toast_preset_saved">已加入快捷预设</string>
+
     <string name="profile_about">个人简介</string>
     <string name="profile_show_more">展开更多</string>
     <string name="profile_show_less">收起</string>
