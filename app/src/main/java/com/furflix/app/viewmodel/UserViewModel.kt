@@ -281,8 +281,10 @@ class UserViewModel(
      * force 绕过"已有数据即 return"守卫；列表先清空让刷新态可见。
      */
     fun refresh() {
-        repository.clearUserPagination(username)
-        loadProfileInternal()
+        viewModelScope.launch {
+            repository.clearUserPagination(username)
+            loadProfileInternal()
+        }
         when (_currentTab.value) {
             TAB_GALLERY -> { _submissions.value = emptyList(); loadGallery(force = true) }
             TAB_FAVORITES -> { _submissions.value = emptyList(); loadFavorites(force = true) }
