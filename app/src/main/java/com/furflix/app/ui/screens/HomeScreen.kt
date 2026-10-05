@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridS
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.foundation.layout.FlowRow
@@ -219,7 +220,7 @@ fun HomeScreen(
                             imageVector = when (viewMode) {
                                 GalleryViewMode.GRID -> Icons.Default.GridView
                                 GalleryViewMode.MASONRY -> Icons.Default.Dashboard
-                                GalleryViewMode.LIST -> Icons.Default.ViewList
+                                GalleryViewMode.LIST -> Icons.AutoMirrored.Filled.ViewList
                             },
                             contentDescription = stringResource(R.string.cd_toggle_view_mode),
                             tint = MaterialTheme.colorScheme.primary,
