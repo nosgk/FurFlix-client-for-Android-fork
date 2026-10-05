@@ -46,7 +46,7 @@ fun FurFlixNavGraph() {
     // 缩略图清晰度偏好全树注入一次，卡片与预取经 LocalThumbnailQuality 读取
     val appContext = LocalContext.current.applicationContext
     val qualityFlow = remember { FurRepository.getInstance(appContext).thumbnailQualityFlow }
-    val thumbnailQuality by qualityFlow.collectAsState(initial = DynamicThumbnail.QUALITY_AUTO)
+    val thumbnailQuality by qualityFlow.collectAsState(initial = DynamicThumbnail.TIER_AUTO)
 
     CompositionLocalProvider(LocalThumbnailQuality provides thumbnailQuality) {
         NavHost(

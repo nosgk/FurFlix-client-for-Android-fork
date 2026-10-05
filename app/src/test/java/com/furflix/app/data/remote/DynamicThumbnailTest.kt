@@ -46,33 +46,37 @@ class DynamicThumbnailTest {
     }
 
     @Test
-    fun `data saver caps the tier at 300 for large boxes`() {
+    fun `forced tier overrides the negotiated one`() {
         assertEquals(
             "https://t.furaffinity.net/66586891@300-1791160058.jpg",
-            DynamicThumbnail(url).bestThumbnailUrl(500f, 416f, DynamicThumbnail.QUALITY_DATA_SAVER)
+            DynamicThumbnail(url).bestThumbnailUrl(500f, 416f, 300)
         )
-    }
-
-    @Test
-    fun `data saver leaves small boxes at auto behavior`() {
-        assertEquals(
-            "https://t.furaffinity.net/66586891@300-1791160058.jpg",
-            DynamicThumbnail(url).bestThumbnailUrl(280f, 280f, DynamicThumbnail.QUALITY_DATA_SAVER)
-        )
-    }
-
-    @Test
-    fun `high quality always serves the largest tier`() {
         assertEquals(
             "https://t.furaffinity.net/66586891@600-1791160058.jpg",
-            DynamicThumbnail(url).bestThumbnailUrl(120f, 90f, DynamicThumbnail.QUALITY_HIGH)
+            DynamicThumbnail(url).bestThumbnailUrl(120f, 90f, 600)
         )
     }
 
     @Test
-    fun `non tier urls are untouched under every quality`() {
+    fun `every advertised tier is honored`() {
+        for (tier in DynamicThumbnail.TIERS) {
+            val expected = "https://t.furaffinity.net/66586891@$tier-1791160058.jpg"
+            assertEquals(expected, DynamicThumbnail(url).bestThumbnailUrl(2000f, 2000f, tier))
+        }
+    }
+
+    @Test
+    fun `unknown tier values fall back to auto`() {
+        assertEquals(
+            "https://t.furaffinity.net/66586891@300-1791160058.jpg",
+            DynamicThumbnail(url).bestThumbnailUrl(280f, 280f, 999)
+        )
+    }
+
+    @Test
+    fun `non tier urls are untouched under every tier`() {
         val odd = "https://a.furaffinity.net/someuser.gif"
-        assertEquals(odd, DynamicThumbnail(odd).bestThumbnailUrl(500f, 500f, DynamicThumbnail.QUALITY_HIGH))
-        assertEquals(odd, DynamicThumbnail(odd).bestThumbnailUrl(500f, 500f, DynamicThumbnail.QUALITY_DATA_SAVER))
+        assertEquals(odd, DynamicThumbnail(odd).bestThumbnailUrl(500f, 500f, 600))
+        assertEquals(odd, DynamicThumbnail(odd).bestThumbnailUrl(500f, 500f, 200))
     }
 }

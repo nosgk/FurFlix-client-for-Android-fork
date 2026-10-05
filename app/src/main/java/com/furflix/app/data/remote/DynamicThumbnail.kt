@@ -1,29 +1,23 @@
 package com.furflix.app.data.remote
 
 /**
- * Rewrites a FA thumbnail URL to the CDN tier that best serves the requested
- * display box, honoring the user's quality preference. FA embeds the tier in
- * the thumbnail path as {sid}@NNN-{timestamp}.{ext} with 600 being the largest
- * tier it serves, so a two-column layout fed with the listing's default tier
- * (@300 on browse) would upscale a ~200px-tall source on a high-density screen.
+ * Rewrites a FA thumbnail URL to the requested CDN tier. FA embeds the tier
+ * in the thumbnail path as {sid}@NNN-{timestamp}.{ext}; tiers are pixel sizes
+ * and [TIERS] lists everything the CDN serves.
  *
- * Qualities:
- *  - QUALITY_AUTO: smallest tier covering the display box in physical pixels.
- *  - QUALITY_DATA_SAVER: auto, with the tier capped at 300.
- *  - QUALITY_HIGH: always the largest tier (600).
+ * Selection:
+ *  - TIER_AUTO (0): smallest tier covering the display box in physical pixels.
+ *  - any tier from [TIERS]: forced, regardless of the display box.
+ *  - anything else: falls back to auto.
  *
  * URLs whose path doesn't match the tier pattern (avatars, unusual formats)
  * come back untouched, so callers can use the negotiator unconditionally.
  */
 class DynamicThumbnail(private val thumbnailUrl: String) {
 
-    fun bestThumbnailUrl(displayWidthPx: Float, displayHeightPx: Float, quality: Int = QUALITY_AUTO): String {
+    fun bestThumbnailUrl(displayWidthPx: Float, displayHeightPx: Float, tier: Int = TIER_AUTO): String {
         val longestSide = maxOf(displayWidthPx, displayHeightPx)
-        val target = when (quality) {
-            QUALITY_HIGH -> MAX_TIER
-            QUALITY_DATA_SAVER -> smallestTierCovering(minOf(longestSide, DATA_SAVER_CAP.toFloat()))
-            else -> smallestTierCovering(longestSide)
-        }
+        val target = if (TIERS.contains(tier)) tier else smallestTierCovering(longestSide)
         return thumbnailUrl.replace(SIZE_REGEX) { "${it.groupValues[1]}${target}${it.groupValues[3]}" }
     }
 
@@ -31,15 +25,11 @@ class DynamicThumbnail(private val thumbnailUrl: String) {
         SIZES.firstOrNull { it >= side } ?: SIZES.last()
 
     companion object {
-        const val QUALITY_AUTO = 0
-        const val QUALITY_DATA_SAVER = 1
-        const val QUALITY_HIGH = 2
+        /** 0 = 自动：按显示尺寸选最小够用档 */
+        const val TIER_AUTO = 0
 
-        /** FA serves no tier above 600. */
-        const val MAX_TIER = 600
-
-        /** Tier ceiling for the data-saver preference. */
-        const val DATA_SAVER_CAP = 300
+        /** FA CDN 实际提供的全部档位（像素），设置里全部开放直选 */
+        val TIERS = listOf(200, 300, 320, 400, 600)
 
         private val SIZES = intArrayOf(200, 300, 320, 400, 600)
         private val SIZE_REGEX = Regex("(.+@)(\\d+)(-.+)")
