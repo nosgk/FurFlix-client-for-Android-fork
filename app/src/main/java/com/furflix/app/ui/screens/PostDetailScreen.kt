@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import com.furflix.app.data.download.DownloadManager
+import com.furflix.app.data.download.DownloadStatus
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
@@ -187,12 +189,16 @@ fun PostDetailScreen(
         val hazeState = remember { HazeState() }
         val scrollState = rememberScrollState()
         var showZoom by remember { mutableStateOf(false) }
-        var downloadDone by remember { mutableStateOf(false) }
+        val downloadTask by DownloadManager.tasks.collectAsState()
+        val myDownloadTask = downloadTask.lastOrNull { it.submissionId == currentPostId }
+        var downloadCompletedRecently by remember { mutableStateOf(false) }
 
-        LaunchedEffect(downloadDone) {
-            if (downloadDone) {
+        // 勾选反馈与真实结果挂钩：任务完成亮 4 秒，失败显示可重试的错误态
+        LaunchedEffect(myDownloadTask?.id, myDownloadTask?.status) {
+            if (myDownloadTask?.status == DownloadStatus.COMPLETED) {
+                downloadCompletedRecently = true
                 kotlinx.coroutines.delay(4000)
-                downloadDone = false
+                downloadCompletedRecently = false
             }
         }
 
@@ -419,7 +425,14 @@ fun PostDetailScreen(
 
             // Glass action bar
             val shareViaText = stringResource(R.string.share_via)
-            val downloadIcon = if (downloadDone) Icons.Default.Check else Icons.Default.Download
+            val downloadFailed = myDownloadTask?.status == DownloadStatus.FAILED
+            val downloadBusy = myDownloadTask?.status == DownloadStatus.QUEUED ||
+                myDownloadTask?.status == DownloadStatus.RUNNING
+            val downloadIcon = when {
+                downloadCompletedRecently -> Icons.Default.Check
+                downloadFailed -> Icons.Default.ErrorOutline
+                else -> Icons.Default.Download
+            }
             val bottomBarItems = listOf(
                 GlassActionItem(androidx.compose.ui.res.stringResource(id = R.string.action_back), Icons.AutoMirrored.Filled.ArrowBack, Color(0xFF00E5FF)),
                 GlassActionItem(androidx.compose.ui.res.stringResource(id = R.string.cd_share), Icons.Default.Share, Color(0xFFFFD700)),
@@ -432,8 +445,8 @@ fun PostDetailScreen(
                 GlassActionItem(
                     title = androidx.compose.ui.res.stringResource(id = R.string.cd_download),
                     icon = downloadIcon,
-                    color = Color(0xFF4CD964),
-                    isActive = downloadDone
+                    color = if (downloadFailed) Color(0xFFFF5252) else Color(0xFF4CD964),
+                    isActive = downloadCompletedRecently || downloadBusy
                 )
             )
 
@@ -464,11 +477,13 @@ fun PostDetailScreen(
                             }
                             3 -> {
                                 if (sub.fullImageUrl.isNotEmpty()) {
-                                    viewModel.downloadImage(
-                                        sub.fullImageUrl,
-                                        "${sub.title.replace(" ", "_")}_${sub.id}.jpg"
-                                    )
-                                    downloadDone = true
+                                    val failed = myDownloadTask?.takeIf { it.status == DownloadStatus.FAILED }
+                                    when {
+                                        failed != null && failed.url == sub.fullImageUrl ->
+                                            DownloadManager.retry(failed.id)
+                                        !downloadBusy -> viewModel.downloadImage(sub)
+                                        else -> Unit
+                                    }
                                 }
                             }
                         }

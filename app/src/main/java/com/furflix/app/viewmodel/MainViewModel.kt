@@ -1,15 +1,12 @@
 package com.furflix.app.viewmodel
 
 import android.app.Application
-import android.content.ContentValues
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import coil3.ImageLoader
 import com.furflix.app.R
+import com.furflix.app.data.download.DownloadManager
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.remote.FurAffinityScraper
 import com.furflix.app.data.repository.FurRepository
@@ -24,11 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
-import java.io.FileOutputStream
-import java.util.concurrent.TimeUnit
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -272,11 +265,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var latestHasMore = true
     private var searchHasMore = true
     private var watchlistHasMore = true
-
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .build()
 
     companion object {
         const val TAB_BROWSE = 0
@@ -599,88 +587,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun downloadImage(url: String, fileName: String) {
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    val request = Request.Builder().url(url)
-                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36")
-                        .header("Referer", "https://www.furaffinity.net/")
-                        .build()
-                    val response = httpClient.newCall(request).execute()
-
-                    if (!response.isSuccessful) throw Exception("Download failed: ${response.code}")
-
-                    val body = response.body ?: throw Exception("Empty response")
-                    val context = getApplication<Application>()
-                    val safeFileName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        val mimeType = when {
-                            safeFileName.endsWith(".gif", true) -> "image/gif"
-                            safeFileName.endsWith(".png", true) -> "image/png"
-                            safeFileName.endsWith(".webp", true) -> "image/webp"
-                            else -> "image/jpeg"
-                        }
-                        val folderPref = _downloadFolder.value
-                        val relativePath = if (folderPref.isNotEmpty()) {
-                            val parts = folderPref.split("/")
-                            if (parts.size > 1) {
-                                parts[0] + "/" + parts.drop(1).joinToString("/")
-                            } else {
-                                Environment.DIRECTORY_PICTURES + "/" + folderPref
-                            }
-                        } else {
-                            Environment.DIRECTORY_PICTURES + "/FurFlix"
-                        }
-                        
-                        val contentValues = ContentValues().apply {
-                            put(MediaStore.MediaColumns.DISPLAY_NAME, safeFileName)
-                            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-                            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
-                        }
-                        val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-                        uri?.let {
-                            context.contentResolver.openOutputStream(it)?.use { os ->
-                                body.byteStream().use { input ->
-                                    val buffer = ByteArray(8192)
-                                    var bytesRead: Int
-                                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                                        os.write(buffer, 0, bytesRead)
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        @Suppress("DEPRECATION")
-                        val folderPref = _downloadFolder.value
-                        val baseDir = if (folderPref.startsWith("Downloads")) Environment.DIRECTORY_DOWNLOADS
-                                      else if (folderPref.startsWith("DCIM")) Environment.DIRECTORY_DCIM
-                                      else Environment.DIRECTORY_PICTURES
-                        val subName = if (folderPref.contains("/")) folderPref.substringAfter("/") else "FurFlix"
-                        
-                        val dir = File(Environment.getExternalStoragePublicDirectory(baseDir), subName)
-                        dir.mkdirs()
-                        FileOutputStream(File(dir, safeFileName)).use { fos ->
-                            body.byteStream().use { input ->
-                                val buffer = ByteArray(8192)
-                                var bytesRead: Int
-                                while (input.read(buffer).also { bytesRead = it } != -1) {
-                                    fos.write(buffer, 0, bytesRead)
-                                }
-                            }
-                        }
-                    }
-                }
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), getApplication<Application>().getString(R.string.toast_download_saved, fileName), Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), getApplication<Application>().getString(R.string.toast_download_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+    /**
+     * 下载一张原图：仅入队 DownloadManager（进度/速度/状态由任务流承载），
+     * 扩展名从 URL/响应推断，不再假设 .jpg。
+     */
+    fun downloadImage(sub: Submission) {
+        DownloadManager.enqueue(
+            context = getApplication(),
+            submissionId = sub.id,
+            url = sub.fullImageUrl,
+            author = sub.author,
+            title = sub.title
+        )
     }
 
     fun logout() {

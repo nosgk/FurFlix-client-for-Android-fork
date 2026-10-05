@@ -259,11 +259,24 @@
     <!-- 宽屏右栏的作者作品条带 -->
     <string name="post_author_gallery">作者画廊</string>
     <string name="downloads_delete_confirm">删除这张图片?</string>
+    <string name="downloads_section_in_progress">进行中</string>
+    <string name="downloads_status_queued">排队中</string>
+    <string name="downloads_status_running">下载中</string>
+    <string name="downloads_status_completed">已完成</string>
+    <string name="downloads_status_failed">失败</string>
+    <string name="downloads_retry">重试</string>
+    <string name="downloads_already_exists">已经下载过</string>
     <string name="user_unfollow">取消关注</string>
     <string name="user_unfollow_confirm">不再关注 %s?</string>
     <string name="toast_download_saved">已保存:%s</string>
     <!-- %s = 系统异常信息,本身为英文 -->
     <string name="toast_download_failed">下载失败:%s</string>
+    <!-- %1$d = 百分比 0-100 -->
+    <string name="load_percent_format">%1$d%%</string>
+    <!-- %1$s = 格式化大小,如 1.2 MB -->
+    <string name="load_speed_format">%1$s/s</string>
+    <!-- %1$s = HTTP 状态码或异常名,本身为英文 -->
+    <string name="error_load_failed_with_code">加载失败(%1$s)</string>
     <string name="toast_cache_cleared">图片缓存已清除</string>
     <string name="cd_pull_to_refresh">下拉刷新</string>
     <string name="cd_avatar_of">%s 的头像</string>

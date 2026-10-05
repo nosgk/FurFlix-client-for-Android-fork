@@ -4,6 +4,7 @@ import androidx.compose.ui.res.stringResource
 import com.furflix.app.R
 import android.content.Context
 import android.content.Intent
+import android.text.format.Formatter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -35,10 +36,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.furflix.app.data.download.DownloadManager
+import com.furflix.app.data.download.DownloadStatus
+import com.furflix.app.data.download.DownloadTask
 import com.furflix.app.data.local.DownloadHelper
 import com.furflix.app.data.local.DownloadedItem
 import com.furflix.app.data.model.GalleryViewMode
@@ -107,12 +112,21 @@ fun DownloadsScreen(
     val viewMode by repository.downloadsViewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
 
+    // 实时任务状态（排队/下载中/失败）+ 完成信号驱动列表重查
+    val downloadTasks by DownloadManager.tasks.collectAsState()
+    val activeTasks = downloadTasks.filter { it.status != DownloadStatus.COMPLETED }
+
     val gridState = rememberLazyGridState()
     val staggeredState = rememberLazyStaggeredGridState()
 
     LaunchedEffect(Unit) {
         images = DownloadHelper.getDownloadedImages(context)
         isLoading = false
+    }
+    LaunchedEffect(Unit) {
+        DownloadManager.refreshSignal.collect {
+            images = DownloadHelper.getDownloadedImages(context)
+        }
     }
 
     Scaffold(
@@ -163,11 +177,35 @@ fun DownloadsScreen(
                 .padding(paddingValues)
                 .hazeSource(state = hazeState)
         ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 实时任务面板：排队/下载中/失败的任务置顶展示
+                AnimatedVisibility(visible = activeTasks.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .padding(top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            stringResource(R.string.downloads_section_in_progress),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = SubtleGray
+                        )
+                        activeTasks.forEach { task ->
+                            DownloadTaskRow(
+                                task = task,
+                                onRetry = { DownloadManager.retry(task.id) }
+                            )
+                        }
+                    }
+                }
+                Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             if (isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = FA_Accent)
                 }
-            } else if (images.isEmpty()) {
+            } else if (images.isEmpty() && activeTasks.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -281,6 +319,8 @@ fun DownloadsScreen(
                             }
                         }
                     }
+                }
+            }
                 }
             }
         }
@@ -415,5 +455,99 @@ private fun ActionPill(
             tint = Color.White.copy(alpha = 0.7f),
             modifier = Modifier.size(24.dp)
         )
+    }
+}
+
+@Composable
+private fun DownloadTaskRow(task: DownloadTask, onRetry: () -> Unit) {
+    val context = LocalContext.current
+    val failed = task.status == DownloadStatus.FAILED
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (failed) Icons.Default.ErrorOutline else Icons.Default.Download,
+                contentDescription = null,
+                tint = if (failed) Color(0xFFFF5252) else FA_Accent,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    task.fileName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(4.dp))
+                if (failed) {
+                    Text(
+                        stringResource(R.string.error_load_failed_with_code, task.error ?: ""),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFFF5252)
+                    )
+                } else {
+                    val fraction = if (task.totalBytes > 0) {
+                        (task.bytes.toFloat() / task.totalBytes).coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    }
+                    LinearProgressIndicator(
+                        progress = { fraction },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp),
+                        color = FA_Accent,
+                        trackColor = DividerDark
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    val statusText = stringResource(
+                        when (task.status) {
+                            DownloadStatus.QUEUED -> R.string.downloads_status_queued
+                            DownloadStatus.RUNNING -> R.string.downloads_status_running
+                            DownloadStatus.COMPLETED -> R.string.downloads_status_completed
+                            DownloadStatus.FAILED -> R.string.downloads_status_failed
+                        }
+                    )
+                    val percentText = if (task.status == DownloadStatus.RUNNING && task.totalBytes > 0) {
+                        val pct = ((task.bytes * 100 / task.totalBytes).toInt()).coerceIn(0, 100)
+                        stringResource(R.string.load_percent_format, pct)
+                    } else {
+                        null
+                    }
+                    val speedText = if (task.status == DownloadStatus.RUNNING && task.speedBps > 0) {
+                        stringResource(R.string.load_speed_format, Formatter.formatFileSize(context, task.speedBps))
+                    } else {
+                        null
+                    }
+                    Text(
+                        listOfNotNull(statusText, percentText, speedText).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SubtleGray
+                    )
+                }
+            }
+            if (failed) {
+                IconButton(onClick = onRetry, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = stringResource(R.string.downloads_retry),
+                        tint = FA_Accent,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
     }
 }
