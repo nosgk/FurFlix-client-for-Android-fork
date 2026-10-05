@@ -76,7 +76,7 @@ import java.util.Date
 import java.util.Locale
 
 private val STEP = 16.dp
-private val AVATAR_SIZE = 36.dp
+private val AVATAR_SIZE = 40.dp
 
 /**
  * Minimal topology snapshot carried by every flattened row; drives indentation
@@ -135,25 +135,29 @@ fun CommentsSection(
         if (focus == null) {
             val rows = remember(tree, cutoff) { flattenRows(tree, cutoff) }
             Column {
-                rows.forEach { row ->
-                    val comment = row.comment
-                    if (comment == null) {
-                        ContinueThreadRow(
-                            info = row.info,
-                            count = row.foldedReplyCount,
-                            onOpen = {
-                                row.foldedParentCid?.let { parentCid ->
-                                    val rootCid = tree.recursivePath(parentCid)?.first()?.comment?.id
-                                    if (rootCid != null) focusStack.add(CommentFocus(rootCid, parentCid))
+                rows.forEachIndexed { index, row ->
+                    // 顶层楼与顶层楼之间给一档呼吸空隙,回复之间保持紧凑
+                    val groupGap = if (row.info.depth == 0 && index > 0) 8.dp else 0.dp
+                    Box(modifier = Modifier.padding(top = groupGap)) {
+                        val comment = row.comment
+                        if (comment == null) {
+                            ContinueThreadRow(
+                                info = row.info,
+                                count = row.foldedReplyCount,
+                                onOpen = {
+                                    row.foldedParentCid?.let { parentCid ->
+                                        val rootCid = tree.recursivePath(parentCid)?.first()?.comment?.id
+                                        if (rootCid != null) focusStack.add(CommentFocus(rootCid, parentCid))
+                                    }
                                 }
-                            }
-                        )
-                    } else {
-                        CommentThreadRow(
-                            comment = comment,
-                            info = row.info,
-                            onAuthorClick = onAuthorClick
-                        )
+                            )
+                        } else {
+                            CommentThreadRow(
+                                comment = comment,
+                                info = row.info,
+                                onAuthorClick = onAuthorClick
+                            )
+                        }
                     }
                 }
             }
@@ -323,17 +327,16 @@ private fun CommentThreadRow(
         animationSpec = tween(300),
         label = "comment_flash"
     )
+    // 单次柔和脉冲:一次亮起-停留-淡出,足够定位焦点又不至于频闪
     LaunchedEffect(highlight) {
         if (highlight) {
-            repeat(5) {
-                flashOn = !flashOn
-                delay(300)
-            }
+            flashOn = true
+            delay(900)
             flashOn = false
         }
     }
 
-    val lineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
+    val lineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
 
     Column(
         modifier = Modifier
@@ -352,7 +355,11 @@ private fun CommentThreadRow(
                 .padding(start = STEP * info.depth, end = 12.dp, top = 8.dp, bottom = 8.dp)
         ) {
             Box(
-                modifier = Modifier.size(AVATAR_SIZE),
+                modifier = Modifier
+                    .size(AVATAR_SIZE)
+                    .clickable(enabled = comment.authorUsername.isNotEmpty()) {
+                        onAuthorClick(comment.authorUsername)
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 if (comment.authorAvatar.isNotEmpty()) {
@@ -364,14 +371,14 @@ private fun CommentThreadRow(
                         imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
                         contentDescription = comment.author,
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(AVATAR_SIZE - 2.dp)
                             .clip(CircleShape)
                             .background(DarkSurfaceVariant)
                     )
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(AVATAR_SIZE - 2.dp)
                             .clip(CircleShape)
                             .background(DarkSurfaceVariant),
                         contentAlignment = Alignment.Center
@@ -380,7 +387,7 @@ private fun CommentThreadRow(
                             Icons.Default.Person,
                             contentDescription = null,
                             tint = SubtleGray,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -451,7 +458,7 @@ private fun ContinueThreadRow(
     count: Int,
     onOpen: () -> Unit
 ) {
-    val lineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
+    val lineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -469,7 +476,7 @@ private fun ContinueThreadRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(AVATAR_SIZE - 2.dp)
                     .clip(CircleShape)
                     .background(DarkSurfaceVariant),
                 contentAlignment = Alignment.Center
