@@ -347,7 +347,7 @@ private fun CommentThreadRow(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .padding(start = info.depth * STEP, end = 12.dp, top = 8.dp, bottom = 8.dp)
+                .padding(start = STEP * info.depth, end = 12.dp, top = 8.dp, bottom = 8.dp)
         ) {
             Box(
                 modifier = Modifier.size(AVATAR_SIZE),
@@ -459,7 +459,7 @@ private fun ContinueThreadRow(
                 drawThreadConnectors(info, lineColor)
             }
             .clickable(onClick = onOpen)
-            .padding(start = info.depth * STEP, end = 12.dp, top = 6.dp, bottom = 6.dp)
+            .padding(start = STEP * info.depth, end = 12.dp, top = 6.dp, bottom = 6.dp)
     ) {
         Box(
             modifier = Modifier.size(AVATAR_SIZE),
