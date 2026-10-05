@@ -884,26 +884,32 @@ private fun TagsSection(tags: List<String>, onTagClick: (String) -> Unit) {
                     .padding(horizontal = 12.dp, vertical = 7.dp)
             ) {
                 // loading 用静态 "…" 而非 spinner（几十个 chip 同时转圈会卡列表）
+                // auto 关闭时即使已有 Success 缓存也回落原文——开关要能收起双语展示
                 when (val s = chipState) {
-                    is TranslationUiState.Success -> when (mode) {
-                        TranslationDisplayMode.BILINGUAL -> Column {
+                    is TranslationUiState.Success -> when {
+                        !auto -> Text(text = "#$tag", fontSize = 12.sp, color = DarkOnSurface)
+                        mode == TranslationDisplayMode.BILINGUAL -> Column {
                             Text(text = "#$tag", fontSize = 12.sp, color = DarkOnSurface)
                             Text(text = s.translated, fontSize = 10.sp, color = MutedText)
                         }
-                        TranslationDisplayMode.TRANSLATION_ONLY ->
+                        else ->
                             Text(text = s.translated, fontSize = 12.sp, color = DarkOnSurface)
                     }
                     is TranslationUiState.Loading ->
                         Text(text = "#$tag…", fontSize = 12.sp, color = DarkOnSurface)
-                    is TranslationUiState.Failed -> Column {
+                    is TranslationUiState.Failed -> if (!auto) {
                         Text(text = "#$tag", fontSize = 12.sp, color = DarkOnSurface)
-                        Text(
-                            text = translationErrorBase(s.message, s.code),
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.75f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    } else {
+                        Column {
+                            Text(text = "#$tag", fontSize = 12.sp, color = DarkOnSurface)
+                            Text(
+                                text = translationErrorBase(s.message, s.code),
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.75f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                     else -> Text(text = "#$tag", fontSize = 12.sp, color = DarkOnSurface)
                 }
