@@ -45,6 +45,9 @@ object ImageLoaderFactory {
 
                 chain.proceed(finalRequest)
             }
+            // 图片请求失败自动重试 3 次；同时把字节进度按 URL 汇报给 ImageLoadProgress
+            .addInterceptor(com.furflix.app.data.remote.RetryInterceptor())
+            .addInterceptor(com.furflix.app.data.remote.ImageLoadProgressInterceptor())
             .build()
 
         return ImageLoader.Builder(context)

@@ -43,6 +43,8 @@ object FurAffinityScraper {
         .readTimeout(30, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
+        // 页面抓取失败自动重试 3 次（指数退避）
+        .addInterceptor(com.furflix.app.data.remote.RetryInterceptor())
         .build()
 
     @SuppressLint("SetJavaScriptEnabled")

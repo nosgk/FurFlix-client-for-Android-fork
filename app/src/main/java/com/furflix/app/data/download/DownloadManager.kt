@@ -295,25 +295,3 @@ object DownloadManager {
             .edit().putString(submissionId, metadata).apply()
     }
 }
-
-/** 600ms 滑动窗口测速；窗口未满时返回 null（沿用上次显示的速度）。 */
-private class Speedometer {
-    private var lastBytes = 0L
-    private var windowBytes = 0L
-    private var windowStart = 0L
-
-    fun sample(totalRead: Long, now: Long): Long? {
-        windowBytes += (totalRead - lastBytes).coerceAtLeast(0)
-        lastBytes = totalRead
-        if (windowStart == 0L) windowStart = now
-        val elapsed = now - windowStart
-        return if (elapsed >= 600) {
-            val bps = windowBytes * 1000 / elapsed.coerceAtLeast(1)
-            windowBytes = 0
-            windowStart = now
-            bps
-        } else {
-            null
-        }
-    }
-}
