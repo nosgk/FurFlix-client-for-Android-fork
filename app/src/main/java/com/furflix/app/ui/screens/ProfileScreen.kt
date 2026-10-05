@@ -513,10 +513,15 @@ private fun WatchlistContent(
     val warmedUsers = remember { mutableSetOf<String>() }
     LaunchedEffect(currentData, isGrid) {
         if (currentData.isEmpty()) return@LaunchedEffect
-        val state = if (isGrid) gridState else listState
         snapshotFlow {
-            state.layoutInfo.visibleItemsInfo
-                .mapNotNull { currentData.getOrNull(it.index)?.username }
+            // grid/list 两种 State 类型没有公共 layoutInfo，分支放流内取值
+            if (isGrid) {
+                gridState.layoutInfo.visibleItemsInfo
+                    .mapNotNull { currentData.getOrNull(it.index)?.username }
+            } else {
+                listState.layoutInfo.visibleItemsInfo
+                    .mapNotNull { currentData.getOrNull(it.index)?.username }
+            }
         }.collect { visible ->
             val fresh = visible.filter { warmedUsers.add(it) }
             if (fresh.isNotEmpty()) onWarmBanners(fresh)
