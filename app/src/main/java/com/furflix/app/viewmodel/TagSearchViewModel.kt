@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.furflix.app.R
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.repository.FurRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,11 +70,11 @@ class TagSearchViewModel(
                 val result = repository.search(newQuery, currentPage, _searchFilters.value)
                 _submissions.value = result
                 if (result.isEmpty()) {
-                    _errorMessage.value = "No search results found."
+                    _errorMessage.value = getApplication<Application>().getString(R.string.empty_search_results)
                 }
             } catch (e: Exception) {
                 Log.e("TagSearchVM", "loadSearch error", e)
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }
             _isLoading.value = false
         }

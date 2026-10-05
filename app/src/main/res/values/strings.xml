@@ -284,6 +284,7 @@
     <string name="folder_item_count">%1$d items</string>
     <!-- Empty states / user page errors (hardcode cleanup) -->
     <string name="empty_gallery">No submissions.</string>
+    <string name="empty_search_results">No search results found.</string>
     <string name="empty_watching">Not watching anyone.</string>
     <string name="empty_watchers">No watchers.</string>
     <string name="empty_folder">Folder is empty.</string>

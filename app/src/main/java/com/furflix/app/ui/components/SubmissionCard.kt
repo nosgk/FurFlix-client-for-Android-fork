@@ -30,7 +30,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -61,12 +63,20 @@ fun SubmissionCard(
     onLongClick: (() -> Unit)? = null,
     onAuthorClick: ((String) -> Unit)? = null
 ) {
+    // 长按进入多选时给触觉确认(§17 触觉反馈)
+    val haptic = LocalHapticFeedback.current
+    val hapticLongClick = onLongClick?.let { callback ->
+        {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            callback()
+        }
+    }
     Card(
         modifier = modifier
             .fillMaxWidth()
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = onLongClick
+                onLongClick = hapticLongClick
             ),
         shape = RoundedCornerShape(if (compact) 8.dp else 12.dp),
         colors = CardDefaults.cardColors(

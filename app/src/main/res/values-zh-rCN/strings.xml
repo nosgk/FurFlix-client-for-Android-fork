@@ -294,6 +294,7 @@
     <string name="folder_item_count">%1$d 项</string>
     <!-- 空态 / 用户页错误(硬编码清退) -->
     <string name="empty_gallery">暂无作品。</string>
+    <string name="empty_search_results">没有搜索结果。</string>
     <string name="empty_watching">没有关注任何人。</string>
     <string name="empty_watchers">没有粉丝。</string>
     <string name="empty_folder">文件夹是空的。</string>
