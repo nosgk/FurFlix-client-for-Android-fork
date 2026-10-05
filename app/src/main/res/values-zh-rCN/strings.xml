@@ -55,8 +55,9 @@
     <string name="theme_dark">深色</string>
 
     <string name="settings_grid_view">网格视图</string>
+    <string name="settings_view_masonry">瀑布流</string>
     <string name="settings_list_view">列表视图</string>
-    <string name="settings_view_desc">以网格或紧凑列表方式浏览作品。</string>
+    <string name="settings_view_desc">以网格、瀑布流或紧凑列表方式浏览作品。</string>
     <string name="settings_app_icon">应用图标</string>
 
     <!-- About Developer -->

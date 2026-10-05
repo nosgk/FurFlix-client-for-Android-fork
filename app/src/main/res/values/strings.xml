@@ -51,8 +51,9 @@
     <string name="theme_dark">Dark</string>
 
     <string name="settings_grid_view">Grid view</string>
+    <string name="settings_view_masonry">Masonry</string>
     <string name="settings_list_view">List view</string>
-    <string name="settings_view_desc">Browse submissions as a grid or a compact list.</string>
+    <string name="settings_view_desc">Browse submissions in a grid, masonry, or compact list.</string>
     <string name="settings_app_icon">App Icon</string>
 
     <!-- About Developer -->

@@ -51,7 +51,7 @@ fun AppearanceSettingsScreen(
     
     val themePref by repository.themeFlow.collectAsState(initial = ThemePreference.DEFAULT)
     val appIcon by repository.appIconFlow.collectAsState(initial = AppIcon.DARK)
-    val isGrid by repository.isGridFlow.collectAsState(initial = true)
+    val viewMode by repository.viewModeFlow.collectAsState(initial = com.furflix.app.data.model.GalleryViewMode.GRID)
 
     val hazeState = remember { HazeState() }
 
@@ -167,7 +167,11 @@ fun AppearanceSettingsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                if (isGrid) stringResource(R.string.settings_grid_view) else stringResource(R.string.settings_list_view),
+                                when (viewMode) {
+                                    com.furflix.app.data.model.GalleryViewMode.GRID -> stringResource(R.string.settings_grid_view)
+                                    com.furflix.app.data.model.GalleryViewMode.MASONRY -> stringResource(R.string.settings_view_masonry)
+                                    com.furflix.app.data.model.GalleryViewMode.LIST -> stringResource(R.string.settings_list_view)
+                                },
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -178,16 +182,36 @@ fun AppearanceSettingsScreen(
                             )
                         }
                     }
-                    Switch(
-                        checked = isGrid,
-                        onCheckedChange = { newValue ->
-                            scope.launch { repository.saveIsGrid(newValue) }
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                        )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val modes = listOf(
+                        stringResource(R.string.settings_grid_view) to com.furflix.app.data.model.GalleryViewMode.GRID,
+                        stringResource(R.string.settings_view_masonry) to com.furflix.app.data.model.GalleryViewMode.MASONRY,
+                        stringResource(R.string.settings_list_view) to com.furflix.app.data.model.GalleryViewMode.LIST
                     )
+                    modes.forEach { (name, mode) ->
+                        val isSelected = viewMode == mode
+                        val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(bgColor)
+                                .clickable { scope.launch { repository.saveViewMode(mode) } },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(name, color = textColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -201,7 +225,51 @@ fun AppearanceSettingsScreen(
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         .padding(8.dp)
                 ) {
-                    if (isGrid) {
+                    if (viewMode == com.furflix.app.data.model.GalleryViewMode.MASONRY) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .weight(1.2f)
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                )
+                                Box(
+                                    Modifier
+                                        .weight(0.7f)
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .weight(0.7f)
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                                )
+                                Box(
+                                    Modifier
+                                        .weight(1.2f)
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                )
+                            }
+                        }
+                    } else if (viewMode == com.furflix.app.data.model.GalleryViewMode.GRID) {
                         Row(
                             modifier = Modifier.fillMaxSize(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)

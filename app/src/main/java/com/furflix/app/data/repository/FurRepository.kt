@@ -22,8 +22,9 @@ class FurRepository(private val context: Context) {
     companion object {
         private val COOKIES_KEY = stringPreferencesKey("fa_cookies")
         private val USERNAME_KEY = stringPreferencesKey("fa_username")
-        private val RECENT_SEARCHES_KEY = stringPreferencesKey("recent_searches")
-        private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
+    private val RECENT_SEARCHES_KEY = stringPreferencesKey("recent_searches")
+    private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
+    private val VIEW_MODE_KEY = stringPreferencesKey("view_mode")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
         private val THEME_ID_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_id")
         private val APP_ICON_KEY = stringPreferencesKey("app_icon")
@@ -209,6 +210,30 @@ class FurRepository(private val context: Context) {
 
     val isGridFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[IS_GRID_KEY] ?: true
+    }
+
+    /**
+     * Gallery view mode with legacy-key migration: until the new key is first
+     * written, falls back to `is_grid` (true → GRID, false → LIST; MASONRY had
+     * no legacy value). The old key is never deleted, so a downgrade keeps
+     * working.
+     */
+    val viewModeFlow: kotlinx.coroutines.flow.Flow<com.furflix.app.data.model.GalleryViewMode> =
+        context.dataStore.data.map { prefs ->
+            val stored = prefs[VIEW_MODE_KEY]
+            if (stored != null) {
+                com.furflix.app.data.model.GalleryViewMode.fromId(stored)
+            } else if (prefs[IS_GRID_KEY] == false) {
+                com.furflix.app.data.model.GalleryViewMode.LIST
+            } else {
+                com.furflix.app.data.model.GalleryViewMode.GRID
+            }
+        }
+
+    suspend fun saveViewMode(mode: com.furflix.app.data.model.GalleryViewMode) {
+        context.dataStore.edit { prefs ->
+            prefs[VIEW_MODE_KEY] = mode.name
+        }
     }
 
     val appIconFlow: kotlinx.coroutines.flow.Flow<com.furflix.app.ui.theme.AppIcon> = context.dataStore.data.map { prefs ->
