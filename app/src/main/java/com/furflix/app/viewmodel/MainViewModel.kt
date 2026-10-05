@@ -58,6 +58,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _recentSearches = MutableStateFlow<List<String>>(emptyList())
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
 
+    private val _quickPresets = MutableStateFlow<List<String>>(emptyList())
+    val quickPresets: StateFlow<List<String>> = _quickPresets.asStateFlow()
+
     private val _searchFilters = MutableStateFlow(com.furflix.app.data.model.SearchFilters())
     val searchFilters: StateFlow<com.furflix.app.data.model.SearchFilters> = _searchFilters.asStateFlow()
 
@@ -199,10 +202,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeRecentSearch(query: String) {
-        viewModelScope.launch { 
+        viewModelScope.launch {
             val currentList = repository.loadRecentSearches().toMutableList()
             currentList.remove(query)
             repository.saveRecentSearches(currentList)
+        }
+    }
+
+    /** 快捷预设上限：新的在前，去重后截断 */
+    fun addQuickPreset(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            repository.saveQuickPresets((listOf(trimmed) + _quickPresets.value).distinct().take(12))
+        }
+    }
+
+    fun removeQuickPreset(query: String) {
+        viewModelScope.launch {
+            repository.saveQuickPresets(_quickPresets.value - query)
         }
     }
 
@@ -267,6 +285,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.recentSearchesFlow.collect {
                 _recentSearches.value = it
+            }
+        }
+        viewModelScope.launch {
+            repository.quickPresetsFlow.collect {
+                _quickPresets.value = it
             }
         }
         viewModelScope.launch {

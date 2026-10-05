@@ -37,6 +37,7 @@ class FurRepository(private val context: Context) {
         private val NSFW_ENABLED_KEY = booleanPreferencesKey("nsfw_enabled")
     private val DOWNLOAD_FOLDER_KEY = stringPreferencesKey("download_folder")
     private val LAST_SEARCH_FILTERS_KEY = stringPreferencesKey("last_search_filters")
+    private val QUICK_PRESETS_KEY = stringPreferencesKey("quick_presets")
 
         @Volatile
         private var INSTANCE: FurRepository? = null
@@ -334,6 +335,21 @@ class FurRepository(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[LAST_SEARCH_FILTERS_KEY] =
                 filterJson.encodeToString(com.furflix.app.data.model.SearchFilters.serializer(), filters)
+        }
+    }
+
+    /**
+     * 快捷预设：保存的搜索查询（标签长按菜单保存，如 "@keywords fox"），
+     * 搜索页可一键重放。与最近搜索同款 "|||" 分隔；调用方负责上限。
+     */
+    val quickPresetsFlow: kotlinx.coroutines.flow.Flow<List<String>> = context.dataStore.data.map { prefs ->
+        val raw = prefs[QUICK_PRESETS_KEY] ?: ""
+        if (raw.isNotEmpty()) raw.split("|||").filter { it.isNotEmpty() } else emptyList()
+    }
+
+    suspend fun saveQuickPresets(presets: List<String>) {
+        context.dataStore.edit { prefs ->
+            prefs[QUICK_PRESETS_KEY] = presets.joinToString("|||")
         }
     }
 
