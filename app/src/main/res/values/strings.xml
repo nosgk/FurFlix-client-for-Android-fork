@@ -89,6 +89,16 @@
     <!-- Settings General -->
     <string name="settings_image_cache">Image Cache</string>
     <string name="settings_clearing">Clearing…</string>
+    <string name="settings_storage_management">Storage Management</string>
+    <string name="settings_storage_management_desc">Cache and local data usage</string>
+    <string name="storage_search_history">Search History</string>
+    <string name="storage_browse_data">Viewed Submission Stats</string>
+    <string name="storage_tag_database">Tag Database</string>
+    <!-- %1$d = entry count -->
+    <string name="storage_entries_count">%1$d entries</string>
+    <string name="storage_clear_hint">Image and translation caches are safe to clear. The tag database is a bundled read-only lexicon.</string>
+    <string name="storage_history_cleared">Search history cleared</string>
+    <string name="storage_browse_data_cleared">Viewed submission stats cleared</string>
     <string name="settings_downloads_folder">Downloads Folder</string>
     <string name="settings_filters_content">Filters &amp; Content</string>
     <string name="settings_filters_desc">Content hiding and blacklists.</string>

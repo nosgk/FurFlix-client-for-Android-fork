@@ -51,12 +51,11 @@ fun SettingsScreen(
     onNavigateToFilters: () -> Unit,
     onNavigateToTranslation: () -> Unit,
     onNavigateToAbout: () -> Unit,
+    onNavigateToStorage: () -> Unit = {},
     viewModel: MainViewModel = viewModel()
 ) {
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val username by viewModel.username.collectAsState()
-    val cacheSize by viewModel.cacheSize.collectAsState()
-    val isClearingCache by viewModel.isClearingCache.collectAsState()
 
     val downloadPath by viewModel.downloadFolder.collectAsState()
     val displayPath = downloadPath.ifEmpty { "Pictures/FurFlix" }
@@ -80,10 +79,6 @@ fun SettingsScreen(
     }
 
     val hazeState = remember { HazeState() }
-
-    LaunchedEffect(Unit) {
-        viewModel.refreshCacheSize()
-    }
 
 
     Scaffold(
@@ -178,16 +173,9 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Default.DeleteSweep,
                         iconColor = Color(0xFFFF5252),
-                        title = stringResource(R.string.settings_image_cache),
-                        subtitle = if (isClearingCache) stringResource(R.string.settings_clearing) else cacheSize,
-                        onClick = { viewModel.clearImageCache() },
-                        trailing = {
-                            if (isClearingCache) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
-                            } else {
-                                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                            }
-                        }
+                        title = stringResource(R.string.settings_storage_management),
+                        subtitle = stringResource(R.string.settings_storage_management_desc),
+                        onClick = onNavigateToStorage
                     )
                     SettingsDivider()
                     SettingsRow(
@@ -506,7 +494,7 @@ private fun AccountHeroCard(
 }
 
 @Composable
-private fun SettingsSectionHeader(text: String) {
+internal fun SettingsSectionHeader(text: String) {
     Text(
         text = text.uppercase(),
         style = MaterialTheme.typography.labelMedium,
@@ -518,7 +506,7 @@ private fun SettingsSectionHeader(text: String) {
 }
 
 @Composable
-private fun SettingsGroupCard(content: @Composable ColumnScope.() -> Unit) {
+internal fun SettingsGroupCard(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -530,7 +518,7 @@ private fun SettingsGroupCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun SettingsDivider() {
+internal fun SettingsDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(start = 76.dp),
         thickness = 0.5.dp,
@@ -616,7 +604,7 @@ private fun CtaChip(text: String) {
 }
 
 @Composable
-private fun SettingsRow(
+internal fun SettingsRow(
     icon: ImageVector,
     iconColor: Color,
     title: String,

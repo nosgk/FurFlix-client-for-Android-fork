@@ -94,6 +94,16 @@
     <!-- Settings General -->
     <string name="settings_image_cache">图片缓存</string>
     <string name="settings_clearing">清理中…</string>
+    <string name="settings_storage_management">存储管理</string>
+    <string name="settings_storage_management_desc">缓存与本地数据占用明细</string>
+    <string name="storage_search_history">搜索历史</string>
+    <string name="storage_browse_data">浏览统计数据</string>
+    <string name="storage_tag_database">标签数据库</string>
+    <!-- %1$d = 条目数 -->
+    <string name="storage_entries_count">%1$d 条</string>
+    <string name="storage_clear_hint">图片缓存与翻译缓存可安全清理;标签数据库为内置只读词库。</string>
+    <string name="storage_history_cleared">搜索历史已清空</string>
+    <string name="storage_browse_data_cleared">浏览统计数据已清空</string>
     <string name="settings_downloads_folder">下载文件夹</string>
     <string name="settings_filters_content">筛选与内容</string>
     <string name="settings_filters_desc">内容隐藏与黑名单。</string>

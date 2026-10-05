@@ -22,6 +22,7 @@ object Routes {
     const val HOME = "home"
     const val POST_DETAIL = "post/{postId}/{source}"
     const val SETTINGS = "settings"
+    const val STORAGE_SETTINGS = "storage_settings"
     const val DOWNLOADS = "downloads"
     const val APPEARANCE_SETTINGS = "appearance_settings"
     const val FILTERS_SETTINGS = "filters_settings"
@@ -152,7 +153,14 @@ fun FurFlixNavGraph() {
                 onNavigateToFilters = { navController.navigate(Routes.FILTERS_SETTINGS) },
                 onNavigateToTranslation = { navController.navigate(Routes.TRANSLATION_SETTINGS) },
                 onNavigateToAbout = { navController.navigate(Routes.ABOUT_DEVELOPER) },
+                onNavigateToStorage = { navController.navigate(Routes.STORAGE_SETTINGS) },
                 viewModel = mainViewModel
+            )
+        }
+
+        composable(Routes.STORAGE_SETTINGS) {
+            StorageScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 
