@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Feedback batch**: viewing history now splits into artworks/users
+  sub-tabs — artworks keep the global grid/masonry/list modes and only
+  entries the user actually opened (stats warmed by author-gallery
+  strips no longer pollute history; legacy entries decode as visited),
+  while users lists genuinely visited profiles via the shared watchlist
+  row card (note display included, long-press removes an entry, the
+  clear button clears the active sub-tab); the search keyword-count
+  chips parse the `@keywords` group marker away, merge filter-panel
+  keywords and stay visible above the results instead of collapsing
+  with the search bar.
 - **Profile consistency batch**: the user page's watching/watchers tabs
   now show each card's real profile banner via a shared banner store
   (warmed in either the My-page watchlist or the user page, keyed by
@@ -164,6 +174,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compact grid/masonry cards in the My-page favorites and viewing
   history hid their titles; they now show the one-line title like the
   same card everywhere else.
+- The detail hero progress chip could show only a ring: with chunked
+  responses (no Content-Length) there is no percent, and speed needs a
+  sampling window. Downloaded bytes are now shown when the total is
+  unknown, so text always accompanies the ring.
+- The bottom gradient fade sat over the placeholder thumbnail while
+  the full artwork was still loading; it is applied only after the
+  full image succeeds now.
+- The stats overlay (♥/👁/💬) never appeared on user page gallery
+  cards; they now consume the shared card-stats snapshot like every
+  other gallery.
+- Auto-hide bars stopped hiding on several tabs: disposed list
+  branches left stale scroll sources and the My-page tab never
+  registered one at all. Sources are now registered per branch with
+  liveness, and every nested list on the My-page tab registers itself.
 
 ### Changed
 - **SEO / website**: meta description, Open Graph and JSON-LD structured data,
