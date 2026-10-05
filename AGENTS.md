@@ -6,8 +6,8 @@
 
 - Kotlin 2.x + Jetpack Compose(Material 3),单模块 `:app`,包名 `com.furflix.app`
 - minSdk 26 / targetSdk 36 / compileSdk 37,AGP 9.4.1,Compose BOM 2026.09
-- 上游:FurrychX/FurFlix-client-for-Android(低频跟进;rebase 时保持最小冲突面)
-- 本 fork 的主线差异化工作:技术栈升级与**简体中文本地化**(规划细则文档按开发
+- 上游:FurrychX/FurFlix-client-for-Androi
+- 本 fork 的主线差异化工作:技术栈升级、专业化高级功能增强与**简体中文本地化**(规划细则文档按开发
   文档安全规范不入库,仅保留在仓库外的本地备份中)
 
 ## 构建与验证
