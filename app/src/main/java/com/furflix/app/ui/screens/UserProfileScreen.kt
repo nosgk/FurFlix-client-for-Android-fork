@@ -70,6 +70,7 @@ import com.furflix.app.data.local.UserBannerStore
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.*
 import com.furflix.app.ui.theme.*
+import com.furflix.app.viewmodel.MainViewModel
 import com.furflix.app.viewmodel.UserViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -92,6 +93,7 @@ import com.furflix.app.translate.ui.rememberTranslationPrefs
 fun UserProfileScreen(
     username: String,
     viewModel: UserViewModel,
+    mainViewModel: MainViewModel,
     onBack: () -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit
@@ -106,6 +108,22 @@ fun UserProfileScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val watchingList by viewModel.watchingList.collectAsState()
     val watchersList by viewModel.watchersList.collectAsState()
+
+    // 多选批量（与首页画廊同一 SelectionStore/组件；source 与详情页导航的 user_ 前缀对齐）
+    val selection by com.furflix.app.data.selection.SelectionStore.state.collectAsState()
+    val pageSource = "user_$username"
+    val selectionActive = selection.active && selection.source == pageSource
+    androidx.activity.compose.BackHandler(enabled = selectionActive) {
+        com.furflix.app.data.selection.SelectionStore.exit()
+    }
+    DisposableEffect(username) {
+        onDispose {
+            // 离开用户页时清掉本页的选择，避免带入别的列表
+            if (com.furflix.app.data.selection.SelectionStore.state.value.source == pageSource) {
+                com.furflix.app.data.selection.SelectionStore.exit()
+            }
+        }
+    }
 
     val selectedTab by viewModel.currentTab.collectAsState()
     val activeFolder by viewModel.activeFolder.collectAsState()
@@ -257,7 +275,7 @@ fun UserProfileScreen(
                 .hazeSource(state = hazeState)
         ) {
             AnimatedVisibility(
-                visible = barsVisible,
+                visible = barsVisible || selectionActive,
                 enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it },
                 exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it }
             ) {
@@ -283,10 +301,33 @@ fun UserProfileScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        openUrl(context, "https://www.furaffinity.net/user/$username/")
-                    }) {
-                        Icon(Icons.Default.OpenInBrowser, contentDescription = stringResource(R.string.cd_open_in_browser))
+                    if (selectionActive) {
+                        // 与首页多选同一套动作：全选 / 批量收藏 / 批量下载 / 退出
+                        IconButton(onClick = {
+                            com.furflix.app.data.selection.SelectionStore.selectAll(pageSource, submissions.map { it.id })
+                        }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.DoneAll, contentDescription = stringResource(R.string.action_select_all), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(onClick = { mainViewModel.batchFavorite(selection.ids.toList()) }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Favorite, contentDescription = stringResource(R.string.action_batch_favorite), tint = Color(0xFFFF007F), modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(onClick = {
+                            val batchQueuedText = stringResource(R.string.toast_batch_download_queued, selection.ids.size)
+                            selection.ids.forEach { com.furflix.app.data.download.DownloadManager.enqueueDownload(context, it) }
+                            android.widget.Toast.makeText(context, batchQueuedText, android.widget.Toast.LENGTH_SHORT).show()
+                            com.furflix.app.data.selection.SelectionStore.exit()
+                        }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Download, contentDescription = stringResource(R.string.action_batch_download), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(onClick = { com.furflix.app.data.selection.SelectionStore.exit() }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_close), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        }
+                    } else {
+                        IconButton(onClick = {
+                            openUrl(context, "https://www.furaffinity.net/user/$username/")
+                        }) {
+                            Icon(Icons.Default.OpenInBrowser, contentDescription = stringResource(R.string.cd_open_in_browser))
+                        }
                     }
                 }
             )
@@ -409,7 +450,21 @@ fun UserProfileScreen(
                                         span = { StaggeredGridItemSpan.FullLine }
                                     ) { submission ->
                                         Box(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                            SubmissionCard(submission = submission, onClick = { onNavigateToPost(submission.id) }, onAuthorClick = { onNavigateToUser(it) }, stats = cardStats[submission.id])
+                                            SubmissionCard(
+                                                submission = submission,
+                                                onClick = {
+                                                    if (selectionActive) {
+                                                        com.furflix.app.data.selection.SelectionStore.toggle(pageSource, submission.id)
+                                                    } else {
+                                                        onNavigateToPost(submission.id)
+                                                    }
+                                                },
+                                                selectionActive = selectionActive,
+                                                isSelected = selectionActive && selection.ids.contains(submission.id),
+                                                onLongClick = { com.furflix.app.data.selection.SelectionStore.toggle(pageSource, submission.id) },
+                                                onAuthorClick = { onNavigateToUser(it) },
+                                                stats = cardStats[submission.id]
+                                            )
                                         }
                                     }
                                 } else {
@@ -420,7 +475,16 @@ fun UserProfileScreen(
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
-                                            onClick = { onNavigateToPost(submission.id) },
+                                            onClick = {
+                                                if (selectionActive) {
+                                                    com.furflix.app.data.selection.SelectionStore.toggle(pageSource, submission.id)
+                                                } else {
+                                                    onNavigateToPost(submission.id)
+                                                }
+                                            },
+                                            selectionActive = selectionActive,
+                                            isSelected = selectionActive && selection.ids.contains(submission.id),
+                                            onLongClick = { com.furflix.app.data.selection.SelectionStore.toggle(pageSource, submission.id) },
                                             showTitle = mode == GalleryViewMode.GRID,
                                             compact = mode == GalleryViewMode.GRID,
                                             ratio = if (mode == GalleryViewMode.MASONRY) submission.thumbnailWidthOnHeightRatio else 0f,
@@ -522,7 +586,7 @@ fun UserProfileScreen(
 
             // Glass bottom bar
         val bottomBarOffset by androidx.compose.animation.core.animateDpAsState(
-            targetValue = if (barsVisible) 0.dp else 112.dp,
+            targetValue = if (barsVisible && !selectionActive) 0.dp else 112.dp,
             animationSpec = tween(250),
             label = "profileBottomBarOffset"
         )
@@ -1190,16 +1254,16 @@ private fun InfoChips(profile: UserProfile, modifier: Modifier = Modifier) {
             InfoChip(icon = Icons.Default.Pets, text = profile.species)
         }
         if (profile.acceptingTrades.isNotBlank()) {
-            StatusChip(label = "Trades", value = profile.acceptingTrades)
+            StatusChip(label = stringResource(R.string.profile_trades), value = profile.acceptingTrades)
         }
         if (profile.acceptingCommissions.isNotBlank()) {
-            StatusChip(label = "Commissions", value = profile.acceptingCommissions)
+            StatusChip(label = stringResource(R.string.profile_commissions), value = profile.acceptingCommissions)
         }
         if (profile.views > 0) {
-            InfoChip(icon = Icons.Default.Visibility, text = "${formatCount(profile.views)} views")
+            InfoChip(icon = Icons.Default.Visibility, text = stringResource(R.string.profile_views_count, formatCount(profile.views)))
         }
         if (profile.journalsCount > 0) {
-            InfoChip(icon = Icons.AutoMirrored.Filled.MenuBook, text = "${formatCount(profile.journalsCount)} journals")
+            InfoChip(icon = Icons.AutoMirrored.Filled.MenuBook, text = stringResource(R.string.profile_journals_count, formatCount(profile.journalsCount)))
         }
     }
 }
@@ -1235,8 +1299,8 @@ private fun StatusChip(label: String, value: String) {
         else -> SubtleGray
     }
     val stateText = when {
-        isOpen -> "Open"
-        isClosed -> "Closed"
+        isOpen -> stringResource(R.string.profile_status_open)
+        isClosed -> stringResource(R.string.profile_status_closed)
         else -> value
     }
     Row(

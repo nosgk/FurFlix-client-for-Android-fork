@@ -153,6 +153,16 @@
     <!-- Viewing-history sub-tabs: artworks vs visited users -->
     <string name="history_tab_submissions">Artworks</string>
     <string name="history_tab_users">Users</string>
+    <!-- User page info chips (trades/commissions status, views/journals) -->
+    <string name="profile_trades">Trades</string>
+    <string name="profile_commissions">Commissions</string>
+    <string name="profile_status_open">Open</string>
+    <string name="profile_status_closed">Closed</string>
+    <!-- %1$s = formatted count -->
+    <string name="profile_views_count">%1$s views</string>
+    <string name="profile_journals_count">%1$s journals</string>
+    <!-- My-page watchlist/favorites gate -->
+    <string name="profile_login_required">Please log in to see your profile.</string>
     <!-- Watchlist search & local user notes (long-press a user card) -->
     <string name="watchlist_search_hint">Search followed users</string>
     <string name="watchlist_search_empty">No users match the search.</string>

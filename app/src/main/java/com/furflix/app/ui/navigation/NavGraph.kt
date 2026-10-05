@@ -221,6 +221,7 @@ fun FurFlixNavGraph() {
             UserProfileScreen(
                 username = username,
                 viewModel = userViewModel,
+                mainViewModel = mainViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToPost = { postId -> navController.navigate(Routes.postDetail(postId, "user_$username")) },
                 onNavigateToUser = { user -> navController.navigate(Routes.userProfile(user)) }
@@ -242,6 +243,7 @@ fun FurFlixNavGraph() {
             TagSearchScreen(
                 tag = tag.replace("@keywords ", "").replace("%23", "#"),
                 viewModel = tagViewModel,
+                mainViewModel = mainViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToPost = { postId -> navController.navigate(Routes.postDetail(postId, "tag_${tag.replace("@keywords ", "")}")) },
                 onNavigateToUser = { user -> navController.navigate(Routes.userProfile(user)) },

@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.furflix.app.R
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.model.WatchlistUser
 import com.furflix.app.data.repository.FurRepository
@@ -137,7 +138,7 @@ class WatchlistViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 val username = repository.getUsername()
                 if (username.isEmpty()) {
-                    _errorMessage.value = "Please log in to see your profile."
+                    _errorMessage.value = getApplication<Application>().getString(R.string.profile_login_required)
                     when (tab) {
                         TAB_FAVORITES -> favoritesMore = false
                         TAB_FOLLOWING -> followingMore = false
@@ -148,26 +149,26 @@ class WatchlistViewModel(application: Application) : AndroidViewModel(applicatio
                         val result = repository.getUserFavorites(username, favoritesPage)
                         _favoritesList.value = result
                         favoritesMore = result.isNotEmpty()
-                        if (result.isEmpty()) _errorMessage.value = "No favorites yet."
+                        if (result.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.profile_no_favorites)
                     }
                     TAB_FOLLOWING -> {
                         val (users, hasNext) = repository.getWatchlistBy(username, followingPage)
                         _followingList.value = users
                         followingMore = hasNext
                         _followingHasMoreState.value = hasNext
-                        if (users.isEmpty()) _errorMessage.value = "You are not following anyone."
+                        if (users.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.empty_watching)
                     }
                     TAB_FOLLOWERS -> {
                         val (users, hasNext) = repository.getWatchlistTo(username, followersPage)
                         _followersList.value = users
                         followersMore = hasNext
                         _followersHasMoreState.value = hasNext
-                        if (users.isEmpty()) _errorMessage.value = "You don't have any followers yet."
+                        if (users.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.empty_watchers)
                     }
                 }
             } catch (e: Exception) {
                 Log.e("WatchlistVM", "loadData: exception", e)
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }
             _isLoading.value = false
         }

@@ -159,6 +159,16 @@
     <!-- 浏览历史子栏目:作品/用户 -->
     <string name="history_tab_submissions">作品</string>
     <string name="history_tab_users">用户</string>
+    <!-- 用户页信息标签(交易/接稿状态、浏览/日志数) -->
+    <string name="profile_trades">交易</string>
+    <string name="profile_commissions">接稿</string>
+    <string name="profile_status_open">开放</string>
+    <string name="profile_status_closed">关闭</string>
+    <!-- %1$s = 格式化计数 -->
+    <string name="profile_views_count">%1$s 次浏览</string>
+    <string name="profile_journals_count">%1$s 篇日志</string>
+    <!-- “我的”页收藏/关注登录门槛 -->
+    <string name="profile_login_required">请先登录后查看个人资料。</string>
     <!-- 关注列表搜索与本地用户备注(长按用户卡片) -->
     <string name="watchlist_search_hint">搜索已关注的用户</string>
     <string name="watchlist_search_empty">没有匹配的用户。</string>
