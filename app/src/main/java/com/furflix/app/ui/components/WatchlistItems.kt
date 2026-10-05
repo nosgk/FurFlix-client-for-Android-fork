@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -72,41 +73,68 @@ fun WatchlistItem(user: WatchlistUser, onClick: () -> Unit) {
 }
 
 @Composable
-fun WatchlistGridItem(user: WatchlistUser, onClick: () -> Unit) {
+fun WatchlistGridItem(
+    user: WatchlistUser,
+    bannerUrl: String? = null,
+    onClick: () -> Unit
+) {
     val avatarUrl = if (user.avatarUrl.isNotEmpty())
         user.avatarUrl
     else
         "https://a.furaffinity.net/${user.username}.gif"
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(DarkSurface)
             .clickable(onClick = onClick)
-            .padding(16.dp)
     ) {
-        AsyncImage(
-            model = avatarUrl,
-            contentDescription = stringResource(R.string.cd_avatar_of, user.displayName),
-            contentScale = ContentScale.Crop,
+        // 用户自己设定的个人页横幅作为卡片背景；压一层渐变保证名字可读
+        if (!bannerUrl.isNullOrEmpty()) {
+            AsyncImage(
+                model = bannerUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize()
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.55f))
+                        )
+                    )
+            )
+        }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .size(64.dp)
-                .clip(CircleShape)
-                .border(1.5.dp, FA_Accent.copy(alpha = 0.6f), CircleShape)
-                .background(DarkSurfaceVariant)
-        )
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = stringResource(R.string.cd_avatar_of, user.displayName),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .border(1.5.dp, FA_Accent.copy(alpha = 0.6f), CircleShape)
+                    .background(DarkSurfaceVariant)
+            )
 
-        Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
-        Text(
-            text = user.displayName,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+            Text(
+                text = user.displayName,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }

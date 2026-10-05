@@ -7,10 +7,14 @@ import androidx.lifecycle.viewModelScope
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.model.WatchlistUser
 import com.furflix.app.data.repository.FurRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class WatchlistViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -42,6 +46,31 @@ class WatchlistViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _loggedInUsername = MutableStateFlow("")
     val loggedInUsername: StateFlow<String> = _loggedInUsername.asStateFlow()
+
+    // 关注/粉丝用户卡片的真实个人横幅（FA 资料页 #header 图），可见即预热
+    private val _userBanners = MutableStateFlow<Map<String, String>>(emptyMap())
+    val userBanners: StateFlow<Map<String, String>> = _userBanners.asStateFlow()
+    private val bannerMutex = Mutex()
+    private val bannerAttempted = mutableSetOf<String>()
+
+    fun prefetchUserBanners(usernames: List<String>) {
+        val fresh = usernames.filter { it.isNotBlank() && bannerAttempted.add(it) }
+        if (fresh.isEmpty()) return
+        viewModelScope.launch {
+            bannerMutex.withLock {
+                for (name in fresh) {
+                    try {
+                        val url = repository.getUserProfile(name).bannerUrl
+                        if (url.isNotEmpty()) {
+                            _userBanners.update { it + (name to url) }
+                        }
+                    } catch (_: Exception) {
+                    }
+                    delay(200)
+                }
+            }
+        }
+    }
 
     companion object {
         const val TAB_FAVORITES = 0
