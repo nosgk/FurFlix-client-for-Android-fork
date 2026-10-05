@@ -14,10 +14,13 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -38,9 +41,12 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.furflix.app.data.local.DownloadHelper
 import com.furflix.app.data.local.DownloadedItem
+import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.HazeTopAppBar
 import com.furflix.app.ui.components.ImageLoaderFactory
+import com.furflix.app.ui.components.galleryGridCells
+import com.furflix.app.ui.components.masonryGridCells
 import com.furflix.app.ui.theme.*
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -96,13 +102,14 @@ fun DownloadsScreen(
 
     var images by remember { mutableStateOf<List<DownloadedItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var isGrid by remember { mutableStateOf(true) }
+
+    // 三视图（网格/瀑布流/列表）与列数偏好直接挂 DataStore，写入后自动回流
+    val viewMode by repository.downloadsViewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
+    val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
 
     val gridState = rememberLazyGridState()
+    val staggeredState = rememberLazyStaggeredGridState()
 
-    LaunchedEffect(Unit) {
-        isGrid = repository.loadIsGrid()
-    }
     LaunchedEffect(Unit) {
         images = DownloadHelper.getDownloadedImages(context)
         isLoading = false
@@ -127,11 +134,19 @@ fun DownloadsScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        isGrid = !isGrid
-                        coroutineScope.launch { repository.saveIsGrid(isGrid) }
+                        val next = when (viewMode) {
+                            GalleryViewMode.GRID -> GalleryViewMode.MASONRY
+                            GalleryViewMode.MASONRY -> GalleryViewMode.LIST
+                            GalleryViewMode.LIST -> GalleryViewMode.GRID
+                        }
+                        coroutineScope.launch { repository.saveDownloadsViewMode(next) }
                     }, modifier = Modifier.size(36.dp)) {
                         Icon(
-                            imageVector = if (isGrid) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
+                            imageVector = when (viewMode) {
+                                GalleryViewMode.GRID -> Icons.Default.GridView
+                                GalleryViewMode.MASONRY -> Icons.Default.Dashboard
+                                GalleryViewMode.LIST -> Icons.AutoMirrored.Filled.ViewList
+                            },
                             contentDescription = stringResource(R.string.cd_toggle_layout),
                             tint = FA_Accent,
                             modifier = Modifier.size(20.dp)
@@ -165,48 +180,105 @@ fun DownloadsScreen(
                     Text(stringResource(R.string.downloads_empty_desc), style = MaterialTheme.typography.bodyMedium, color = DividerDark)
                 }
             } else {
-                Crossfade(targetState = isGrid, animationSpec = tween(300), label = "gridList") { grid ->
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(if (grid) 2 else 1),
-                        modifier = Modifier.fillMaxSize(),
-                        state = gridState,
-                        contentPadding = PaddingValues(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(if (grid) 8.dp else 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(if (grid) 8.dp else 16.dp)
-                    ) {
-                        items(images) { item ->
-                            DownloadCard(
-                                item = item,
-                                onOpen = {
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        setDataAndType(item.uri, "image/*")
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(intent)
-                                },
-                                onViewPost = {
-                                    parseMeta(context, item.filename)?.let { onNavigateToPost(it.postId) }
-                                },
-                                onViewAuthor = {
-                                    parseMeta(context, item.filename)?.let {
-                                        if (it.author != "Unknown") onNavigateToUser(it.author)
-                                    }
-                                },
-                                onShare = {
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "image/*"
-                                        putExtra(Intent.EXTRA_STREAM, item.uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Share"))
-                                },
-                                onDelete = {
-                                    coroutineScope.launch {
-                                        DownloadHelper.deleteImage(context, item.uri)
-                                        images = images.filter { it.uri != item.uri }
-                                    }
+                // 卡片动作回调只定义一次，三种视图共用
+                val openAction: (DownloadedItem) -> Unit = { item ->
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(item.uri, "image/*")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(intent)
+                }
+                val viewPostAction: (DownloadedItem) -> Unit = { item ->
+                    parseMeta(context, item.filename)?.let { onNavigateToPost(it.postId) }
+                }
+                val viewAuthorAction: (DownloadedItem) -> Unit = { item ->
+                    parseMeta(context, item.filename)?.let {
+                        if (it.author != "Unknown") onNavigateToUser(it.author)
+                    }
+                }
+                val shareAction: (DownloadedItem) -> Unit = { item ->
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "image/*"
+                        putExtra(Intent.EXTRA_STREAM, item.uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(
+                        Intent.createChooser(shareIntent, stringResource(R.string.share_via))
+                    )
+                }
+                val deleteAction: (DownloadedItem) -> Unit = { item ->
+                    coroutineScope.launch {
+                        DownloadHelper.deleteImage(context, item.uri)
+                        images = images.filter { it.uri != item.uri }
+                    }
+                }
+
+                Crossfade(targetState = viewMode, animationSpec = tween(300), label = "viewMode") { mode ->
+                    when (mode) {
+                        GalleryViewMode.GRID -> {
+                            LazyVerticalGrid(
+                                columns = galleryGridCells(gridColumnsPref),
+                                modifier = Modifier.fillMaxSize(),
+                                state = gridState,
+                                contentPadding = PaddingValues(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(images, key = { it.uri.toString() }) { item ->
+                                    DownloadCard(
+                                        item = item,
+                                        useOriginalRatio = false,
+                                        onOpen = openAction,
+                                        onViewPost = viewPostAction,
+                                        onViewAuthor = viewAuthorAction,
+                                        onShare = shareAction,
+                                        onDelete = deleteAction
+                                    )
                                 }
-                            )
+                            }
+                        }
+                        GalleryViewMode.MASONRY -> {
+                            LazyVerticalStaggeredGrid(
+                                columns = masonryGridCells(gridColumnsPref),
+                                modifier = Modifier.fillMaxSize(),
+                                state = staggeredState,
+                                contentPadding = PaddingValues(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(images, key = { it.uri.toString() }) { item ->
+                                    DownloadCard(
+                                        item = item,
+                                        useOriginalRatio = true,
+                                        onOpen = openAction,
+                                        onViewPost = viewPostAction,
+                                        onViewAuthor = viewAuthorAction,
+                                        onShare = shareAction,
+                                        onDelete = deleteAction
+                                    )
+                                }
+                            }
+                        }
+                        GalleryViewMode.LIST -> {
+                            LazyVerticalStaggeredGrid(
+                                columns = StaggeredGridCells.Fixed(1),
+                                modifier = Modifier.fillMaxSize(),
+                                state = staggeredState,
+                                contentPadding = PaddingValues(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(images, key = { it.uri.toString() }) { item ->
+                                    DownloadCard(
+                                        item = item,
+                                        useOriginalRatio = true,
+                                        onOpen = openAction,
+                                        onViewPost = viewPostAction,
+                                        onViewAuthor = viewAuthorAction,
+                                        onShare = shareAction,
+                                        onDelete = deleteAction
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -218,6 +290,7 @@ fun DownloadsScreen(
 @Composable
 private fun DownloadCard(
     item: DownloadedItem,
+    useOriginalRatio: Boolean,
     onOpen: () -> Unit,
     onViewPost: () -> Unit,
     onViewAuthor: () -> Unit,
@@ -237,11 +310,14 @@ private fun DownloadCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column {
-            // Image
+            // Image：瀑布流/列表按实测宽高比展示（不裁切）；网格保持方形紧凑格
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f)
+                    .then(
+                        if (useOriginalRatio) Modifier.aspectRatio(item.ratio.coerceIn(0.45f, 2.2f))
+                        else Modifier.aspectRatio(1f)
+                    )
                     .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
                     .clickable(onClick = onOpen)
             ) {

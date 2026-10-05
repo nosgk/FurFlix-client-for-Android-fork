@@ -37,6 +37,7 @@ class FurRepository(private val context: Context) {
     private val RECENT_SEARCHES_KEY = stringPreferencesKey("recent_searches")
     private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
     private val VIEW_MODE_KEY = stringPreferencesKey("view_mode")
+    private val DOWNLOADS_VIEW_MODE_KEY = stringPreferencesKey("downloads_view_mode")
     private val GRID_COLUMNS_KEY = intPreferencesKey("grid_columns")
     private val THUMBNAIL_QUALITY_KEY = intPreferencesKey("thumbnail_quality")
     private val DETAIL_LAYOUT_KEY = stringPreferencesKey("detail_layout")
@@ -251,6 +252,29 @@ class FurRepository(private val context: Context) {
     suspend fun saveViewMode(mode: com.furflix.app.data.model.GalleryViewMode) {
         context.dataStore.edit { prefs ->
             prefs[VIEW_MODE_KEY] = mode.name
+        }
+    }
+
+    /**
+     * 下载页视图模式（与画廊共用 GalleryViewMode 三态）。旧键迁移：本键未写过时
+     * 回落 is_grid（true → GRID，false → LIST）；下载页自此不再写 is_grid，
+     * 画廊的旧键迁移语义不受下载页切换影响。
+     */
+    val downloadsViewModeFlow: kotlinx.coroutines.flow.Flow<com.furflix.app.data.model.GalleryViewMode> =
+        context.dataStore.data.map { prefs ->
+            val stored = prefs[DOWNLOADS_VIEW_MODE_KEY]
+            if (stored != null) {
+                com.furflix.app.data.model.GalleryViewMode.fromId(stored)
+            } else if (prefs[IS_GRID_KEY] == false) {
+                com.furflix.app.data.model.GalleryViewMode.LIST
+            } else {
+                com.furflix.app.data.model.GalleryViewMode.GRID
+            }
+        }
+
+    suspend fun saveDownloadsViewMode(mode: com.furflix.app.data.model.GalleryViewMode) {
+        context.dataStore.edit { prefs ->
+            prefs[DOWNLOADS_VIEW_MODE_KEY] = mode.name
         }
     }
 
