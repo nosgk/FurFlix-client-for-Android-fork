@@ -218,7 +218,8 @@ fun DownloadsScreen(
                     Text(stringResource(R.string.downloads_empty_desc), style = MaterialTheme.typography.bodyMedium, color = DividerDark)
                 }
             } else {
-                // 卡片动作回调只定义一次，三种视图共用
+                // 卡片动作回调只定义一次，三种视图共用（回调按条目分发）
+                val shareVia = stringResource(R.string.share_via)
                 val openAction: (DownloadedItem) -> Unit = { item ->
                     val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(item.uri, "image/*")
@@ -240,9 +241,7 @@ fun DownloadsScreen(
                         putExtra(Intent.EXTRA_STREAM, item.uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(
-                        Intent.createChooser(shareIntent, stringResource(R.string.share_via))
-                    )
+                    context.startActivity(Intent.createChooser(shareIntent, shareVia))
                 }
                 val deleteAction: (DownloadedItem) -> Unit = { item ->
                     coroutineScope.launch {
@@ -282,7 +281,7 @@ fun DownloadsScreen(
                                 state = staggeredState,
                                 contentPadding = PaddingValues(12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalItemSpacing = 8.dp
                             ) {
                                 items(images, key = { it.uri.toString() }) { item ->
                                     DownloadCard(
@@ -303,7 +302,7 @@ fun DownloadsScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 state = staggeredState,
                                 contentPadding = PaddingValues(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                                verticalItemSpacing = 16.dp
                             ) {
                                 items(images, key = { it.uri.toString() }) { item ->
                                     DownloadCard(
@@ -331,11 +330,11 @@ fun DownloadsScreen(
 private fun DownloadCard(
     item: DownloadedItem,
     useOriginalRatio: Boolean,
-    onOpen: () -> Unit,
-    onViewPost: () -> Unit,
-    onViewAuthor: () -> Unit,
-    onShare: () -> Unit,
-    onDelete: () -> Unit
+    onOpen: (DownloadedItem) -> Unit,
+    onViewPost: (DownloadedItem) -> Unit,
+    onViewAuthor: (DownloadedItem) -> Unit,
+    onShare: (DownloadedItem) -> Unit,
+    onDelete: (DownloadedItem) -> Unit
 ) {
     val context = LocalContext.current
     val meta = remember(item.filename) { parseMeta(context, item.filename) }
@@ -359,7 +358,7 @@ private fun DownloadCard(
                         else Modifier.aspectRatio(1f)
                     )
                     .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
-                    .clickable(onClick = onOpen)
+                    .clickable { onOpen(item) }
             ) {
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(context).data(item.uri).crossfade(300).build(),
@@ -379,19 +378,19 @@ private fun DownloadCard(
                 ) {
                     ActionPill(
                         icon = Icons.Default.Description,
-                        onClick = onViewPost,
+                        onClick = { onViewPost(item) },
                         modifier = Modifier
                     )
                     if (displayAuthor != null) {
                         ActionPill(
                         icon = Icons.Default.Person,
-                        onClick = onViewAuthor,
+                        onClick = { onViewAuthor(item) },
                         modifier = Modifier
                     )
                     }
                     ActionPill(
                         icon = Icons.Default.Share,
-                        onClick = onShare,
+                        onClick = { onShare(item) },
                         modifier = Modifier
                     )
                     ActionPill(
@@ -426,7 +425,7 @@ private fun DownloadCard(
                             ActionPill(
                         icon = Icons.Default.Delete,
                         onClick = {
-                                    onDelete()
+                                    onDelete(item)
                                     deleteConfirm = false
                                 },
                         modifier = Modifier
