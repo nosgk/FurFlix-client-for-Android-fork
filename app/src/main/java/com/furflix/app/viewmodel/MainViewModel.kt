@@ -72,6 +72,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _cardStats = MutableStateFlow<Map<String, com.furflix.app.data.model.CardStats>>(emptyMap())
     val cardStats: StateFlow<Map<String, com.furflix.app.data.model.CardStats>> = _cardStats.asStateFlow()
 
+    /** 统计浮层与浏览历史共用一份快照；收藏动作只覆盖计数与标记，展示字段沿用详情解析结果 */
+    private fun cardStatsOf(
+        sub: Submission,
+        favorited: Boolean = sub.isFavorited,
+        favorites: Int = sub.favorites
+    ): com.furflix.app.data.model.CardStats = com.furflix.app.data.model.CardStats(
+        views = sub.views,
+        favorites = favorites,
+        comments = sub.comments,
+        favorited = favorited,
+        title = sub.title,
+        author = sub.author,
+        authorUsername = sub.authorUsername,
+        thumbnailUrl = sub.thumbnailUrl,
+        rating = sub.rating,
+        ratio = sub.thumbnailWidthOnHeightRatio
+    )
+
     private var searchTagsJob: kotlinx.coroutines.Job? = null
 
     fun fetchTagSuggestions(prefix: String) {
@@ -136,12 +154,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // 卡片浮层的数据源与详情页同步更新：乐观写新值，失败回滚后写回原值
             cardStatsCache.put(
                 postId,
-                com.furflix.app.data.model.CardStats(
-                    views = details.views,
-                    favorites = details.favorites + if (addToFavorites) 1 else -1,
-                    comments = details.comments,
-                    favorited = addToFavorites
-                )
+                cardStatsOf(details, favorited = addToFavorites, favorites = details.favorites + if (addToFavorites) 1 else -1)
             )
             try {
                 val success = repository.toggleFavorite(currentFavUrl)
@@ -152,15 +165,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         newMap[postId] = details
                         newMap
                     }
-                    cardStatsCache.put(
-                        postId,
-                        com.furflix.app.data.model.CardStats(
-                            views = details.views,
-                            favorites = details.favorites,
-                            comments = details.comments,
-                            favorited = details.isFavorited
-                        )
-                    )
+                    cardStatsCache.put(postId, cardStatsOf(details))
                 }
             } catch (_: Exception) {
                 _submissionDetails.update { current ->
@@ -168,15 +173,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     newMap[postId] = details
                     newMap
                 }
-                cardStatsCache.put(
-                    postId,
-                    com.furflix.app.data.model.CardStats(
-                        views = details.views,
-                        favorites = details.favorites,
-                        comments = details.comments,
-                        favorited = details.isFavorited
-                    )
-                )
+                cardStatsCache.put(postId, cardStatsOf(details))
             }
             _isTogglingFavorite.value = false
         }
@@ -539,7 +536,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loadSubmission(postId: String) {
-        if (_submissionDetails.value.containsKey(postId)) return
+        _submissionDetails.value[postId]?.let { cached ->
+            // 已在内存：不重复抓取，但仍把浏览历史/统计顶到最新
+            viewModelScope.launch { cardStatsCache.put(postId, cardStatsOf(cached)) }
+            return
+        }
         
         viewModelScope.launch {
             _isLoading.value = true
@@ -552,15 +553,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         newMap[postId] = result
                         newMap
                     }
-                    cardStatsCache.put(
-                        postId,
-                        com.furflix.app.data.model.CardStats(
-                            views = result.views,
-                            favorites = result.favorites,
-                            comments = result.comments,
-                            favorited = result.isFavorited
-                        )
-                    )
+                    cardStatsCache.put(postId, cardStatsOf(result))
                 } else {
                     _errorMessage.value = getApplication<Application>().getString(R.string.error_load_details)
                 }
