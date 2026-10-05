@@ -182,6 +182,8 @@ fun HomeScreen(
     var backPressedTime by remember { mutableLongStateOf(0L) }
     val activity = context as? android.app.Activity
     val exitToastText = stringResource(R.string.exit_press_back_again)
+    // lint LocalContextGetResourceValueCall：资源值在组合层先解析成值，回调只捕获结果
+    val historyRemovedTemplate = stringResource(R.string.toast_history_removed)
     androidx.activity.compose.BackHandler {
         if (System.currentTimeMillis() - backPressedTime < 2000) {
             activity?.finish()
@@ -1177,7 +1179,7 @@ fun HomeScreen(
                                 viewModel.removeHistoryEntries(ids)
                                 android.widget.Toast.makeText(
                                     context,
-                                    context.getString(R.string.toast_history_removed, ids.size),
+                                    historyRemovedTemplate.format(ids.size),
                                     android.widget.Toast.LENGTH_SHORT
                                 ).show()
                             },

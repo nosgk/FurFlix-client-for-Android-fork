@@ -13,8 +13,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     env:
       BUILD_TYPE: ${{ github.event.inputs.build_type || 'release' }}
     steps:
@@ -36,24 +34,13 @@ jobs:
             echo "lintDebug passed"
           else
             echo "::error::lintDebug failed, error lines follow"
-            # 每步注解上限 10 条:取前几条 Error 行做注解,完整清单回写仓库公开可读
+            # 注解每步上限 10 条:优先 lint Error/编译错误行,再补任务失败行
             grep -E "Error: |^e: " /tmp/lint.log | head -6 | while IFS= read -r line; do
               echo "::error::${line:0:260}"
             done
             grep -E "> Task .*FAILED|FAILURE: Build|Lint found" /tmp/lint.log | head -2 | while IFS= read -r line; do
               echo "::error::${line:0:260}"
             done
-            {
-              echo "== matched error lines =="
-              grep -E "Error: |^e: |Lint found|Explanation|WARNING" /tmp/lint.log | head -120 || true
-              echo "== tail of lint.log =="
-              tail -100 /tmp/lint.log | head -c 9000
-            } > lint-errors.txt
-            git config user.name "ci-log-bot"
-            git config user.email "ci-log-bot@users.noreply.github.com"
-            git add lint-errors.txt
-            git commit -m "ci(lint): error excerpt [skip ci]" || true
-            git push origin HEAD:main || echo "push failed"
             exit 1
           fi
 
