@@ -318,7 +318,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _browseSubmissions.value = result
                 // Do not set errorMessage when empty — can happen briefly on startup
             } catch (e: Exception) {
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(
+                    R.string.error_generic, e.message ?: ""
+                )
             }
             _isLoading.value = false
         }
@@ -335,7 +337,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _latestSubmissions.value = result
                 // Do not set errorMessage when empty
             } catch (e: Exception) {
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(
+                    R.string.error_generic, e.message ?: ""
+                )
             }
             _isLoading.value = false
         }
@@ -373,11 +377,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val result = repository.search(query, searchPage, currentFilters)
                 _searchSubmissions.value = result
-                if (result.isEmpty()) {
-                    _errorMessage.value = "No search results found."
-                }
+                // An empty result is the empty state, not an error — the screen
+                // renders its "no results" branch without an error banner.
             } catch (e: Exception) {
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(
+                    R.string.error_generic, e.message ?: ""
+                )
             }
             _isLoading.value = false
         }
@@ -393,10 +398,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val result = repository.getWatchlist(1)
                 _browseSubmissions.value = result // shared with Profile tab
                 if (result.isEmpty()) {
-                    _errorMessage.value = "Watchlist is empty or login required."
+                    _errorMessage.value = getApplication<Application>().getString(R.string.error_watchlist_empty)
                 }
             } catch (e: Exception) {
-                _errorMessage.value = "Error: ${e.message}. You may need to log in."
+                _errorMessage.value = getApplication<Application>().getString(
+                    R.string.error_login_required, e.message ?: ""
+                )
             }
             _isLoading.value = false
         }
@@ -483,10 +490,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         newMap
                     }
                 } else {
-                    _errorMessage.value = "Failed to load submission details."
+                    _errorMessage.value = getApplication<Application>().getString(R.string.error_load_details)
                 }
             } catch (e: Exception) {
-                _errorMessage.value = e.message ?: "An error occurred"
+                _errorMessage.value = e.message
+                    ?: getApplication<Application>().getString(R.string.error_unknown)
             } finally {
                 _isLoading.value = false
             }

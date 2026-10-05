@@ -74,6 +74,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.furflix.app.ui.components.SubmissionCard
+import com.furflix.app.ui.components.EmptyState
 import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.ui.components.GlassmorphicBottomBar
 import com.furflix.app.ui.components.GlassBarTab
@@ -766,25 +767,10 @@ fun HomeScreen(
                                 }
                             }
                         } else if (searchSubmissions.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        Icons.Default.SearchOff,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(64.dp),
-                                        tint = DividerDark
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        text = stringResource(R.string.search_no_results),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = SubtleGray
-                                    )
-                                }
-                            }
+                            EmptyState(
+                                message = stringResource(R.string.search_no_results),
+                                icon = Icons.Default.SearchOff
+                            )
                         } else {
                             if (isMasonry) {
                                 SideEffect { scrollers[2] = { searchStaggeredState.animateScrollToItem(0) } }

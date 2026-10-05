@@ -27,6 +27,11 @@
     <!-- Profile tabs -->
 
     <!-- States -->
+    <string name="error_generic">Error: %s</string>
+    <string name="error_unknown">An error occurred</string>
+    <string name="error_watchlist_empty">Watchlist is empty or login required.</string>
+    <string name="error_login_required">Error: %s. You may need to log in.</string>
+    <string name="error_load_details">Failed to load submission details.</string>
 
     <!-- Species picker -->
 
