@@ -6,6 +6,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.furflix.app.data.model.Submission
@@ -25,6 +26,7 @@ class FurRepository(private val context: Context) {
     private val RECENT_SEARCHES_KEY = stringPreferencesKey("recent_searches")
     private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
     private val VIEW_MODE_KEY = stringPreferencesKey("view_mode")
+    private val GRID_COLUMNS_KEY = intPreferencesKey("grid_columns")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
         private val THEME_ID_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_id")
         private val APP_ICON_KEY = stringPreferencesKey("app_icon")
@@ -234,6 +236,20 @@ class FurRepository(private val context: Context) {
     suspend fun saveViewMode(mode: com.furflix.app.data.model.GalleryViewMode) {
         context.dataStore.edit { prefs ->
             prefs[VIEW_MODE_KEY] = mode.name
+        }
+    }
+
+    /**
+     * 画廊网格列数：0 = 按屏宽自适应（GridCells.Adaptive），2..5 = 固定列数。
+     * 默认 2，与历史上写死的 Fixed(2) 保持一致。
+     */
+    val gridColumnsFlow: kotlinx.coroutines.flow.Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[GRID_COLUMNS_KEY] ?: 2
+    }
+
+    suspend fun saveGridColumns(count: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[GRID_COLUMNS_KEY] = count
         }
     }
 

@@ -52,6 +52,7 @@ fun AppearanceSettingsScreen(
     val themePref by repository.themeFlow.collectAsState(initial = ThemePreference.DEFAULT)
     val appIcon by repository.appIconFlow.collectAsState(initial = AppIcon.DARK)
     val persistedViewMode by repository.viewModeFlow.collectAsState(initial = com.furflix.app.data.model.GalleryViewMode.GRID)
+    val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
     // 乐观覆盖：先本地生效，持久化值回流后对齐（与 HomeScreen 顶栏切换同款）
     var pendingViewMode by remember { mutableStateOf<com.furflix.app.data.model.GalleryViewMode?>(null) }
     val viewMode = pendingViewMode ?: persistedViewMode
@@ -342,6 +343,56 @@ fun AppearanceSettingsScreen(
                                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
                             )
                         }
+                    }
+                }
+            }
+
+            // --- Grid columns (0 = adaptive, 2..5 fixed) ---
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.GridView, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.settings_grid_columns),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_grid_columns_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val columnOptions = listOf(
+                    stringResource(R.string.settings_grid_columns_adaptive) to 0,
+                    "2" to 2,
+                    "3" to 3,
+                    "4" to 4,
+                    "5" to 5
+                )
+                columnOptions.forEach { (name, count) ->
+                    val isSelected = gridColumnsPref == count
+                    val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(bgColor)
+                            .clickable { scope.launch { repository.saveGridColumns(count) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(name, color = textColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     }
                 }
             }

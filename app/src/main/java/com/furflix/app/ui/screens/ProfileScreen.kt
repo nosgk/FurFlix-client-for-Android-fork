@@ -44,6 +44,8 @@ import com.furflix.app.ui.components.CustomTabRow
 import com.furflix.app.ui.components.EmptyState
 import com.furflix.app.ui.components.LoadingMoreFooter
 import com.furflix.app.ui.components.SubmissionCard
+import com.furflix.app.ui.components.galleryGridCells
+import com.furflix.app.ui.components.masonryGridCells
 import com.furflix.app.ui.components.WatchlistGridItem
 import com.furflix.app.ui.components.WatchlistItem
 import com.furflix.app.ui.theme.*
@@ -54,6 +56,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ProfileScreen(
     viewMode: GalleryViewMode,
+    columnsPref: Int = 2,
     onNavigateToUser: (String) -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
@@ -107,6 +110,7 @@ fun ProfileScreen(
                     isLoadingMore = isLoadingMore,
                     errorMessage = errorMessage,
                     viewMode = viewMode,
+                    columnsPref = columnsPref,
                     onNavigateToPost = onNavigateToFavoritesPost,
                     onNavigateToUser = onNavigateToUser,
                     onLoadMore = { viewModel.loadMore() },
@@ -139,6 +143,7 @@ private fun FavoritesContent(
     isLoadingMore: Boolean,
     errorMessage: String?,
     viewMode: GalleryViewMode,
+    columnsPref: Int,
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onLoadMore: () -> Unit = {},
@@ -178,7 +183,7 @@ private fun FavoritesContent(
                         LazyVerticalStaggeredGrid(
                             state = staggeredState,
                             modifier = Modifier.fillMaxSize(),
-                            columns = StaggeredGridCells.Fixed(2),
+                            columns = masonryGridCells(columnsPref),
                             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalItemSpacing = 4.dp
@@ -220,7 +225,7 @@ private fun FavoritesContent(
                     LazyVerticalGrid(
                         state = gridState,
                         modifier = Modifier.fillMaxSize(),
-                        columns = GridCells.Fixed(2),
+                        columns = galleryGridCells(columnsPref, isList = false),
                         contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)

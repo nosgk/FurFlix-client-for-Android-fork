@@ -59,6 +59,10 @@
     <string name="settings_view_masonry">Masonry</string>
     <string name="settings_list_view">List view</string>
     <string name="settings_view_desc">Browse submissions in a grid, masonry, or compact list.</string>
+    <string name="settings_grid_columns">Grid Columns</string>
+    <!-- 0 = adaptive lane count, 2..5 = fixed -->
+    <string name="settings_grid_columns_desc">Lane count for grid and masonry views</string>
+    <string name="settings_grid_columns_adaptive">Auto</string>
     <string name="settings_app_icon">App Icon</string>
 
     <!-- About Developer -->

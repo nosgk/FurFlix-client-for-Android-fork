@@ -29,6 +29,7 @@ import com.furflix.app.ui.screens.InlineFiltersRow
 import com.furflix.app.ui.screens.InlineSearchFilters
 import com.furflix.app.ui.screens.SearchBar
 import com.furflix.app.ui.components.SubmissionCard
+import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.viewmodel.TagSearchViewModel
 import kotlinx.coroutines.launch
 
@@ -49,6 +50,7 @@ fun TagSearchScreen(
     val context = LocalContext.current
     val repository = remember { FurRepository.getInstance(context) }
     val isGrid by repository.isGridFlow.collectAsState(initial = true)
+    val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
 
     Scaffold { paddingValues ->
         Box(
@@ -156,7 +158,7 @@ fun TagSearchScreen(
                 
                 LazyVerticalGrid(
                     modifier = Modifier.fillMaxSize(),
-                    columns = GridCells.Fixed(if (isGrid) 2 else 1),
+                    columns = galleryGridCells(gridColumnsPref, isList = !isGrid),
                     state = gridState,
                     contentPadding = PaddingValues(
                         start = if (isGrid) 6.dp else 12.dp,

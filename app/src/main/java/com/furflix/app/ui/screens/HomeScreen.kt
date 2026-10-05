@@ -75,6 +75,8 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.furflix.app.ui.components.SubmissionCard
+import com.furflix.app.ui.components.galleryGridCells
+import com.furflix.app.ui.components.masonryGridCells
 import com.furflix.app.ui.components.EmptyState
 import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.ui.components.GlassmorphicBottomBar
@@ -147,6 +149,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val repository = remember { FurRepository.getInstance(context) }
     val persistedViewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
+    val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
     // 乐观覆盖：DataStore 落盘→回流的延迟会让切换晚一拍才重绘；先本地生效，
     // 持久化值回流后对齐（与 Downloads 页 isGrid 开关的本地先行做法一致）
     var pendingViewMode by remember { mutableStateOf<GalleryViewMode?>(null) }
@@ -430,7 +433,7 @@ fun HomeScreen(
                                 SideEffect { scrollers[page] = { staggeredState.animateScrollToItem(0) } }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
                                 LazyVerticalStaggeredGrid(
-                                    columns = StaggeredGridCells.Fixed(2),
+                                    columns = masonryGridCells(gridColumnsPref),
                                     state = staggeredState,
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(
@@ -485,7 +488,7 @@ fun HomeScreen(
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
                                 LazyVerticalGrid(
                                     modifier = Modifier.fillMaxSize(),
-                                    columns = GridCells.Fixed(if (isList) 1 else 2),
+                                    columns = galleryGridCells(gridColumnsPref, isList),
                                     state = gridState,
                                     contentPadding = PaddingValues(
                                         start = gridPadding,
@@ -788,7 +791,7 @@ fun HomeScreen(
                                 SideEffect { scrollers[2] = { searchStaggeredState.animateScrollToItem(0) } }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
                                 LazyVerticalStaggeredGrid(
-                                    columns = StaggeredGridCells.Fixed(2),
+                                    columns = masonryGridCells(gridColumnsPref),
                                     state = searchStaggeredState,
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(
@@ -837,7 +840,7 @@ fun HomeScreen(
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
                                 LazyVerticalGrid(
                                     modifier = Modifier.fillMaxSize(),
-                                    columns = GridCells.Fixed(if (isList) 1 else 2),
+                                    columns = galleryGridCells(gridColumnsPref, isList),
                                     state = searchGridState,
                                     contentPadding = PaddingValues(
                                         start = gridPadding,
@@ -885,6 +888,7 @@ fun HomeScreen(
                         }
                         ProfileScreen(
                             viewMode = viewMode,
+                            columnsPref = gridColumnsPref,
                             onNavigateToUser = onNavigateToUser,
                             onNavigateToPost = onNavigateToPost,
                             onNavigateToFavoritesPost = onNavigateToFavoritesPost,
