@@ -1087,8 +1087,11 @@ object FurAffinityScraper {
             .header("Cookie", getCookiesString())
             .header("Referer", "$FA_BASE/")
             .build()
-        val response = httpClient.newCall(request).execute()
-        response.isSuccessful
+        httpClient.newCall(request).execute().use { response ->
+            // 会话过期时 FA 会 302 到 /login/，OkHttp 跟随后状态码仍是 2xx——
+            // 必须复核最终落地 URL，否则收藏被静默判成"成功"
+            response.isSuccessful && !response.request.url.encodedPath.contains("/login/")
+        }
     }
 
     /**

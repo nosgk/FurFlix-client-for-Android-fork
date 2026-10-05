@@ -436,37 +436,97 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _batchFavoriteRunning = MutableStateFlow(false)
 
     /**
-     * 批量收藏：逐帖解析详情（取 favUrl）后复用 toggleFavorite 的乐观更新与
-     * cardStatsCache 回填；串行 + 间隔 300ms 容错 FA 速率。计数为"已发起"口径，
-     * 单帖失败由 toggleFavorite 内部回滚并经错误流提示。
+     * 批量收藏/取消收藏：逐帖确保详情已解析（favUrl 必须来自详情页的 +Fav/-Fav 按钮），
+     * 已达目标状态的帖子跳过（绝不反向操作），网络结果逐项计数。
+     * 不再复用单帖 toggleFavorite 的全局互斥——旧实现里批量循环 300ms 间隔小于一次
+     * 抓详情+收藏的耗时，后续项会被互斥锁静默丢弃却照常计入"已收藏"，正是
+     * "部分作品没收藏上"的根因。串行 + 每次真实网络动作后 300ms 间隔容错 FA 速率。
      */
-    fun batchFavorite(postIds: List<String>) {
+    private fun runBatchFavorite(postIds: List<String>, targetFavorited: Boolean) {
         if (_batchFavoriteRunning.value || postIds.isEmpty()) return
         viewModelScope.launch {
             _batchFavoriteRunning.value = true
-            var issued = 0
+            var succeeded = 0
+            var already = 0
+            var failed = 0
             for (id in postIds) {
                 try {
-                    if (_submissionDetails.value[id] == null) {
-                        repository.getSubmission(id)?.let { sub ->
-                            _submissionDetails.update { it + (id to sub) }
+                    var details = _submissionDetails.value[id]
+                    if (details == null) {
+                        repository.getSubmission(id)?.let { fetched ->
+                            details = fetched
+                            _submissionDetails.update { it + (id to fetched) }
                         }
                     }
-                    if (_submissionDetails.value[id] != null) {
-                        toggleFavorite(id)
-                        issued++
+                    val current = details
+                    if (current == null || current.favUrl.isEmpty()) {
+                        // 自己的作品/受限帖子没有 fav 按钮，只能如实计为失败
+                        failed++
+                    } else if (current.isFavorited == targetFavorited) {
+                        already++
+                    } else {
+                        // fav/unfav 共用同一 CSRF key，方向由 URL 段互换表达
+                        val targetUrl = if (targetFavorited) {
+                            current.favUrl.replace("/unfav/", "/fav/")
+                        } else {
+                            current.favUrl.replace("/fav/", "/unfav/")
+                        }
+                        if (repository.toggleFavorite(targetUrl)) {
+                            succeeded++
+                            // 收藏动作不改变"是否到访"的语义：预热/历史归属原样保留
+                            val wasVisited = _cardStats.value[id]?.visited ?: false
+                            val updated = current.copy(
+                                isFavorited = targetFavorited,
+                                favUrl = targetUrl,
+                                favorites = current.favorites + if (targetFavorited) 1 else -1
+                            )
+                            _submissionDetails.update { it + (id to updated) }
+                            cardStatsCache.put(id, cardStatsOf(updated, visited = wasVisited))
+                        } else {
+                            failed++
+                        }
+                        delay(300)
                     }
-                    kotlinx.coroutines.delay(300)
                 } catch (_: Exception) {
+                    failed++
                 }
             }
             _batchFavoriteRunning.value = false
-            withContext(kotlinx.coroutines.Dispatchers.Main) {
-                Toast.makeText(
-                    getApplication(),
-                    getApplication<Application>().getString(R.string.toast_batch_favorite_done, issued),
-                    Toast.LENGTH_SHORT
-                ).show()
+            val app = getApplication<Application>()
+            val message = when {
+                succeeded > 0 && already > 0 -> app.getString(
+                    if (targetFavorited) R.string.toast_batch_favorite_done_with_already
+                    else R.string.toast_batch_unfavorite_done_with_already,
+                    succeeded, already
+                )
+                succeeded > 0 -> app.getString(
+                    if (targetFavorited) R.string.toast_batch_favorite_done
+                    else R.string.toast_batch_unfavorite_done,
+                    succeeded
+                )
+                already > 0 && failed == 0 -> app.getString(R.string.toast_batch_favorite_already_only, already)
+                failed > 0 -> app.getString(R.string.toast_batch_favorite_failed, failed)
+                else -> null
+            }
+            if (message != null) {
+                Toast.makeText(app, message, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /** 批量收藏：只对未收藏的帖子发 +fav，已收藏的跳过不反操作 */
+    fun batchFavorite(postIds: List<String>) = runBatchFavorite(postIds, targetFavorited = true)
+
+    /** 批量取消收藏（"我的-收藏"栏多选用）：只对已收藏的帖子发 -fav */
+    fun batchUnfavorite(postIds: List<String>) = runBatchFavorite(postIds, targetFavorited = false)
+
+    /** 批量移除浏览历史：visited 置 false（统计浮层保留，仅退出历史栏），供"我的-历史"多选使用 */
+    fun removeHistoryEntries(postIds: List<String>) {
+        if (postIds.isEmpty()) return
+        viewModelScope.launch {
+            val snapshot = _cardStats.value
+            for (id in postIds) {
+                snapshot[id]?.let { cardStatsCache.put(id, it.copy(visited = false)) }
             }
         }
     }

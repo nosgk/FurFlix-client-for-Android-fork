@@ -300,13 +300,25 @@
     <string name="selection_mode_n">Selected %1$d</string>
     <string name="action_select_all">Select all</string>
     <string name="action_batch_favorite">Favorite selected</string>
+    <string name="action_batch_unfavorite">Unfavorite selected</string>
     <string name="action_batch_download">Download selected</string>
+    <string name="action_batch_delete_history">Delete selected history</string>
     <!-- %1$d = queued item count -->
     <string name="toast_batch_download_queued">Added %1$d items to download queue</string>
-    <!-- %1$d = issued favorite count -->
+    <!-- %1$d = favorited count -->
     <string name="toast_batch_favorite_done">Favorited %1$d items</string>
+    <!-- %1$d = favorited count, %2$d = skipped (already favorited) count -->
+    <string name="toast_batch_favorite_done_with_already">Favorited %1$d items (%2$d were already favorited)</string>
+    <!-- %1$d = skipped (already favorited) count -->
+    <string name="toast_batch_favorite_already_only">%1$d items were already favorited</string>
+    <!-- %1$d = unfavorited count -->
+    <string name="toast_batch_unfavorite_done">Unfavorited %1$d items</string>
+    <!-- %1$d = unfavorited count, %2$d = skipped (not favorited) count -->
+    <string name="toast_batch_unfavorite_done_with_already">Unfavorited %1$d items (%2$d were not favorited)</string>
     <!-- %1$d = failed item count -->
     <string name="toast_batch_favorite_failed">%1$d items failed</string>
+    <!-- %1$d = removed history count -->
+    <string name="toast_history_removed">Removed %1$d history items</string>
     <!-- User page gallery folders -->
     <string name="profile_gallery_folders">Gallery folders</string>
     <!-- %1$d = item count -->

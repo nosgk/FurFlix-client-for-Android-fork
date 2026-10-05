@@ -310,13 +310,25 @@
     <string name="selection_mode_n">已选 %1$d 项</string>
     <string name="action_select_all">全选</string>
     <string name="action_batch_favorite">收藏所选</string>
+    <string name="action_batch_unfavorite">取消收藏所选</string>
     <string name="action_batch_download">下载所选</string>
+    <string name="action_batch_delete_history">删除所选历史</string>
     <!-- %1$d = 入队条数 -->
     <string name="toast_batch_download_queued">已将 %1$d 项加入下载队列</string>
-    <!-- %1$d = 已发起收藏条数 -->
+    <!-- %1$d = 成功收藏条数 -->
     <string name="toast_batch_favorite_done">已收藏 %1$d 项</string>
+    <!-- %1$d = 成功收藏条数, %2$d = 跳过(此前已收藏)条数 -->
+    <string name="toast_batch_favorite_done_with_already">已收藏 %1$d 项（%2$d 项此前已收藏）</string>
+    <!-- %1$d = 跳过(此前已收藏)条数 -->
+    <string name="toast_batch_favorite_already_only">%1$d 项均已在收藏中</string>
+    <!-- %1$d = 成功取消收藏条数 -->
+    <string name="toast_batch_unfavorite_done">已取消收藏 %1$d 项</string>
+    <!-- %1$d = 成功取消收藏条数, %2$d = 跳过(本就未收藏)条数 -->
+    <string name="toast_batch_unfavorite_done_with_already">已取消收藏 %1$d 项（%2$d 项本就未收藏）</string>
     <!-- %1$d = 失败条数 -->
     <string name="toast_batch_favorite_failed">%1$d 项失败</string>
+    <!-- %1$d = 删除历史条数 -->
+    <string name="toast_history_removed">已删除 %1$d 条历史</string>
     <!-- 用户页画廊文件夹 -->
     <string name="profile_gallery_folders">画廊文件夹</string>
     <!-- %1$d = 条目数 -->
