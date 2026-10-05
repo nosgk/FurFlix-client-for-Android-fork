@@ -44,4 +44,35 @@ class DynamicThumbnailTest {
         val odd = "https://a.furaffinity.net/someuser.gif"
         assertEquals(odd, DynamicThumbnail(odd).bestThumbnailUrl(500f, 500f))
     }
+
+    @Test
+    fun `data saver caps the tier at 300 for large boxes`() {
+        assertEquals(
+            "https://t.furaffinity.net/66586891@300-1791160058.jpg",
+            DynamicThumbnail(url).bestThumbnailUrl(500f, 416f, DynamicThumbnail.QUALITY_DATA_SAVER)
+        )
+    }
+
+    @Test
+    fun `data saver leaves small boxes at auto behavior`() {
+        assertEquals(
+            "https://t.furaffinity.net/66586891@300-1791160058.jpg",
+            DynamicThumbnail(url).bestThumbnailUrl(280f, 280f, DynamicThumbnail.QUALITY_DATA_SAVER)
+        )
+    }
+
+    @Test
+    fun `high quality always serves the largest tier`() {
+        assertEquals(
+            "https://t.furaffinity.net/66586891@600-1791160058.jpg",
+            DynamicThumbnail(url).bestThumbnailUrl(120f, 90f, DynamicThumbnail.QUALITY_HIGH)
+        )
+    }
+
+    @Test
+    fun `non tier urls are untouched under every quality`() {
+        val odd = "https://a.furaffinity.net/someuser.gif"
+        assertEquals(odd, DynamicThumbnail(odd).bestThumbnailUrl(500f, 500f, DynamicThumbnail.QUALITY_HIGH))
+        assertEquals(odd, DynamicThumbnail(odd).bestThumbnailUrl(500f, 500f, DynamicThumbnail.QUALITY_DATA_SAVER))
+    }
 }

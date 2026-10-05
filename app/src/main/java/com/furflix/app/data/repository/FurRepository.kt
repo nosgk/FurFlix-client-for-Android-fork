@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.furflix.app.data.model.Submission
+import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.data.remote.FurAffinityScraper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -27,6 +28,7 @@ class FurRepository(private val context: Context) {
     private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
     private val VIEW_MODE_KEY = stringPreferencesKey("view_mode")
     private val GRID_COLUMNS_KEY = intPreferencesKey("grid_columns")
+    private val THUMBNAIL_QUALITY_KEY = intPreferencesKey("thumbnail_quality")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
         private val THEME_ID_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_id")
         private val APP_ICON_KEY = stringPreferencesKey("app_icon")
@@ -250,6 +252,20 @@ class FurRepository(private val context: Context) {
     suspend fun saveGridColumns(count: Int) {
         context.dataStore.edit { prefs ->
             prefs[GRID_COLUMNS_KEY] = count
+        }
+    }
+
+    /**
+     * 缩略图清晰度（DynamicThumbnail.QUALITY_AUTO / _DATA_SAVER / _HIGH），
+     * 作用于卡片自身的按物理像素协商与瀑布流预取。
+     */
+    val thumbnailQualityFlow: kotlinx.coroutines.flow.Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[THUMBNAIL_QUALITY_KEY] ?: DynamicThumbnail.QUALITY_AUTO
+    }
+
+    suspend fun saveThumbnailQuality(quality: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[THUMBNAIL_QUALITY_KEY] = quality
         }
     }
 

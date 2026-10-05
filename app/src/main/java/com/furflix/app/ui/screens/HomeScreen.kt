@@ -56,6 +56,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.text.KeyboardActions
@@ -79,6 +80,7 @@ import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.ui.components.masonryGridCells
 import com.furflix.app.ui.components.EmptyState
 import com.furflix.app.ui.components.ImageLoaderFactory
+import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.components.GlassmorphicBottomBar
 import com.furflix.app.ui.components.GlassBarTab
 import com.furflix.app.ui.components.FurryTabIcons
@@ -150,6 +152,10 @@ fun HomeScreen(
     val repository = remember { FurRepository.getInstance(context) }
     val persistedViewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
+    // 预取用的自适应列数估算；卡片自己还会按实测宽度协商，这里只是把该暖的档位暖对
+    val estimatedMasonryLanes = if (gridColumnsPref <= 0) {
+        (LocalConfiguration.current.screenWidthDp / 160).coerceIn(2, 5)
+    } else gridColumnsPref
     // 乐观覆盖：DataStore 落盘→回流的延迟会让切换晚一拍才重绘；先本地生效，
     // 持久化值回流后对齐（与 Downloads 页 isGrid 开关的本地先行做法一致）
     var pendingViewMode by remember { mutableStateOf<GalleryViewMode?>(null) }
@@ -480,7 +486,8 @@ fun HomeScreen(
 
                                 MasonryPrefetchEffect(
                                     submissions = submissions,
-                                    active = selectedTab == page
+                                    active = selectedTab == page,
+                                    laneCount = estimatedMasonryLanes
                                 )
                             } else {
                                 val gridState = rememberLazyGridState()
@@ -833,7 +840,8 @@ fun HomeScreen(
                                 }
                                 MasonryPrefetchEffect(
                                     submissions = searchSubmissions,
-                                    active = selectedTab == 2
+                                    active = selectedTab == 2,
+                                    laneCount = estimatedMasonryLanes
                                 )
                             } else {
                                 SideEffect { scrollers[2] = { searchGridState.animateScrollToItem(0) } }
@@ -1648,10 +1656,10 @@ fun NsfwTogglePill(
 
 
 /**
- * Warms Coil's caches for the first screenful of masonry cards. Masonry is the
- * only mode whose image URLs differ from what the cards request themselves
- * (tier-negotiated thumbnails), so prefetching elsewhere would just duplicate
- * in-flight requests. Runs only for the selected tab: the HorizontalPager
+ * Warms Coil's caches for the first screenful of masonry cards before they
+ * compose: cards negotiate their own CDN tier from the measured lane width,
+ * this pre-negotiates from an estimate of the same lane so the warm URLs hit
+ * the same cache keys. Runs only for the selected tab: the HorizontalPager
  * pre-composes the adjacent page, which would otherwise double the traffic.
  * Coil 3 dropped the request-priority API, so "first screen first" is
  * expressed by executing the first three requests before enqueueing the rest.
@@ -1659,20 +1667,26 @@ fun NsfwTogglePill(
 @Composable
 private fun MasonryPrefetchEffect(
     submissions: List<Submission>,
-    active: Boolean
+    active: Boolean,
+    laneCount: Int
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    LaunchedEffect(submissions, active) {
+    val quality = LocalThumbnailQuality.current
+    LaunchedEffect(submissions, active, laneCount, quality) {
         if (!active || submissions.isEmpty()) return@LaunchedEffect
         val dm = context.resources.displayMetrics
-        val laneWidthPx = ((dm.widthPixels - with(density) { 16.dp.toPx() }) / 2f).coerceAtLeast(200f)
+        val lanes = laneCount.coerceAtLeast(1)
+        val laneWidthPx = (
+            dm.widthPixels - with(density) { 16.dp.toPx() } -
+                with(density) { 4.dp.toPx() } * (lanes - 1)
+            ).coerceAtLeast(400f) / lanes
         val loader = ImageLoaderFactory.getInstance(context)
         val requests = submissions.take(24).mapNotNull { sub ->
             val ratio = sub.thumbnailWidthOnHeightRatio
             if (ratio <= 0f || sub.thumbnailUrl.isEmpty()) return@mapNotNull null
             val heightPx = laneWidthPx / ratio
-            val negotiated = DynamicThumbnail(sub.thumbnailUrl).bestThumbnailUrl(laneWidthPx, heightPx)
+            val negotiated = DynamicThumbnail(sub.thumbnailUrl).bestThumbnailUrl(laneWidthPx, heightPx, quality)
             ImageRequest.Builder(context)
                 .data(negotiated)
                 .size(laneWidthPx.toInt(), heightPx.toInt())

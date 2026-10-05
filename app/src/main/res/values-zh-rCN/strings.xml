@@ -67,6 +67,12 @@
     <!-- 0 = 按屏宽自适应,2..5 = 固定列数 -->
     <string name="settings_grid_columns_desc">网格与瀑布流视图的列数</string>
     <string name="settings_grid_columns_adaptive">自适应</string>
+    <string name="settings_thumbnail_quality">缩略图清晰度</string>
+    <!-- FA CDN 提供 200-600 五档;自动按显示尺寸协商档位 -->
+    <string name="settings_thumbnail_quality_desc">档位越高越清晰,消耗流量也越多</string>
+    <string name="settings_thumb_quality_auto">自动</string>
+    <string name="settings_thumb_quality_save">省流量</string>
+    <string name="settings_thumb_quality_high">高清</string>
     <string name="settings_app_icon">应用图标</string>
 
     <!-- About Developer -->

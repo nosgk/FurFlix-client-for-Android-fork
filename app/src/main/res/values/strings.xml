@@ -63,6 +63,12 @@
     <!-- 0 = adaptive lane count, 2..5 = fixed -->
     <string name="settings_grid_columns_desc">Lane count for grid and masonry views</string>
     <string name="settings_grid_columns_adaptive">Auto</string>
+    <string name="settings_thumbnail_quality">Thumbnail Quality</string>
+    <!-- FA CDN serves tiers 200-600; auto negotiates by displayed size -->
+    <string name="settings_thumbnail_quality_desc">Higher tiers are sharper but heavier on data</string>
+    <string name="settings_thumb_quality_auto">Auto</string>
+    <string name="settings_thumb_quality_save">Data saver</string>
+    <string name="settings_thumb_quality_high">High</string>
     <string name="settings_app_icon">App Icon</string>
 
     <!-- About Developer -->

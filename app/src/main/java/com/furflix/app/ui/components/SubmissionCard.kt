@@ -26,12 +26,14 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.furflix.app.data.model.Submission
+import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.ui.theme.*
 
 @Composable
@@ -69,14 +71,22 @@ fun SubmissionCard(
                 compact -> 1f
                 else -> 4f / 3f
             }
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(displayRatio)
             ) {
+                // 卡片按自身物理像素宽度协商 CDN 档位（清晰度偏好经 LocalThumbnailQuality
+                // 注入），与 MasonryPrefetchEffect 同源，预取命中同一缓存键。
+                val boxWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
+                val quality = LocalThumbnailQuality.current
+                val displayUrl = remember(submission.thumbnailUrl, boxWidthPx, quality) {
+                    DynamicThumbnail(submission.thumbnailUrl)
+                        .bestThumbnailUrl(boxWidthPx, boxWidthPx / displayRatio, quality)
+                }
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(submission.thumbnailUrl)
+                        .data(displayUrl)
                         .crossfade(300)
                         .build(),
                     imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),

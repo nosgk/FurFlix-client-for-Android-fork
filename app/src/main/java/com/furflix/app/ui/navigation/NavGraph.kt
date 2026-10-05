@@ -1,13 +1,20 @@
 package com.furflix.app.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.furflix.app.data.remote.DynamicThumbnail
+import com.furflix.app.data.repository.FurRepository
+import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.screens.*
 import com.furflix.app.viewmodel.MainViewModel
 
@@ -35,10 +42,16 @@ fun FurFlixNavGraph() {
     val mainViewModel: MainViewModel = viewModel()
     val watchlistViewModel: com.furflix.app.viewmodel.WatchlistViewModel = viewModel()
 
-    NavHost(
-        navController = navController,
-        startDestination = Routes.HOME
-    ) {
+    // 缩略图清晰度偏好全树注入一次，卡片与预取经 LocalThumbnailQuality 读取
+    val appContext = LocalContext.current.applicationContext
+    val qualityFlow = remember { FurRepository.getInstance(appContext).thumbnailQualityFlow }
+    val thumbnailQuality by qualityFlow.collectAsState(initial = DynamicThumbnail.QUALITY_AUTO)
+
+    CompositionLocalProvider(LocalThumbnailQuality provides thumbnailQuality) {
+        NavHost(
+            navController = navController,
+            startDestination = Routes.HOME
+        ) {
         composable(Routes.HOME) {
             HomeScreen(
                 onNavigateToPost = { postId -> navController.navigate(Routes.postDetail(postId, "main")) },
@@ -210,6 +223,7 @@ fun FurFlixNavGraph() {
                 onNavigateToPost = { postId -> navController.navigate(Routes.postDetail(postId, "tag_${tag.replace("@keywords ", "")}")) },
                 onNavigateToUser = { user -> navController.navigate(Routes.userProfile(user)) }
             )
+        }
         }
     }
 }

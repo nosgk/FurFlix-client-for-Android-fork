@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,6 +54,7 @@ fun AppearanceSettingsScreen(
     val appIcon by repository.appIconFlow.collectAsState(initial = AppIcon.DARK)
     val persistedViewMode by repository.viewModeFlow.collectAsState(initial = com.furflix.app.data.model.GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
+    val thumbnailQuality by repository.thumbnailQualityFlow.collectAsState(initial = 0)
     // 乐观覆盖：先本地生效，持久化值回流后对齐（与 HomeScreen 顶栏切换同款）
     var pendingViewMode by remember { mutableStateOf<com.furflix.app.data.model.GalleryViewMode?>(null) }
     val viewMode = pendingViewMode ?: persistedViewMode
@@ -390,6 +392,54 @@ fun AppearanceSettingsScreen(
                             .clip(RoundedCornerShape(24.dp))
                             .background(bgColor)
                             .clickable { scope.launch { repository.saveGridColumns(count) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(name, color = textColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // --- Thumbnail quality (0 auto / 1 data saver / 2 high) ---
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.settings_thumbnail_quality),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_thumbnail_quality_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val qualityOptions = listOf(
+                    stringResource(R.string.settings_thumb_quality_auto) to 0,
+                    stringResource(R.string.settings_thumb_quality_save) to 1,
+                    stringResource(R.string.settings_thumb_quality_high) to 2
+                )
+                qualityOptions.forEach { (name, quality) ->
+                    val isSelected = thumbnailQuality == quality
+                    val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(bgColor)
+                            .clickable { scope.launch { repository.saveThumbnailQuality(quality) } },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(name, color = textColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
