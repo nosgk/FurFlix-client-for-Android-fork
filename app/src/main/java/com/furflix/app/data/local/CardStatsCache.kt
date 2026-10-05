@@ -51,10 +51,13 @@ class CardStatsCache private constructor(private val context: Context) {
     companion object {
         private val STORAGE_KEY = stringPreferencesKey("card_stats")
 
-        /** 400 条 ≈ 单键 ~30KB，对 DataStore 足够轻 */
-        const val MAX_ENTRIES = 400
+        /**
+         * 800 条 ≈ 单键 ~60KB，对 DataStore 足够轻。统计预热全面铺开后条目流速
+         * 远高于从前，靠下面的"预热条目先淘汰"策略保护 visited 历史条目。
+         */
+        const val MAX_ENTRIES = 800
 
-        /** 命中即挪到末尾（最新），超限从最旧端淘汰 */
+        /** 命中即挪到末尾（最新）；超限优先淘汰未到访的预热条目，visited 历史最后淘汰 */
         fun upsert(
             existing: Map<String, CardStats>,
             id: String,
@@ -65,8 +68,10 @@ class CardStatsCache private constructor(private val context: Context) {
             ordered.remove(id)
             ordered[id] = stats
             while (ordered.size > limit) {
-                val oldest = ordered.keys.firstOrNull() ?: break
-                ordered.remove(oldest)
+                val victim = ordered.entries.firstOrNull { !it.value.visited }?.key
+                    ?: ordered.keys.firstOrNull()
+                    ?: break
+                ordered.remove(victim)
             }
             return ordered
         }

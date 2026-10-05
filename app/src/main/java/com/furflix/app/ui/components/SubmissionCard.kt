@@ -250,7 +250,8 @@ fun SubmissionCard(
                 }
 
                 // Stats overlay — bottom-end on the scrim; heart goes pink when
-                // the submission is locally known to be favorited.
+                // the submission is locally known to be favorited. A file-type
+                // badge (ext, falling back to FA's type label) leads the row.
                 if (showStats) {
                     val statStyle = MaterialTheme.typography.labelSmall.copy(
                         shadow = Shadow(
@@ -267,6 +268,23 @@ fun SubmissionCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val favorited = forceFavorited || (stats?.favorited ?: false)
+                        // 文件类型徽标：扩展名优先（JPG/GIF/SWF/TXT/MP3…），无后缀回落 FA Type 文本
+                        stats?.let { s ->
+                            val typeLabel = s.fileExt.ifEmpty { s.fileType }.uppercase().take(6)
+                            if (typeLabel.isNotEmpty()) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color.Black.copy(alpha = 0.45f)
+                                ) {
+                                    Text(
+                                        text = typeLabel,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f)
+                                    )
+                                }
+                            }
+                        }
                         Icon(
                             imageVector = Icons.Default.Favorite,
                             contentDescription = null,
@@ -274,7 +292,7 @@ fun SubmissionCard(
                             tint = if (favorited) Pink else Color.White.copy(alpha = 0.9f)
                         )
                         if (stats != null) {
-                            Text(formatCount(stats.favorites), style = statStyle, color = Color.White)
+                            Text(formatCount(stats.favorites), style = statStyle, color = if (favorited) Pink else Color.White)
                             Icon(
                                 imageVector = Icons.Default.Visibility,
                                 contentDescription = null,

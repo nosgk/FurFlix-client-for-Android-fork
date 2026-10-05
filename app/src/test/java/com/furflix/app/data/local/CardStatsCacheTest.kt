@@ -30,4 +30,26 @@ class CardStatsCacheTest {
         assertEquals(1, map.size)
         assertEquals(9, map["a"]!!.views)
     }
+
+    @Test
+    fun `upsert evicts unvisited warm entries before visited history`() {
+        // 统计预热全面铺开后条目流速高：未到访的预热条目先淘汰，保护浏览历史
+        var map = mapOf(
+            "old-visited" to CardStats(views = 1, visited = true),
+            "warm-a" to CardStats(views = 2, visited = false),
+            "warm-b" to CardStats(views = 3, visited = false)
+        )
+        map = CardStatsCache.upsert(map, "new", CardStats(views = 4, visited = true), limit = 3)
+        assertEquals(listOf("old-visited", "warm-b", "new"), map.keys.toList())
+    }
+
+    @Test
+    fun `upsert falls back to oldest eviction when everything is visited`() {
+        var map = mapOf(
+            "a" to CardStats(views = 1, visited = true),
+            "b" to CardStats(views = 2, visited = true)
+        )
+        map = CardStatsCache.upsert(map, "c", CardStats(views = 3, visited = true), limit = 2)
+        assertEquals(listOf("b", "c"), map.keys.toList())
+    }
 }

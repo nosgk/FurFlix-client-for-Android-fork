@@ -28,6 +28,8 @@ data class Submission(
     val tags: List<String> = emptyList(),
     val fileUrl: String = "",
     val fileName: String = "",
+    // 小写扩展名，从原图/下载链接截取（解析不出时为空串）；卡片类型徽标数据源之一
+    val fileExt: String = "",
     val resolution: String = "",
     val fileSize: String = "",
     val fileType: String = "",

@@ -765,6 +765,21 @@ object FurAffinityScraper {
             if (fileUrl.isNotEmpty() && !fileUrl.startsWith("http")) fileUrl = "$FA_BASE$fileUrl"
         }
 
+        // 文件类型徽标数据：扩展名从下载链接/原图 URL 截取（仅接受 1-5 位小写字母数字，
+        // 防止把 CDN 路径里的句点误当扩展名）；fileName 供下载器与阅读器使用
+        fun extFromUrl(url: String): String {
+            if (url.isEmpty()) return ""
+            val path = url.substringBefore('?').substringBefore('#')
+            val ext = path.substringAfterLast('.', "").lowercase()
+            return if (Regex("^[a-z0-9]{1,5}$").matches(ext)) ext else ""
+        }
+        val fileExt = extFromUrl(fileUrl).ifEmpty { extFromUrl(fullImageUrl) }
+        val fileName = fileUrl.substringBefore('?').substringBefore('#')
+            .substringAfterLast('/')
+            .takeIf { it.contains('.') }
+            ?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+            ?: ""
+
         var resolution = ""
         var fileSize = ""
         var fileType = ""
@@ -866,6 +881,8 @@ object FurAffinityScraper {
             date = date,
             tags = tags,
             fileUrl = fileUrl,
+            fileName = fileName,
+            fileExt = fileExt,
             resolution = resolution,
             fileSize = fileSize,
             fileType = fileType,

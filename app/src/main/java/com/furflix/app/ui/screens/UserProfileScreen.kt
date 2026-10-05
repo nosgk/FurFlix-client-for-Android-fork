@@ -134,6 +134,13 @@ fun UserProfileScreen(
     val cardStats by remember {
         com.furflix.app.data.local.CardStatsCache.getInstance(context).flow
     }.collectAsState(initial = emptyMap())
+    // 画廊卡片统计浮层预热：列表新增条目静默回填三项统计与文件类型徽标
+    // （共享预热器进程级去重+限速；顺带落详情缓存，点进详情免二次抓取）
+    LaunchedEffect(submissions) {
+        if (submissions.isNotEmpty()) {
+            mainViewModel.prefetchSubmissionStats(submissions.map { it.id })
+        }
+    }
     val watchlistBlur by repository.watchlistBannerBlurFlow.collectAsState(initial = 0f)
     val bannerSource by repository.watchlistBannerSourceFlow.collectAsState(
         initial = FurRepository.WATCHLIST_BANNER_SOURCE_BANNER

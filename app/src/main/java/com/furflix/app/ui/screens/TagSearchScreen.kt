@@ -71,6 +71,13 @@ fun TagSearchScreen(
     val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
 
+    // 画廊卡片统计浮层预热：列表新增条目静默回填三项统计与文件类型徽标（共享预热器）
+    LaunchedEffect(submissions) {
+        if (submissions.isNotEmpty()) {
+            mainViewModel.prefetchSubmissionStats(submissions.map { it.id })
+        }
+    }
+
     // 多选批量（与首页/用户页同一 SelectionStore；source 与详情页导航的 tag_ 前缀对齐）
     val selection by com.furflix.app.data.selection.SelectionStore.state.collectAsState()
     val pageSource = "tag_$tag"

@@ -153,6 +153,12 @@ fun ProfileScreen(
         }.asReversed()
     }
 
+    // 收藏栏统计预热：新增条目投喂共享预热器（经 onWarmStats → MainViewModel），
+    // 三项统计与文件类型徽标随后点亮（FA 列表页 HTML 本身不含这些数字）
+    LaunchedEffect(favoritesList) {
+        if (favoritesList.isNotEmpty()) onWarmStats(favoritesList.map { it.id })
+    }
+
 
     val topTabs = listOf(
         stringResource(R.string.profile_favorites),

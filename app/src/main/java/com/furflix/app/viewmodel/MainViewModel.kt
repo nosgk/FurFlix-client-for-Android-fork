@@ -18,8 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -70,25 +68,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * 统计浮层与浏览历史共用一份快照；收藏动作只覆盖计数与标记，展示字段沿用详情解析结果。
-     * visited 仅由真实到访（详情页加载）置 true，统计预热默认 false——浏览历史不收录预热条目。
+     * 字段映射收敛在 CardStats.of（与共享预热器同源），visited 仅由真实到访置 true。
      */
     private fun cardStatsOf(
         sub: Submission,
         favorited: Boolean = sub.isFavorited,
         favorites: Int = sub.favorites,
         visited: Boolean = false
-    ): com.furflix.app.data.model.CardStats = com.furflix.app.data.model.CardStats(
-        views = sub.views,
-        favorites = favorites,
-        comments = sub.comments,
+    ): com.furflix.app.data.model.CardStats = com.furflix.app.data.model.CardStats.of(
+        sub,
+        visited = visited,
         favorited = favorited,
-        title = sub.title,
-        author = sub.author,
-        authorUsername = sub.authorUsername,
-        thumbnailUrl = sub.thumbnailUrl,
-        rating = sub.rating,
-        ratio = sub.thumbnailWidthOnHeightRatio,
-        visited = visited
+        favorites = favorites
     )
 
     private var searchTagsJob: kotlinx.coroutines.Job? = null
@@ -201,32 +192,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { cardStatsCache.clear() }
     }
 
-    // 作者画廊等场景的可见块统计预热：静默抓详情并回填缓存，不触碰
-    // isLoading/errorMessage，避免打断详情页的加载态
-    private val statsPrefetchMutex = Mutex()
-    private val statsPrefetchAttempted = mutableSetOf<String>()
-
+    // 各画廊列表页通用的统计预热：走共享预热器（去重+串行限速），回填缓存并顺带
+    // 落详情缓存（之后点进详情免二次抓取）；不触碰 isLoading/errorMessage
     fun prefetchSubmissionStats(ids: List<String>) {
-        val fresh = ids.filter { it.isNotEmpty() && statsPrefetchAttempted.add(it) }
-        if (fresh.isEmpty()) return
+        if (ids.isEmpty()) return
         viewModelScope.launch {
-            statsPrefetchMutex.withLock {
-                for (id in fresh) {
-                    if (_submissionDetails.value.containsKey(id)) continue
-                    try {
-                        val result = repository.getSubmission(id)
-                        if (result != null) {
-                            _submissionDetails.update { current ->
-                                val newMap = current.toMutableMap()
-                                newMap[id] = result
-                                newMap
-                            }
-                            cardStatsCache.put(id, cardStatsOf(result))
-                        }
-                    } catch (_: Exception) {
-                    }
-                    delay(150)
-                }
+            com.furflix.app.data.local.CardStatsPrefetcher.prefetch(
+                getApplication(),
+                ids
+            ) { id, sub ->
+                _submissionDetails.update { it + (id to sub) }
             }
         }
     }
@@ -404,6 +379,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val result = repository.getBrowse(browsePage, _searchFilters.value)
                 _browseSubmissions.value = result
+                // 列表页 HTML 不带统计：整页投喂预热，卡片浮层的数字/类型徽标随后点亮
+                prefetchSubmissionStats(result.map { it.id })
                 // Do not set errorMessage when empty — can happen briefly on startup
             } catch (e: Exception) {
                 _errorMessage.value = getApplication<Application>().getString(
@@ -423,6 +400,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val result = repository.getLatest(latestPage)
                 _latestSubmissions.value = result
+                prefetchSubmissionStats(result.map { it.id })
                 // Do not set errorMessage when empty
             } catch (e: Exception) {
                 _errorMessage.value = getApplication<Application>().getString(
@@ -622,6 +600,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val result = repository.search(query, searchPage, currentFilters)
                 _searchSubmissions.value = result
+                prefetchSubmissionStats(result.map { it.id })
                 // An empty result is the empty state, not an error — the screen
                 // renders its "no results" branch without an error banner.
             } catch (e: Exception) {
@@ -694,12 +673,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         TAB_BROWSE -> {
                             val unique = result.filter { r -> _browseSubmissions.value.none { it.id == r.id } }
                             browseHasMore = unique.isNotEmpty()
-                            if (unique.isEmpty()) browsePage-- else _browseSubmissions.value = _browseSubmissions.value + unique
+                            if (unique.isNotEmpty()) {
+                                _browseSubmissions.value = _browseSubmissions.value + unique
+                                prefetchSubmissionStats(unique.map { it.id })
+                            }
                         }
                         TAB_LATEST -> {
                             val unique = result.filter { r -> _latestSubmissions.value.none { it.id == r.id } }
                             latestHasMore = unique.isNotEmpty()
-                            if (unique.isEmpty()) latestPage-- else _latestSubmissions.value = _latestSubmissions.value + unique
+                            if (unique.isNotEmpty()) {
+                                _latestSubmissions.value = _latestSubmissions.value + unique
+                                prefetchSubmissionStats(unique.map { it.id })
+                            }
                         }
                     TAB_SEARCH -> {
                         val unique = result.filter { r -> _searchSubmissions.value.none { it.id == r.id } }
@@ -707,7 +692,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         // site has no more to give, so don't burn one more request
                         // just to learn that.
                         searchHasMore = result.size >= com.furflix.app.data.SEARCH_PAGE_SIZE && unique.isNotEmpty()
-                        if (unique.isEmpty()) searchPage-- else _searchSubmissions.value = _searchSubmissions.value + unique
+                        if (unique.isNotEmpty()) {
+                            _searchSubmissions.value = _searchSubmissions.value + unique
+                            prefetchSubmissionStats(unique.map { it.id })
+                        }
                     }
                     }
                 }
