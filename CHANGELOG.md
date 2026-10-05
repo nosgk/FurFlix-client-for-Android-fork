@@ -49,6 +49,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   direct selection of every tier FA's CDN serves (200/300/320/400/600px),
   labeled with pixel values; stored legacy values migrate to tiers
   300/600 and the negotiator falls back to auto for unknown values.
+- **Gallery stats for everything visible**: author-gallery tiles warm their
+  stats as they scroll into view (serial, rate-limited detail prefetch that
+  backfills the cache silently), so the overlay is no longer limited to
+  previously seen submissions.
+- **History & watchlist upgrades**: the viewing-history tab gains the shared
+  gallery view modes (grid/masonry/list) and pull-to-refresh via a reusable
+  `PawPullRefreshBox` (the HomeScreen pattern with fresh-callback safety);
+  the watchlist tab gets pull-to-refresh too, and its user cards show each
+  user's actual FA profile banner as the card background (per-visible-card
+  profile prefetch, deduped per session).
+- **Thread connectors track bilingual rows**: comment avatars pin to the row
+  top so the elbow geometry stays valid when a bilingual translation expands
+  the body; each row type passes its real top padding to the connector math
+  (fixes the folded-row anchor drift), and the highlight pulse no longer
+  paints over the lines.
 - **Online translation** (opt-in, Settings → General → Translation): on-demand
   and auto translation of post descriptions (HTML-preserving for capable
   providers), tags, comments and user bios. Five built-in providers —
