@@ -53,7 +53,7 @@ object ImageLoadProgress {
 }
 
 /**
- * 只包装图片响应（本 client 仅供 Coil 使用，GET + image/* 即图片请求）；
+ * 只包装图片响应（本 client 仅供 Coil 使用，GET 且 Content-Type 为 image 开头即图片请求）；
  * 回调按 120ms 节流、600ms 滑窗测速，与下载任务共用 [ProgressResponseBody]。
  */
 class ImageLoadProgressInterceptor : Interceptor {

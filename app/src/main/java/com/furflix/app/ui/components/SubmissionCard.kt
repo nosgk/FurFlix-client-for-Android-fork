@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -27,11 +28,13 @@ import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.furflix.app.R
 import com.furflix.app.data.model.CardStats
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.remote.DynamicThumbnail
@@ -89,9 +92,11 @@ fun SubmissionCard(
                 }
                 // 统计浮层只对本地已知的帖子显示（详情页回填）；收藏 tab 整页实心心形
                 val showStats = stats != null || forceFavorited
+                // 失败自动重试 3 次；耗尽后小浮层显示错误码与重试
+                val retryState = rememberRetryImageState(displayUrl)
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(displayUrl)
+                        .data(retryState.effectiveUrl)
                         .crossfade(300)
                         .build(),
                     imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
@@ -103,9 +108,48 @@ fun SubmissionCard(
                     placeholder = ColorPainter(DarkSurfaceVariant),
                     error = ColorPainter(DarkSurfaceVariant),
                     onLoading = { imageLoaded = false },
-                    onSuccess = { imageLoaded = true },
-                    onError = { imageLoaded = true }
+                    onSuccess = {
+                        retryState.onSuccess()
+                        imageLoaded = true
+                    },
+                    onError = { errorState ->
+                        retryState.onError(errorState.result.throwable)
+                        if (retryState.exhausted) imageLoaded = true
+                    }
                 )
+                RetryEffect(retryState)
+                if (retryState.exhausted) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(cardShape)
+                            .background(Color.Black.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.ErrorOutline,
+                                contentDescription = null,
+                                tint = Color(0xFFFF5252),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                describeError(retryState.lastError),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                maxLines = 2,
+                                textAlign = TextAlign.Center
+                            )
+                            TextButton(
+                                onClick = { retryState.retry() },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
+                                Text(stringResource(R.string.downloads_retry), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
 
                 if (!imageLoaded) {
                     Box(

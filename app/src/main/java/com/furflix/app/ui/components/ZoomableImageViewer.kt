@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -31,9 +30,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import coil3.compose.SubcomposeAsyncImage
-import coil3.request.ImageRequest
-import coil3.request.crossfade
 import com.furflix.app.R
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.FA_Accent
@@ -91,12 +87,9 @@ fun ZoomableImageViewer(
                 }
             }
     ) {
-        SubcomposeAsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(imageUrl)
-                .crossfade(200)
-                .build(),
-            imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
+        val retryState = rememberRetryImageState(imageUrl)
+        RetrySubcomposeAsyncImage(
+            state = retryState,
             contentDescription = stringResource(R.string.cd_artwork),
             contentScale = ContentScale.Fit,
             modifier = Modifier
@@ -112,11 +105,15 @@ fun ZoomableImageViewer(
                     modifier = Modifier.fillMaxSize().background(DarkSurfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(
-                        color = FA_Accent,
-                        strokeWidth = 2.dp
-                    )
+                    LoadProgressChip(url = imageUrl, modifier = Modifier)
                 }
+            },
+            errorContent = {
+                DefaultImageErrorContent(
+                    errorText = describeError(retryState.lastError),
+                    onRetry = { retryState.retry() },
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         )
 

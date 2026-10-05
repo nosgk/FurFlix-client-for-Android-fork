@@ -38,9 +38,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.SubcomposeAsyncImage
-import coil3.request.ImageRequest
-import coil3.request.crossfade
 import com.furflix.app.data.download.DownloadManager
 import com.furflix.app.data.download.DownloadStatus
 import com.furflix.app.data.download.DownloadTask
@@ -49,7 +46,8 @@ import com.furflix.app.data.local.DownloadedItem
 import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.HazeTopAppBar
-import com.furflix.app.ui.components.ImageLoaderFactory
+import com.furflix.app.ui.components.RetrySubcomposeAsyncImage
+import com.furflix.app.ui.components.rememberRetryImageState
 import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.ui.components.masonryGridCells
 import com.furflix.app.ui.theme.*
@@ -360,9 +358,9 @@ private fun DownloadCard(
                     .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
                     .clickable { onOpen(item) }
             ) {
-                SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(context).data(item.uri).crossfade(300).build(),
-                    imageLoader = ImageLoaderFactory.getInstance(context),
+                val retryState = rememberRetryImageState(item.uri.toString())
+                RetrySubcomposeAsyncImage(
+                    state = retryState,
                     contentDescription = stringResource(R.string.cd_downloaded_image),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()

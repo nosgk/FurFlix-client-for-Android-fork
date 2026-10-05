@@ -87,6 +87,7 @@ import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.screens.GlassActionBar
 import com.furflix.app.ui.screens.GlassActionItem
 import com.furflix.app.ui.components.Particle
+import com.furflix.app.ui.components.ProgressiveImageContent
 import com.furflix.app.ui.components.HazeTopAppBar
 import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.data.local.DownloadHelper
@@ -186,6 +187,9 @@ fun PostDetailScreen(
         }
 
         val submission = submissionDetailsMap[currentPostId]
+        // 列表条目携带的真实缩略图 URL（卡片已加载，可作详情页占位）
+        val listThumbnailUrl = effectiveSubmissions.getOrNull(page)
+            ?.thumbnailUrl?.takeIf { it.isNotEmpty() }
         val hazeState = remember { HazeState() }
         val scrollState = rememberScrollState()
         var showZoom by remember { mutableStateOf(false) }
@@ -363,6 +367,7 @@ fun PostDetailScreen(
                         Row(modifier = Modifier.weight(1f)) {
                             TwoPaneHeroImage(
                                 sub = sub,
+                                placeholderUrl = listThumbnailUrl,
                                 modifier = Modifier
                                     .weight(detailSplit.toFloat())
                                     .fillMaxHeight(),
@@ -381,7 +386,7 @@ fun PostDetailScreen(
                                 .verticalScroll(scrollState)
                         ) {
                             // ── Hero image ──────────────────────────────────────
-                            HeroImage(sub, onImageClick = { showZoom = true })
+                            HeroImage(sub, placeholderUrl = listThumbnailUrl, onImageClick = { showZoom = true })
                             detailBody(Modifier)
                         }
                     }
@@ -509,47 +514,21 @@ fun PostDetailScreen(
 @Composable
 private fun TwoPaneHeroImage(
     sub: Submission,
+    placeholderUrl: String?,
     modifier: Modifier = Modifier,
     onImageClick: () -> Unit = {}
 ) {
     Box(modifier = modifier.background(DarkBackground)) {
         if (sub.fullImageUrl.isNotEmpty()) {
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(sub.fullImageUrl)
-                    .crossfade(300)
-                    .build(),
-                imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
+            ProgressiveImageContent(
+                fullUrl = sub.fullImageUrl,
+                listThumbnailUrl = placeholderUrl,
+                modifier = Modifier.fillMaxSize(),
                 contentDescription = sub.title,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(onClick = onImageClick),
                 contentScale = ContentScale.Fit,
-                loading = {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(28.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                            strokeWidth = 2.dp
-                        )
-                    }
-                },
-                error = {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.BrokenImage,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
+                ratio = sub.thumbnailWidthOnHeightRatio,
+                fixedSized = true,
+                onImageClick = onImageClick
             )
 
             // Rating badge overlaid on image
@@ -614,52 +593,32 @@ private fun TwoPaneHeroImage(
 // -----------------------------------------------------------------------------------------
 
 @Composable
-private fun HeroImage(sub: Submission, onImageClick: () -> Unit = {}) {
+private fun HeroImage(
+    sub: Submission,
+    placeholderUrl: String?,
+    onImageClick: () -> Unit = {}
+) {
     if (sub.fullImageUrl.isNotEmpty()) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(sub.fullImageUrl)
-                    .crossfade(300)
-                    .build(),
-                imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
-                contentDescription = sub.title,
+            val knownRatio = sub.thumbnailWidthOnHeightRatio > 0f
+            // ratio 已知时容器预设真实比例，加载前后高度零跳变
+            val ratioModifier = if (knownRatio) {
+                Modifier.aspectRatio(sub.thumbnailWidthOnHeightRatio.coerceIn(0.45f, 2.2f))
+            } else {
+                Modifier
+            }
+            ProgressiveImageContent(
+                fullUrl = sub.fullImageUrl,
+                listThumbnailUrl = placeholderUrl,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
-                    .clickable(onClick = onImageClick),
-                contentScale = ContentScale.FillWidth,
-                loading = {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(4f / 3f)
-                            .background(DarkSurfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(28.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                            strokeWidth = 2.dp
-                        )
-                    }
-                },
-                error = {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(4f / 3f)
-                            .background(DarkSurfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.BrokenImage,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
+                    .then(ratioModifier)
+                    .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)),
+                contentDescription = sub.title,
+                contentScale = if (knownRatio) ContentScale.Crop else ContentScale.FillWidth,
+                ratio = sub.thumbnailWidthOnHeightRatio,
+                fixedSized = knownRatio,
+                onImageClick = onImageClick
             )
 
             // Gradient fade into background at the bottom

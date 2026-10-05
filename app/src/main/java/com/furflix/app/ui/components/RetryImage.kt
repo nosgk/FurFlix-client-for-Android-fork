@@ -38,6 +38,7 @@ import coil3.network.HttpException
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.furflix.app.R
+import com.furflix.app.data.remote.ImageLoadProgress
 import com.furflix.app.ui.theme.FA_Accent
 import kotlinx.coroutines.delay
 
@@ -130,13 +131,16 @@ fun RetrySubcomposeAsyncImage(
                 ImageLoadProgress.clear(state.url)
             }
         },
-        loading = loading,
-        error = {
+        // slot 实参带 SubcomposeAsyncImageScope（是 BoxScope 子类型）与状态参数，
+        // 这里适配成无参的 BoxScope lambda
+        loading = { _ -> loading() },
+        error = { _ ->
             if (state.exhausted) {
                 errorContent?.invoke(this)
                     ?: DefaultImageErrorContent(
                         errorText = describeError(state.lastError),
-                        onRetry = { state.retry() }
+                        onRetry = { state.retry() },
+                        modifier = Modifier.align(Alignment.Center)
                     )
             } else {
                 // 自动重试的退避间隔里继续呈现加载态，避免错误浮层闪烁
@@ -158,10 +162,9 @@ private fun ProgressSpinner() {
 }
 
 @Composable
-fun DefaultImageErrorContent(errorText: String, onRetry: () -> Unit) {
+fun DefaultImageErrorContent(errorText: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier
-            .align(Alignment.Center)
+        modifier = modifier
             .padding(12.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(Color.Black.copy(alpha = 0.55f))
