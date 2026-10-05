@@ -44,6 +44,7 @@ class FurRepository(private val context: Context) {
     private val DETAIL_LAYOUT_KEY = stringPreferencesKey("detail_layout")
     private val DETAIL_SPLIT_KEY = intPreferencesKey("detail_split_percent")
     private val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
+    private val HIDE_BARS_KEY = booleanPreferencesKey("hide_bars_on_scroll")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
         private val THEME_ID_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_id")
         private val APP_ICON_KEY = stringPreferencesKey("app_icon")
@@ -305,6 +306,17 @@ class FurRepository(private val context: Context) {
     suspend fun saveTextScale(scale: Float) {
         context.dataStore.edit { prefs ->
             prefs[TEXT_SCALE_KEY] = scale
+        }
+    }
+
+    /** 滚动时自动隐藏顶/底栏（默认开）。 */
+    val hideBarsOnScrollFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[HIDE_BARS_KEY] ?: true
+    }
+
+    suspend fun saveHideBarsOnScroll(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[HIDE_BARS_KEY] = enabled
         }
     }
 
