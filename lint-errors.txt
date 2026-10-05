@@ -1,0 +1,116 @@
+== matched error lines ==
+WARNING: The option setting 'android.builtInKotlin=false' is deprecated.
+WARNING: The option setting 'android.newDsl=false' is deprecated.
+WARNING: API 'applicationVariants' is obsolete and has been replaced with 'AndroidComponentsExtension'.
+WARNING: API 'testVariants' is obsolete and has been replaced with 'AndroidComponentsExtension'.
+WARNING: API 'unitTestVariants' is obsolete and has been replaced with 'AndroidComponentsExtension'.
+Lint found 1 error and 371 warnings. First failure:
+/home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/ui/screens/HomeScreen.kt:1180: Error: Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes [LocalContextGetResourceValueCall from androidx.compose.ui]
+Lint found 1 error, 371 warnings. First failure:
+/home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/ui/screens/HomeScreen.kt:1180: Error: Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes [LocalContextGetResourceValueCall from androidx.compose.ui]
+   Explanation for issues of type "LocalContextGetResourceValueCall":
+> Lint found errors in the project; aborting build.
+  Lint found 1 error, 371 warnings. First failure:
+  /home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/ui/screens/HomeScreen.kt:1180: Error: Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes [LocalContextGetResourceValueCall from androidx.compose.ui]
+     Explanation for issues of type "LocalContextGetResourceValueCall":
+== tail of lint.log ==
+w: file:///home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/ui/screens/LoginScreen.kt:447:34 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/ui/screens/PostDetailScreen.kt:1222:29 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/ui/screens/SplashScreen.kt:68:67 Redundant call of conversion method.
+w: file:///home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/viewmodel/MainViewModel.kt:809:44 This declaration needs opt-in. Its usage should be marked with '@coil3.annotation.DelicateCoilApi' or '@OptIn(coil3.annotation.DelicateCoilApi::class)'
+
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:generateDebugLintReportModel
+> Task :app:generateDebugAndroidTestLintModel
+> Task :app:generateDebugUnitTestLintModel
+> Task :app:lintAnalyzeDebugAndroidTest
+> Task :app:lintAnalyzeDebugUnitTest
+> Task :app:lintAnalyzeDebug
+
+> Task :app:lintReportDebug
+Wrote HTML report to file:///home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/build/reports/lint-results-debug.html
+Wrote SARIF report to file:///home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/build/reports/lint-results-debug.sarif
+Lint found 1 error and 371 warnings. First failure:
+/home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/ui/screens/HomeScreen.kt:1180: Error: Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes [LocalContextGetResourceValueCall from androidx.compose.ui]
+                                    context.getString(R.string.toast_history_removed, ids.size),
+                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+> Task :app:lintDebug FAILED
+Lint found 1 error, 371 warnings. First failure:
+
+/home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/ui/screens/HomeScreen.kt:1180: Error: Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes [LocalContextGetResourceValueCall from androidx.compose.ui]
+                                    context.getString(R.string.toast_history_removed, ids.size),
+                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "LocalContextGetResourceValueCall":
+   Changes to the Configuration object will not cause LocalContext.current
+   reads to be invalidated, so calls to APIs such as Context.getString() will
+   not be updated when the Configuration changes, and so stale values might be
+   used. Instead, you can use Compose APIs such as stringResource,
+   colorResource, and painterResource - or LocalResources.current and query
+   properties from Resources directly. Using these APIs will invalidate
+   callers when the Configuration changes, to ensure that these calls reflect
+   the latest values.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+
+The full lint text report is located at:
+  /home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1791241047193.json
+
+[Incubating] Problems report is available at: file:///home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:lintDebug' (registered by plugin 'com.android.internal.application').
+> Lint found errors in the project; aborting build.
+  
+  Fix the issues identified by lint, or create a baseline to see only new errors.
+  To create a baseline, run `gradlew updateLintBaseline` after adding the following to the module's build.gradle file:
+  ```
+  android {
+      lint {
+          baseline = file("lint-baseline.xml")
+      }
+  }
+  ```
+  For more details, see https://developer.android.com/studio/write/lint#snapshot
+  
+  Lint found 1 error, 371 warnings. First failure:
+  
+  /home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/src/main/java/com/furflix/app/ui/screens/HomeScreen.kt:1180: Error: Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes [LocalContextGetResourceValueCall from androidx.compose.ui]
+                                      context.getString(R.string.toast_history_removed, ids.size),
+                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+     Explanation for issues of type "LocalContextGetResourceValueCall":
+     Changes to the Configuration object will not cause LocalContext.current
+     reads to be invalidated, so calls to APIs such as Context.getString() will
+     not be updated when the Configuration changes, and so stale values might be
+     used. Instead, you can use Compose APIs such as stringResource,
+     colorResource, and painterResource - or LocalResources.current and query
+     properties from Resources directly. Using these APIs will invalidate
+     callers when the Configuration changes, to ensure that these calls reflect
+     the latest values.
+  
+     Vendor: Jetpack Compose
+     Identifier: androidx.compose.ui
+     Feedback: https://issuetracker.google.com/issues/new?component=612128
+  
+  
+  The full lint text report is located at:
+    /home/runner/work/FurFlix-client-for-Android-fork/FurFlix-client-for-Android-fork/app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2m 51s
+28 actionable tasks: 28 executed
