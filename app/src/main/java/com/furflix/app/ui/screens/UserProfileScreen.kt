@@ -25,6 +25,11 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -54,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.furflix.app.data.model.ContactLink
+import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.data.model.UserProfile
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.*
@@ -96,9 +102,10 @@ fun UserProfileScreen(
     val watchersList by viewModel.watchersList.collectAsState()
 
     val selectedTab by viewModel.currentTab.collectAsState()
-    var isGrid by remember { mutableStateOf(true) }
     val repository = remember { FurRepository.getInstance(context) }
-    LaunchedEffect(Unit) { isGrid = repository.loadIsGrid() }
+    // 画廊三视图与列数偏好与画廊全局共用（一处设置全局生效）
+    val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
+    val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
     val hazeState = remember { HazeState() }
 
     val tabGallery = stringResource(R.string.user_gallery)
@@ -115,7 +122,7 @@ fun UserProfileScreen(
         )
     }
 
-    val listState = rememberLazyListState()
+    val listState = rememberLazyStaggeredGridState()
     var scrollTarget by remember { mutableIntStateOf(0) }
     var scrollKey by remember { mutableIntStateOf(0) }
 
@@ -236,22 +243,33 @@ fun UserProfileScreen(
             )
 
             Crossfade(
-                targetState = isGrid,
+                targetState = viewMode,
                 animationSpec = tween(300),
-                label = "gridListCrossfade"
-            ) { grid ->
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(bottom = 120.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                label = "viewModeCrossfade"
+            ) { mode ->
+                PawPullRefreshBox(
+                    isRefreshing = isLoading,
+                    onRefresh = { viewModel.refresh() },
+                    modifier = Modifier.weight(1f)
                 ) {
-                    item(key = "header") {
+                LazyVerticalStaggeredGrid(
+                    columns = if (mode == GalleryViewMode.LIST) {
+                        StaggeredGridCells.Fixed(1)
+                    } else {
+                        masonryGridCells(gridColumnsPref)
+                    },
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+                    verticalItemSpacing = 10.dp,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    item(key = "header", span = StaggeredGridItemSpan.FullLine) {
                         val profile = userProfile
                         if (profile != null) ProfileHeader(profile) else HeaderSkeleton()
                     }
                     userProfile?.let { profile ->
-                        item(key = "actions") {
+                        item(key = "actions", span = StaggeredGridItemSpan.FullLine) {
                             ProfileActions(
                                 profile = profile,
                                 isToggling = isTogglingWatch,
@@ -262,7 +280,7 @@ fun UserProfileScreen(
                         if (profile.galleryCount > 0 || profile.favoritesCount > 0 ||
                             profile.watchersCount > 0 || profile.watchingCount > 0
                         ) {
-                            item(key = "stats") {
+                            item(key = "stats", span = StaggeredGridItemSpan.FullLine) {
                                 StatsCard(
                                     profile = profile,
                                     selectedTab = selectedTab,
@@ -272,7 +290,7 @@ fun UserProfileScreen(
                             }
                         }
                         if (profile.profileText.isNotBlank()) {
-                            item(key = "bio") {
+                            item(key = "bio", span = StaggeredGridItemSpan.FullLine) {
                                 BioCard(text = profile.profileText, modifier = Modifier.padding(horizontal = 16.dp))
                             }
                         }
@@ -281,12 +299,12 @@ fun UserProfileScreen(
                                 profile.acceptingCommissions.isNotBlank() ||
                                 profile.views > 0 || profile.journalsCount > 0
                         if (hasChips) {
-                            item(key = "chips") {
+                            item(key = "chips", span = StaggeredGridItemSpan.FullLine) {
                                 InfoChips(profile = profile, modifier = Modifier.padding(horizontal = 16.dp))
                             }
                         }
                         if (profile.contactLinks.isNotEmpty()) {
-                            item(key = "contacts") {
+                            item(key = "contacts", span = StaggeredGridItemSpan.FullLine) {
                                 ContactLinksRow(links = profile.contactLinks, onOpen = { openUrl(context, it) })
                             }
                         }
@@ -295,106 +313,101 @@ fun UserProfileScreen(
                     when (selectedTab) {
                         UserViewModel.TAB_GALLERY, UserViewModel.TAB_FAVORITES -> {
                             if (errorMessage != null && submissions.isEmpty()) {
-                                item(key = "error") { ErrorState(message = errorMessage ?: "") }
+                                item(key = "error", span = StaggeredGridItemSpan.FullLine) { ErrorState(message = errorMessage ?: "") }
                             }
                             if (submissions.isEmpty() && !isLoading && errorMessage == null) {
-                                item(key = "empty") { EmptyState(message = "No submissions.", icon = Icons.Default.PhotoLibrary) }
+                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = "No submissions.", icon = Icons.Default.PhotoLibrary) }
                             }
                             if (submissions.isNotEmpty()) {
-                                if (grid) {
-                                    items(submissions.chunked(2), key = { chunk -> chunk.joinToString { it.id } }) { row ->
-                                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            row.forEach { submission ->
-                                                Box(modifier = Modifier.weight(1f)) {
-                                                    SubmissionCard(submission = submission, onClick = { onNavigateToPost(submission.id) }, compact = true, onAuthorClick = { onNavigateToUser(it) })
-                                                }
-                                            }
-                                            if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                if (mode == GalleryViewMode.LIST) {
+                                    items(
+                                        items = submissions,
+                                        key = { it.id },
+                                        span = { StaggeredGridItemSpan.FullLine }
+                                    ) { submission ->
+                                        Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                            SubmissionCard(submission = submission, onClick = { onNavigateToPost(submission.id) }, onAuthorClick = { onNavigateToUser(it) })
                                         }
                                     }
                                 } else {
-                                    items(submissions, key = { it.id }) { submission ->
-                                        Box(modifier = Modifier.padding(horizontal = 12.dp)) {
-                                            SubmissionCard(submission = submission, onClick = { onNavigateToPost(submission.id) }, onAuthorClick = { onNavigateToUser(it) })
-                                        }
+                                    items(
+                                        items = submissions,
+                                        key = { it.id },
+                                        contentType = { "submission" }
+                                    ) { submission ->
+                                        SubmissionCard(
+                                            submission = submission,
+                                            onClick = { onNavigateToPost(submission.id) },
+                                            showTitle = mode == GalleryViewMode.GRID,
+                                            compact = mode == GalleryViewMode.GRID,
+                                            ratio = if (mode == GalleryViewMode.MASONRY) submission.thumbnailWidthOnHeightRatio else 0f,
+                                            onAuthorClick = { onNavigateToUser(it) }
+                                        )
                                     }
                                 }
                             }
                             if (isLoadingMore) {
-                                item(key = "footer") { LoadingMoreFooter() }
+                                item(key = "footer", span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
                             }
                         }
                         UserViewModel.TAB_WATCHING -> {
                             if (errorMessage != null && watchingList.isEmpty()) {
-                                item(key = "error") { ErrorState(message = errorMessage ?: "") }
+                                item(key = "error", span = StaggeredGridItemSpan.FullLine) { ErrorState(message = errorMessage ?: "") }
                             }
                             if (watchingList.isEmpty() && !isLoading && errorMessage == null) {
-                                item(key = "empty") { EmptyState(message = "Not watching anyone.", icon = Icons.Default.Group) }
+                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = "Not watching anyone.", icon = Icons.Default.Group) }
                             }
                             if (watchingList.isNotEmpty()) {
-                                if (grid) {
-                                    items(watchingList.chunked(2), key = { chunk -> chunk.joinToString { it.username } }) { row ->
-                                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                            row.forEach { user -> Box(modifier = Modifier.weight(1f)) { WatchlistGridItem(user = user, onClick = { onNavigateToUser(user.username) }) } }
-                                            if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                if (mode == GalleryViewMode.LIST) {
+                                    items(
+                                        items = watchingList,
+                                        key = { it.username },
+                                        span = { StaggeredGridItemSpan.FullLine }
+                                    ) { user ->
+                                        Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                            WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
                                         }
                                     }
                                 } else {
-                                    items(watchingList, key = { it.username }) { user ->
-                                        Box(modifier = Modifier.padding(horizontal = 12.dp)) {
-                                            WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
-                                        }
+                                    items(watchingList, key = { it.username }, contentType = { "watch" }) { user ->
+                                        WatchlistGridItem(user = user, onClick = { onNavigateToUser(user.username) })
                                     }
                                 }
                             }
                             if (isLoadingMore) {
-                                item(key = "footer") { LoadingMoreFooter() }
+                                item(key = "footer", span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
                             }
                         }
                         UserViewModel.TAB_WATCHERS -> {
                             if (errorMessage != null && watchersList.isEmpty()) {
-                                item(key = "error") { ErrorState(message = errorMessage ?: "") }
+                                item(key = "error", span = StaggeredGridItemSpan.FullLine) { ErrorState(message = errorMessage ?: "") }
                             }
                             if (watchersList.isEmpty() && !isLoading && errorMessage == null) {
-                                item(key = "empty") { EmptyState(message = "No watchers.", icon = Icons.Default.Group) }
+                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = "No watchers.", icon = Icons.Default.Group) }
                             }
                             if (watchersList.isNotEmpty()) {
-                                if (grid) {
-                                    items(watchersList.chunked(2), key = { chunk -> chunk.joinToString { it.username } }) { row ->
-                                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                            row.forEach { user -> Box(modifier = Modifier.weight(1f)) { WatchlistGridItem(user = user, onClick = { onNavigateToUser(user.username) }) } }
-                                            if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                if (mode == GalleryViewMode.LIST) {
+                                    items(
+                                        items = watchersList,
+                                        key = { it.username },
+                                        span = { StaggeredGridItemSpan.FullLine }
+                                    ) { user ->
+                                        Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                            WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
                                         }
                                     }
                                 } else {
-                                    items(watchersList, key = { it.username }) { user ->
-                                        Box(modifier = Modifier.padding(horizontal = 12.dp)) {
-                                            WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
-                                        }
+                                    items(watchersList, key = { it.username }, contentType = { "watch" }) { user ->
+                                        WatchlistGridItem(user = user, onClick = { onNavigateToUser(user.username) })
                                     }
                                 }
                             }
                             if (isLoadingMore) {
-                                item(key = "footer") { LoadingMoreFooter() }
+                                item(key = "footer", span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
                             }
                         }
                     }
                 }
-
-                // Infinite scroll
-                val hasContent = when (selectedTab) {
-                    UserViewModel.TAB_GALLERY, UserViewModel.TAB_FAVORITES -> submissions.isNotEmpty()
-                    UserViewModel.TAB_WATCHING -> watchingList.isNotEmpty()
-                    else -> watchersList.isNotEmpty()
-                }
-                LaunchedEffect(listState, hasContent) {
-                    snapshotFlow {
-                        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                        val total = listState.layoutInfo.totalItemsCount
-                        lastVisible >= total - 5
-                    }.collect { shouldLoadMore ->
-                        if (shouldLoadMore && hasContent && !isLoadingMore) viewModel.loadMore()
-                    }
                 }
             }
         } // close Column
