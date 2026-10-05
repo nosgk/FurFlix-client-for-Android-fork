@@ -57,6 +57,7 @@ import kotlinx.coroutines.launch
 fun ProfileScreen(
     viewMode: GalleryViewMode,
     columnsPref: Int = 2,
+    cardStats: Map<String, com.furflix.app.data.model.CardStats> = emptyMap(),
     onNavigateToUser: (String) -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
@@ -111,6 +112,7 @@ fun ProfileScreen(
                     errorMessage = errorMessage,
                     viewMode = viewMode,
                     columnsPref = columnsPref,
+                    cardStats = cardStats,
                     onNavigateToPost = onNavigateToFavoritesPost,
                     onNavigateToUser = onNavigateToUser,
                     onLoadMore = { viewModel.loadMore() },
@@ -144,6 +146,7 @@ private fun FavoritesContent(
     errorMessage: String?,
     viewMode: GalleryViewMode,
     columnsPref: Int,
+    cardStats: Map<String, com.furflix.app.data.model.CardStats>,
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onLoadMore: () -> Unit = {},
@@ -198,6 +201,8 @@ private fun FavoritesContent(
                                     showTitle = false,
                                     compact = true,
                                     ratio = submission.thumbnailWidthOnHeightRatio,
+                                    stats = cardStats[submission.id],
+                                    forceFavorited = true,
                                     onAuthorClick = { onNavigateToUser(it) }
                                 )
                             }
@@ -236,6 +241,8 @@ private fun FavoritesContent(
                                 onClick = { onNavigateToPost(submission.id) },
                                 showTitle = false,
                                 compact = true,
+                                stats = cardStats[submission.id],
+                                forceFavorited = true,
                                 onAuthorClick = { onNavigateToUser(it) }
                             )
                         }
@@ -270,6 +277,8 @@ private fun FavoritesContent(
                             SubmissionCard(
                                 submission = submission,
                                 onClick = { onNavigateToPost(submission.id) },
+                                stats = cardStats[submission.id],
+                                forceFavorited = true,
                                 onAuthorClick = { onNavigateToUser(it) }
                             )
                         }

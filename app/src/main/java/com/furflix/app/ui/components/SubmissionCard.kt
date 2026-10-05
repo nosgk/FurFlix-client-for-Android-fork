@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.furflix.app.data.model.CardStats
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.ui.theme.*
@@ -44,6 +45,8 @@ fun SubmissionCard(
     showTitle: Boolean = true,
     compact: Boolean = false,
     ratio: Float = 0f,
+    stats: CardStats? = null,
+    forceFavorited: Boolean = false,
     onAuthorClick: ((String) -> Unit)? = null
 ) {
     Card(
@@ -84,6 +87,8 @@ fun SubmissionCard(
                     DynamicThumbnail(submission.thumbnailUrl)
                         .bestThumbnailUrl(boxWidthPx, boxWidthPx / displayRatio, quality)
                 }
+                // 统计浮层只对本地已知的帖子显示（详情页回填）；收藏 tab 整页实心心形
+                val showStats = stats != null || forceFavorited
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(displayUrl)
@@ -158,6 +163,50 @@ fun SubmissionCard(
                     }
                 }
 
+                // Stats overlay — bottom-end on the scrim; heart goes pink when
+                // the submission is locally known to be favorited.
+                if (showStats) {
+                    val statStyle = MaterialTheme.typography.labelSmall.copy(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.8f),
+                            offset = Offset(0f, 1f),
+                            blurRadius = 4f
+                        )
+                    )
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = if (compact) 6.dp else 10.dp, bottom = if (compact) 6.dp else 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val favorited = forceFavorited || (stats?.favorited ?: false)
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = if (favorited) Pink else Color.White.copy(alpha = 0.9f)
+                        )
+                        if (stats != null) {
+                            Text(formatCount(stats.favorites), style = statStyle, color = Color.White)
+                            Icon(
+                                imageVector = Icons.Default.Visibility,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color.White.copy(alpha = 0.9f)
+                            )
+                            Text(formatCount(stats.views), style = statStyle, color = Color.White)
+                            Icon(
+                                imageVector = Icons.Default.ChatBubble,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color.White.copy(alpha = 0.9f)
+                            )
+                            Text(formatCount(stats.comments), style = statStyle, color = Color.White)
+                        }
+                    }
+                }
+
                 // Author name (always shown inside image) — tappable, opens the artist profile
                 if (submission.author.isNotEmpty()) {
                     val baseStyle = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall
@@ -170,7 +219,12 @@ fun SubmissionCard(
                                     onAuthorClick(submission.authorUsername.ifEmpty { submission.author })
                                 } else Modifier
                             )
-                            .padding(if (compact) 6.dp else 10.dp),
+                            .padding(
+                                start = if (compact) 6.dp else 10.dp,
+                                end = (if (compact) 6.dp else 10.dp) + if (showStats) 96.dp else 0.dp,
+                                top = if (compact) 6.dp else 10.dp,
+                                bottom = if (compact) 6.dp else 10.dp
+                            ),
                         style = baseStyle.copy(
                             shadow = Shadow(
                                 color = Color.Black.copy(alpha = 0.8f),

@@ -40,7 +40,8 @@ fun TagSearchScreen(
     viewModel: TagSearchViewModel,
     onBack: () -> Unit,
     onNavigateToPost: (String) -> Unit,
-    onNavigateToUser: (String) -> Unit
+    onNavigateToUser: (String) -> Unit,
+    cardStats: Map<String, com.furflix.app.data.model.CardStats> = emptyMap()
 ) {
     val submissions by viewModel.submissions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -178,6 +179,7 @@ fun TagSearchScreen(
                             onClick = { onNavigateToPost(submission.id) },
                             showTitle = true,
                             compact = isGrid,
+                            stats = cardStats[submission.id],
                             onAuthorClick = { onNavigateToUser(it) }
                         )
                     }

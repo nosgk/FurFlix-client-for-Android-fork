@@ -221,7 +221,8 @@ fun FurFlixNavGraph() {
                 viewModel = tagViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToPost = { postId -> navController.navigate(Routes.postDetail(postId, "tag_${tag.replace("@keywords ", "")}")) },
-                onNavigateToUser = { user -> navController.navigate(Routes.userProfile(user)) }
+                onNavigateToUser = { user -> navController.navigate(Routes.userProfile(user)) },
+                cardStats = mainViewModel.cardStats.collectAsState().value
             )
         }
         }

@@ -116,6 +116,7 @@ fun HomeScreen(
     val browseSubmissions by viewModel.browseSubmissions.collectAsState()
     val latestSubmissions by viewModel.latestSubmissions.collectAsState()
     val searchSubmissions by viewModel.searchSubmissions.collectAsState()
+    val cardStats by viewModel.cardStats.collectAsState()
     val currentSearchQuery by viewModel.searchQuery.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
@@ -461,6 +462,7 @@ fun HomeScreen(
                                             showTitle = showTitles,
                                             compact = compact,
                                             ratio = submission.thumbnailWidthOnHeightRatio,
+                                            stats = cardStats[submission.id],
                                             onAuthorClick = { onNavigateToUser(it) }
                                         )
                                     }
@@ -515,6 +517,7 @@ fun HomeScreen(
                                             onClick = { onNavigateToPost(submission.id) },
                                             showTitle = showTitles,
                                             compact = compact,
+                                            stats = cardStats[submission.id],
                                             onAuthorClick = { onNavigateToUser(it) }
                                         )
                                     }
@@ -820,6 +823,7 @@ fun HomeScreen(
                                             showTitle = showTitles,
                                             compact = true,
                                             ratio = submission.thumbnailWidthOnHeightRatio,
+                                            stats = cardStats[submission.id],
                                             onAuthorClick = { onNavigateToUser(it) }
                                         )
                                     }
@@ -868,6 +872,7 @@ fun HomeScreen(
                                             onClick = { onNavigateToPost(submission.id) },
                                             showTitle = showTitles,
                                             compact = !isList,
+                                            stats = cardStats[submission.id],
                                             onAuthorClick = { onNavigateToUser(it) }
                                         )
                                     }
@@ -897,6 +902,7 @@ fun HomeScreen(
                         ProfileScreen(
                             viewMode = viewMode,
                             columnsPref = gridColumnsPref,
+                            cardStats = cardStats,
                             onNavigateToUser = onNavigateToUser,
                             onNavigateToPost = onNavigateToPost,
                             onNavigateToFavoritesPost = onNavigateToFavoritesPost,
