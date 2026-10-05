@@ -426,6 +426,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private val _batchFavoriteRunning = MutableStateFlow(false)
+
+    /**
+     * 批量收藏：逐帖解析详情（取 favUrl）后复用 toggleFavorite 的乐观更新与
+     * cardStatsCache 回填；串行 + 间隔 300ms 容错 FA 速率。计数为"已发起"口径，
+     * 单帖失败由 toggleFavorite 内部回滚并经错误流提示。
+     */
+    fun batchFavorite(postIds: List<String>) {
+        if (_batchFavoriteRunning.value || postIds.isEmpty()) return
+        viewModelScope.launch {
+            _batchFavoriteRunning.value = true
+            var issued = 0
+            for (id in postIds) {
+                try {
+                    if (_submissionDetails.value[id] == null) {
+                        repository.getSubmission(id)?.let { sub ->
+                            _submissionDetails.update { it + (id to sub) }
+                        }
+                    }
+                    if (_submissionDetails.value[id] != null) {
+                        toggleFavorite(id)
+                        issued++
+                    }
+                    kotlinx.coroutines.delay(300)
+                } catch (_: Exception) {
+                }
+            }
+            _batchFavoriteRunning.value = false
+            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                Toast.makeText(
+                    getApplication(),
+                    getApplication<Application>().getString(R.string.toast_batch_favorite_done, issued),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
     /**
      * 相邻页预取：解析详情（命中缓存则跳过）并把原图 enqueue 进 Coil 缓存。
      * 进度上报按 URL 键隔离，预取流量不会污染当前页的进度显示。

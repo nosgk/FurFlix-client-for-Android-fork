@@ -2,14 +2,18 @@ package com.furflix.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -41,6 +45,7 @@ import com.furflix.app.data.model.Submission
 import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.ui.theme.*
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SubmissionCard(
     submission: Submission,
@@ -51,12 +56,18 @@ fun SubmissionCard(
     ratio: Float = 0f,
     stats: CardStats? = null,
     forceFavorited: Boolean = false,
+    selectionActive: Boolean = false,
+    isSelected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
     onAuthorClick: ((String) -> Unit)? = null
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         shape = RoundedCornerShape(if (compact) 8.dp else 12.dp),
         colors = CardDefaults.cardColors(
             containerColor = CardDark
@@ -118,6 +129,26 @@ fun SubmissionCard(
                         if (retryState.exhausted) imageLoaded = true
                     }
                 )
+                // 多选角标：激活时右上角勾选圈
+                if (selectionActive) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.45f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            tint = if (isSelected) FA_Accent else Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
                 RetryEffect(retryState)
                 if (retryState.exhausted) {
                     Box(

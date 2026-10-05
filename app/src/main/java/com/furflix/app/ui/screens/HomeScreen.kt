@@ -86,6 +86,8 @@ import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.components.GlassmorphicBottomBar
 import com.furflix.app.ui.components.rememberBarsVisibility
+import com.furflix.app.data.selection.SelectionStore
+import com.furflix.app.data.download.DownloadManager
 import com.furflix.app.ui.components.GlassBarTab
 import com.furflix.app.ui.components.FurryTabIcons
 import dev.chrisbanes.haze.HazeState
@@ -196,6 +198,11 @@ fun HomeScreen(
     val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
     val barsVisibility = rememberBarsVisibility(selectedTab) { scrollSources[selectedTab]?.invoke() }
     val barsVisible = !autoHideBars || barsVisibility.visible
+
+    // 多选批量（浏览/最新/搜索）
+    val selection by com.furflix.app.data.selection.SelectionStore.state.collectAsState()
+    val currentSource = when (selectedTab) { 0 -> "browse"; 1 -> "latest"; 2 -> "search"; else -> "profile" }
+    val selectionActive = selection.active && selection.source == currentSource
     var profileScrollToTopTrigger by remember { mutableIntStateOf(0) }
 
     val focusManager = LocalFocusManager.current
@@ -207,21 +214,56 @@ fun HomeScreen(
         },
         topBar = {
             AnimatedVisibility(
-                visible = barsVisible,
+                visible = barsVisible || selectionActive,
                 enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it },
                 exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it }
             ) {
             HazeTopAppBar(
                 title = {
-                    Text(
-                        text = "FurFlix",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    if (selectionActive) {
+                        Text(
+                            text = stringResource(R.string.selection_mode_n, selection.ids.size),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        Text(
+                            text = "FurFlix",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 },
                 hazeState = hazeState,
                 actions = {
+                    if (selectionActive) {
+                        val batchQueuedText = stringResource(R.string.toast_batch_download_queued, selection.ids.size)
+                        IconButton(onClick = {
+                            val ids = when (selectedTab) {
+                                0 -> viewModel.browseSubmissions.value
+                                1 -> viewModel.latestSubmissions.value
+                                else -> viewModel.searchSubmissions.value
+                            }.map { it.id }
+                            SelectionStore.selectAll(currentSource, ids)
+                        }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.DoneAll, contentDescription = stringResource(R.string.action_select_all), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(onClick = { viewModel.batchFavorite(selection.ids.toList()) }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Favorite, contentDescription = stringResource(R.string.action_batch_favorite), tint = Color(0xFFFF007F), modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(onClick = {
+                            selection.ids.forEach { DownloadManager.enqueueDownload(context, it) }
+                            android.widget.Toast.makeText(context, batchQueuedText, android.widget.Toast.LENGTH_SHORT).show()
+                            SelectionStore.exit()
+                        }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Download, contentDescription = stringResource(R.string.action_batch_download), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(onClick = { SelectionStore.exit() }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_close), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        }
+                    } else {
                     IconButton(onClick = onNavigateToDownloads) {
                         Icon(Icons.Default.Download, contentDescription = stringResource(R.string.nav_tab_downloads), tint = MaterialTheme.colorScheme.primary)
                     }
@@ -284,6 +326,7 @@ fun HomeScreen(
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
+                    }
                     }
                 }
             )
@@ -388,6 +431,8 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize().hazeSource(state = hazeState),
                     beyondViewportPageCount = 1
             ) { page ->
+                val pageSource = when (page) { 0 -> "browse"; 1 -> "latest"; 2 -> "search"; else -> "profile" }
+                val pageSelectionActive = selectionActive && selection.source == pageSource
                 when (page) {
                     0, 1 -> {
                         val isList = viewMode == GalleryViewMode.LIST
@@ -478,7 +523,17 @@ fun HomeScreen(
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
-                                            onClick = { viewModel.prefetchSubmission(submission.id); onNavigateToPost(submission.id) },
+                                            onClick = {
+                    if (pageSelectionActive) {
+                        SelectionStore.toggle(pageSource, submission.id)
+                    } else {
+                        viewModel.prefetchSubmission(submission.id)
+                        onNavigateToPost(submission.id)
+                    }
+                },
+                selectionActive = pageSelectionActive,
+                isSelected = pageSelectionActive && selection.ids.contains(submission.id),
+                onLongClick = { SelectionStore.toggle(pageSource, submission.id) },
                                             showTitle = showTitles,
                                             compact = compact,
                                             ratio = submission.thumbnailWidthOnHeightRatio,
@@ -542,7 +597,17 @@ fun HomeScreen(
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
-                                            onClick = { viewModel.prefetchSubmission(submission.id); onNavigateToPost(submission.id) },
+                                            onClick = {
+                    if (pageSelectionActive) {
+                        SelectionStore.toggle(pageSource, submission.id)
+                    } else {
+                        viewModel.prefetchSubmission(submission.id)
+                        onNavigateToPost(submission.id)
+                    }
+                },
+                selectionActive = pageSelectionActive,
+                isSelected = pageSelectionActive && selection.ids.contains(submission.id),
+                onLongClick = { SelectionStore.toggle(pageSource, submission.id) },
                                             showTitle = showTitles,
                                             compact = compact,
                                             stats = cardStats[submission.id],
@@ -960,7 +1025,17 @@ fun HomeScreen(
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
-                                            onClick = { viewModel.prefetchSubmission(submission.id); onNavigateToPost(submission.id) },
+                                            onClick = {
+                    if (pageSelectionActive) {
+                        SelectionStore.toggle(pageSource, submission.id)
+                    } else {
+                        viewModel.prefetchSubmission(submission.id)
+                        onNavigateToPost(submission.id)
+                    }
+                },
+                selectionActive = pageSelectionActive,
+                isSelected = pageSelectionActive && selection.ids.contains(submission.id),
+                onLongClick = { SelectionStore.toggle(pageSource, submission.id) },
                                             showTitle = showTitles,
                                             compact = true,
                                             ratio = submission.thumbnailWidthOnHeightRatio,
@@ -1018,7 +1093,17 @@ fun HomeScreen(
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
-                                            onClick = { viewModel.prefetchSubmission(submission.id); onNavigateToPost(submission.id) },
+                                            onClick = {
+                    if (pageSelectionActive) {
+                        SelectionStore.toggle(pageSource, submission.id)
+                    } else {
+                        viewModel.prefetchSubmission(submission.id)
+                        onNavigateToPost(submission.id)
+                    }
+                },
+                selectionActive = pageSelectionActive,
+                isSelected = pageSelectionActive && selection.ids.contains(submission.id),
+                onLongClick = { SelectionStore.toggle(pageSource, submission.id) },
                                             showTitle = showTitles,
                                             compact = !isList,
                                             stats = cardStats[submission.id],
@@ -1086,7 +1171,7 @@ fun HomeScreen(
             // Floating panel sits on top of the content (true overlay, not a Scaffold slot).
             // 滚动隐藏只平移浮层，内容底部预留不变，避免重排跳动
             val bottomBarOffset by androidx.compose.animation.core.animateDpAsState(
-                targetValue = if (barsVisible) 0.dp else 112.dp,
+                targetValue = if (barsVisible && !selectionActive) 0.dp else 112.dp,
                 animationSpec = tween(250),
                 label = "bottomBarOffset"
             )

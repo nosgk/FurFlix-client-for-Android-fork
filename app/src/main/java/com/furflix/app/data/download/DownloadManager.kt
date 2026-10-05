@@ -34,9 +34,13 @@ import java.util.concurrent.atomic.AtomicLong
 
 enum class DownloadStatus { QUEUED, RUNNING, COMPLETED, FAILED }
 
+/** DIRECT = 已知 URL 直下；PARSE_THEN_DOWNLOAD = 先解析详情页取原图（批量下载）。 */
+enum class DownloadKind { DIRECT, PARSE_THEN_DOWNLOAD }
+
 data class DownloadTask(
     val id: Long,
     val submissionId: String,
+    val kind: DownloadKind = DownloadKind.DIRECT,
     val url: String,
     val fileName: String,
     val author: String,
@@ -112,6 +116,31 @@ object DownloadManager {
         }
     }
 
+    /**
+     * 批量下载入口：只带 submissionId，执行时先解析详情页拿原图
+     * （命中 MainViewModel 的详情缓存则零解析成本——缓存由预取/浏览自然回填）。
+     */
+    fun enqueueDownload(context: Context, submissionId: String) {
+        if (submissionId.isBlank()) return
+        appContext = context.applicationContext
+        val pending = _tasks.value.any {
+            it.submissionId == submissionId &&
+                (it.status == DownloadStatus.QUEUED || it.status == DownloadStatus.RUNNING)
+        }
+        if (pending) return
+        val task = DownloadTask(
+            id = idCounter.getAndIncrement(),
+            submissionId = submissionId,
+            kind = DownloadKind.PARSE_THEN_DOWNLOAD,
+            url = "",
+            fileName = "submission_$submissionId",
+            author = "",
+            title = ""
+        )
+        _tasks.update { it + task }
+        scope.launch { channel.send(task) }
+    }
+
     /** 重试一个失败任务（沿用原 id；详情页按 submissionId 追踪仍能命中）。 */
     fun retry(taskId: Long) {
         val task = _tasks.value.firstOrNull { it.id == taskId && it.status == DownloadStatus.FAILED } ?: return
@@ -126,11 +155,32 @@ object DownloadManager {
         update(task.id) { it.copy(status = DownloadStatus.RUNNING) }
         var insertedUri: android.net.Uri? = null
         try {
+            // PARSE_THEN_DOWNLOAD：先解析详情页取原图与元数据
+            var workUrl = task.url
+            var author = task.author
+            var title = task.title
+            if (workUrl.isEmpty()) {
+                val sub = FurRepository.getInstance(ctx).getSubmission(task.submissionId)
+                    ?: throw Exception("Detail unavailable")
+                workUrl = sub.fullImageUrl
+                author = sub.author
+                title = sub.title
+                if (workUrl.isEmpty()) throw Exception("No full image URL")
+                update(task.id) {
+                    it.copy(
+                        url = workUrl,
+                        author = author,
+                        title = title,
+                        fileName = buildFileName(title, task.submissionId, workUrl)
+                    )
+                }
+            }
+
             val client = OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .build()
-            val request = Request.Builder().url(task.url)
+            val request = Request.Builder().url(workUrl)
                 .header("User-Agent", USER_AGENT)
                 .header("Referer", REFERER)
                 .build()
@@ -139,8 +189,13 @@ object DownloadManager {
                 if (!response.isSuccessful) throw Exception("HTTP ${response.code}")
                 val rawBody = response.body ?: throw Exception("Empty response")
 
-                val ext = resolveExtension(task.url, rawBody.contentType()?.toString())
-                val finalName = renameWithExtension(task.fileName, ext)
+                val ext = resolveExtension(workUrl, rawBody.contentType()?.toString())
+                val baseName = if (task.kind == DownloadKind.PARSE_THEN_DOWNLOAD) {
+                    buildFileName(title, task.submissionId, workUrl)
+                } else {
+                    task.fileName
+                }
+                val finalName = renameWithExtension(baseName, ext)
                 val contentLength = rawBody.contentLength()
                 update(task.id) {
                     it.copy(
@@ -201,7 +256,7 @@ object DownloadManager {
                     android.media.MediaScannerConnection.scanFile(ctx, arrayOf(file.absolutePath), arrayOf(mimeFor(ext)), null)
                 }
 
-                writeMeta(ctx, task.submissionId, task.author, task.title)
+                writeMeta(ctx, task.submissionId, author, title)
                 update(task.id) { it.copy(status = DownloadStatus.COMPLETED, speedBps = 0) }
                 toast(ctx, ctx.getString(R.string.toast_download_saved, finalName))
                 _refreshSignal.emit(Unit)

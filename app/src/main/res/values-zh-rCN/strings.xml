@@ -277,6 +277,17 @@
     <string name="downloads_status_failed">失败</string>
     <string name="downloads_retry">重试</string>
     <string name="downloads_already_exists">已经下载过</string>
+    <!-- 多选模式 -->
+    <string name="selection_mode_n">已选 %1$d 项</string>
+    <string name="action_select_all">全选</string>
+    <string name="action_batch_favorite">收藏所选</string>
+    <string name="action_batch_download">下载所选</string>
+    <!-- %1$d = 入队条数 -->
+    <string name="toast_batch_download_queued">已将 %1$d 项加入下载队列</string>
+    <!-- %1$d = 已发起收藏条数 -->
+    <string name="toast_batch_favorite_done">已收藏 %1$d 项</string>
+    <!-- %1$d = 失败条数 -->
+    <string name="toast_batch_favorite_failed">%1$d 项失败</string>
     <string name="user_unfollow">取消关注</string>
     <string name="user_unfollow_confirm">不再关注 %s?</string>
     <string name="toast_download_saved">已保存:%s</string>

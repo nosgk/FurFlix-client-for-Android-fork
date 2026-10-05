@@ -267,6 +267,17 @@
     <string name="downloads_status_failed">Failed</string>
     <string name="downloads_retry">Retry</string>
     <string name="downloads_already_exists">Already downloaded</string>
+    <!-- Selection mode (multi-select) -->
+    <string name="selection_mode_n">Selected %1$d</string>
+    <string name="action_select_all">Select all</string>
+    <string name="action_batch_favorite">Favorite selected</string>
+    <string name="action_batch_download">Download selected</string>
+    <!-- %1$d = queued item count -->
+    <string name="toast_batch_download_queued">Added %1$d items to download queue</string>
+    <!-- %1$d = issued favorite count -->
+    <string name="toast_batch_favorite_done">Favorited %1$d items</string>
+    <!-- %1$d = failed item count -->
+    <string name="toast_batch_favorite_failed">%1$d items failed</string>
     <string name="user_unfollow">Unfollow</string>
     <string name="user_unfollow_confirm">Stop watching %s?</string>
     <string name="toast_download_saved">Saved: %s</string>
