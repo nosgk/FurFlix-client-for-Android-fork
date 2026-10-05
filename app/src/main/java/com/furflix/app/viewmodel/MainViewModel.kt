@@ -64,6 +64,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _tagSuggestions = MutableStateFlow<List<String>>(emptyList())
     val tagSuggestions: StateFlow<List<String>> = _tagSuggestions.asStateFlow()
 
+    // 已看帖子的统计缓存（列表卡片浮层的数据源），随详情页加载与收藏动作保持新鲜
+    private val cardStatsCache by lazy { com.furflix.app.data.local.CardStatsCache.getInstance(getApplication()) }
+    private val _cardStats = MutableStateFlow<Map<String, com.furflix.app.data.model.CardStats>>(emptyMap())
+    val cardStats: StateFlow<Map<String, com.furflix.app.data.model.CardStats>> = _cardStats.asStateFlow()
+
     private var searchTagsJob: kotlinx.coroutines.Job? = null
 
     fun fetchTagSuggestions(prefix: String) {
@@ -125,6 +130,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             newMap
         }
         viewModelScope.launch {
+            // 卡片浮层的数据源与详情页同步更新：乐观写新值，失败回滚后写回原值
+            cardStatsCache.put(
+                postId,
+                com.furflix.app.data.model.CardStats(
+                    views = details.views,
+                    favorites = details.favorites + if (addToFavorites) 1 else -1,
+                    comments = details.comments,
+                    favorited = addToFavorites
+                )
+            )
             try {
                 val success = repository.toggleFavorite(currentFavUrl)
                 if (!success) {
@@ -134,6 +149,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         newMap[postId] = details
                         newMap
                     }
+                    cardStatsCache.put(
+                        postId,
+                        com.furflix.app.data.model.CardStats(
+                            views = details.views,
+                            favorites = details.favorites,
+                            comments = details.comments,
+                            favorited = details.isFavorited
+                        )
+                    )
                 }
             } catch (_: Exception) {
                 _submissionDetails.update { current ->
@@ -141,6 +165,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     newMap[postId] = details
                     newMap
                 }
+                cardStatsCache.put(
+                    postId,
+                    com.furflix.app.data.model.CardStats(
+                        views = details.views,
+                        favorites = details.favorites,
+                        comments = details.comments,
+                        favorited = details.isFavorited
+                    )
+                )
             }
             _isTogglingFavorite.value = false
         }
@@ -159,6 +192,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearRecentSearches() {
         viewModelScope.launch { repository.saveRecentSearches(emptyList()) }
+    }
+
+    fun clearCardStats() {
+        viewModelScope.launch { cardStatsCache.clear() }
     }
 
     fun removeRecentSearch(query: String) {
@@ -224,6 +261,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         _isLoggedIn.value = FurAffinityScraper.isLoggedIn()
+        viewModelScope.launch {
+            cardStatsCache.flow.collect { _cardStats.value = it }
+        }
         viewModelScope.launch {
             repository.recentSearchesFlow.collect {
                 _recentSearches.value = it
@@ -489,6 +529,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         newMap[postId] = result
                         newMap
                     }
+                    cardStatsCache.put(
+                        postId,
+                        com.furflix.app.data.model.CardStats(
+                            views = result.views,
+                            favorites = result.favorites,
+                            comments = result.comments,
+                            favorited = result.isFavorited
+                        )
+                    )
                 } else {
                     _errorMessage.value = getApplication<Application>().getString(R.string.error_load_details)
                 }
