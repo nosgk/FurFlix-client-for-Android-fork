@@ -339,8 +339,10 @@ private fun CommentThreadRow(
         modifier = Modifier
             .fillMaxWidth()
             .drawWithContent {
-                drawContent()
+                // Connectors first, content second: the avatar must cover the
+                // elbow endpoint, not the other way around.
                 drawThreadConnectors(info, lineColor)
+                drawContent()
             }
             .background(flashColor)
     ) {
@@ -455,8 +457,8 @@ private fun ContinueThreadRow(
         modifier = Modifier
             .fillMaxWidth()
             .drawWithContent {
-                drawContent()
                 drawThreadConnectors(info, lineColor)
+                drawContent()
             }
             .clickable(onClick = onOpen)
             .padding(start = STEP * info.depth, end = 12.dp, top = 6.dp, bottom = 6.dp)
@@ -500,8 +502,8 @@ private fun ContinueThreadRow(
 /**
  * Stateless connector lines (same math as the iOS implementation): ancestor
  * pass-through verticals, this row's tee/elbow into its avatar, and the stem
- * that feeds its children. Drawn in the row foreground so indentation padding
- * never clips the lines.
+ * that feeds its children. Drawn behind the row content — indentation padding
+ * never clips the lines, and the avatar paints over the elbow endpoint.
  */
 private fun DrawScope.drawThreadConnectors(info: ThreadInfo, color: Color) {
     val s = STEP.toPx()
