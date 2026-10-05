@@ -21,12 +21,25 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.FurFlix.Splash"
             android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- 站内打开 FA 链接：FA 官方域未托管 assetlinks.json,App Links 自动校验
+                 不可达,故不标 autoVerify——注册为候选处理器后浏览器点链接会弹"打开方式",
+                 用户可在系统"默认打开"设置里固化选择。onNewIntent 分发见 MainActivity。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="furaffinity.net" />
+                <data android:scheme="https" android:host="www.furaffinity.net" />
+                <data android:scheme="http" android:host="furaffinity.net" />
+                <data android:scheme="http" android:host="www.furaffinity.net" />
             </intent-filter>
         </activity>
 

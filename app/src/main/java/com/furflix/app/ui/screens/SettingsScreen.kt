@@ -54,6 +54,12 @@ fun SettingsScreen(
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val username by viewModel.username.collectAsState()
 
+    // 剪贴板链接识别开关（回前台检测 FA 链接并询问跳转）
+    val context2 = androidx.compose.ui.platform.LocalContext.current
+    val repository2 = remember { com.furflix.app.data.repository.FurRepository.getInstance(context2) }
+    val scope2 = rememberCoroutineScope()
+    val clipboardLinkEnabled by repository2.clipboardLinkEnabledFlow.collectAsState(initial = true)
+
     val downloadPath by viewModel.downloadFolder.collectAsState()
     val displayPath = downloadPath.ifEmpty { "Pictures/FurFlix" }
     var showDownloadFolderDialog by remember { mutableStateOf(false) }
@@ -151,6 +157,22 @@ fun SettingsScreen(
                                 )
                                 Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                             }
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = Icons.Default.ContentPaste,
+                        iconColor = Color(0xFF8BC34A),
+                        title = stringResource(R.string.settings_clipboard_link),
+                        subtitle = stringResource(R.string.settings_clipboard_link_desc),
+                        onClick = { scope2.launch { repository.saveClipboardLinkEnabled(!clipboardLinkEnabled) } },
+                        trailing = {
+                            Switch(
+                                checked = clipboardLinkEnabled,
+                                onCheckedChange = { checked ->
+                                    scope2.launch { repository.saveClipboardLinkEnabled(checked) }
+                                }
+                            )
                         }
                     )
                 }

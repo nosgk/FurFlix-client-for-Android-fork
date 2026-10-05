@@ -62,6 +62,7 @@ class FurRepository(private val context: Context) {
     private val USER_NOTES_KEY = stringPreferencesKey("user_notes")
     private val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
     private val HIDE_BARS_KEY = booleanPreferencesKey("hide_bars_on_scroll")
+    private val CLIPBOARD_LINK_KEY = booleanPreferencesKey("clipboard_link_enabled")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
         private val THEME_ID_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_id")
         private val APP_ICON_KEY = stringPreferencesKey("app_icon")
@@ -341,6 +342,17 @@ class FurRepository(private val context: Context) {
     suspend fun saveHideBarsOnScroll(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[HIDE_BARS_KEY] = enabled
+        }
+    }
+
+    /** 剪贴板链接识别（回前台检测 FA 链接并询问跳转；默认开）。 */
+    val clipboardLinkEnabledFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[CLIPBOARD_LINK_KEY] ?: true
+    }
+
+    suspend fun saveClipboardLinkEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[CLIPBOARD_LINK_KEY] = enabled
         }
     }
 

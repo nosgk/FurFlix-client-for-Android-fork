@@ -138,6 +138,12 @@
     <string name="settings_filters_desc">内容隐藏与黑名单。</string>
     <string name="settings_language">语言</string>
     <string name="settings_language_desc">应用界面语言</string>
+    <string name="settings_clipboard_link">剪贴板链接识别</string>
+    <string name="settings_clipboard_link_desc">检测到站外复制的 FA 链接时询问是否打开</string>
+    <!-- 剪贴板链接弹窗 -->
+    <string name="clipboard_link_dialog_title">检测到 FurAffinity 链接</string>
+    <string name="link_open">打开</string>
+    <string name="link_dismiss">忽略</string>
     <string name="settings_language_system">跟随系统</string>
     <string name="settings_about_desc">非官方 FurAffinity 客户端</string>
 

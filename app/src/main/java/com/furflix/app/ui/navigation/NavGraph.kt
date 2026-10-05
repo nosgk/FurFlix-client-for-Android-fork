@@ -2,6 +2,7 @@ package com.furflix.app.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -13,10 +14,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.furflix.app.data.remote.DynamicThumbnail
+import com.furflix.app.data.remote.FaLink
+import com.furflix.app.data.remote.parseFaLink
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.screens.*
 import com.furflix.app.viewmodel.MainViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 
 object Routes {
     const val HOME = "home"
@@ -38,10 +42,25 @@ object Routes {
 }
 
 @Composable
-fun FurFlixNavGraph() {
+fun FurFlixNavGraph(
+    /** 外部链接事件通道：MainActivity 的 VIEW intent 与剪贴板弹窗写入，此处消费 */
+    deepLinkUri: MutableStateFlow<android.net.Uri?> = remember { MutableStateFlow<android.net.Uri?>(null) }
+) {
     val navController = rememberNavController()
     val mainViewModel: MainViewModel = viewModel()
     val watchlistViewModel: com.furflix.app.viewmodel.WatchlistViewModel = viewModel()
+
+    // 外部链接分发：作品/用户页直达（parseFaLink 与剪贴板、搜索框共用）
+    val pendingDeepLink by deepLinkUri.collectAsState()
+    LaunchedEffect(pendingDeepLink) {
+        val uri = pendingDeepLink ?: return@LaunchedEffect
+        when (val link = parseFaLink(uri.toString())) {
+            is FaLink.Submission -> navController.navigate(Routes.postDetail(link.id, "main"))
+            is FaLink.User -> navController.navigate(Routes.userProfile(link.username))
+            null -> Unit
+        }
+        deepLinkUri.value = null
+    }
 
     // 缩略图清晰度偏好全树注入一次，卡片与预取经 LocalThumbnailQuality 读取
     val appContext = LocalContext.current.applicationContext

@@ -133,6 +133,12 @@
     <string name="settings_filters_desc">Content hiding and blacklists.</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_desc">App interface language</string>
+    <string name="settings_clipboard_link">Clipboard link detection</string>
+    <string name="settings_clipboard_link_desc">Ask to open FurAffinity links copied outside the app</string>
+    <!-- Clipboard link dialog -->
+    <string name="clipboard_link_dialog_title">FurAffinity link detected</string>
+    <string name="link_open">Open</string>
+    <string name="link_dismiss">Ignore</string>
     <string name="settings_language_system">System default</string>
     <string name="settings_about_desc">Unofficial FurAffinity client</string>
     

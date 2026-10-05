@@ -115,10 +115,17 @@ fun TagSearchScreen(
                             query = searchQuery,
                             tagSuggestions = tagSuggestions,
                             onTypingWordChanged = { viewModel.fetchTagSuggestions(it) },
-                            onSearch = { query -> 
-                                viewModel.updateSearchFilters(draftFilters)
-                                viewModel.loadSearch(query)
-                                showFilters = false
+                            onSearch = { query ->
+                                // 粘贴 FA 链接直达：作品/用户页，不进搜索
+                                when (val link = com.furflix.app.data.remote.parseFaLink(query)) {
+                                    is com.furflix.app.data.remote.FaLink.Submission -> onNavigateToPost(link.id)
+                                    is com.furflix.app.data.remote.FaLink.User -> onNavigateToUser(link.username)
+                                    null -> {
+                                        viewModel.updateSearchFilters(draftFilters)
+                                        viewModel.loadSearch(query)
+                                        showFilters = false
+                                    }
+                                }
                             },
                             onFilterClick = { 
                                 if (showFilters) {
