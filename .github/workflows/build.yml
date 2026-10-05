@@ -30,7 +30,16 @@ jobs:
       - name: Lint (i18n translation audit included)
         run: |
           chmod +x gradlew
-          ./gradlew :app:lintDebug
+          if ./gradlew :app:lintDebug > /tmp/lint.log 2>&1; then
+            echo "lintDebug passed"
+          else
+            echo "### :x: lintDebug failed - error excerpt" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "^e: |FAILED|error: |Unresolved|Caused by" /tmp/lint.log | head -60 >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -60 /tmp/lint.log | head -c 5000 >> "$GITHUB_STEP_SUMMARY" || true
+            exit 1
+          fi
 
       - name: Unit tests
         run: |
