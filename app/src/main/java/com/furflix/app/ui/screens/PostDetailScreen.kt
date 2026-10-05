@@ -671,6 +671,8 @@ private fun HeroImage(
             } else {
                 Modifier
             }
+            // 原图就位前不压渐变遮罩：占位缩略图保持干净（用户明确要求移除加载期阴影）
+            var fullImageLoaded by remember { mutableStateOf(false) }
             ProgressiveImageContent(
                 fullUrl = sub.fullImageUrl,
                 listThumbnailUrl = placeholderUrl,
@@ -682,25 +684,28 @@ private fun HeroImage(
                 contentScale = if (knownRatio) ContentScale.Crop else ContentScale.FillWidth,
                 ratio = sub.thumbnailWidthOnHeightRatio,
                 fixedSized = knownRatio,
-                onImageClick = onImageClick
+                onImageClick = onImageClick,
+                onImageSuccess = { fullImageLoaded = true }
             )
 
             // Gradient fade into background at the bottom
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                DarkBackground.copy(alpha = 0.4f),
-                                DarkBackground
+            if (fullImageLoaded) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    DarkBackground.copy(alpha = 0.4f),
+                                    DarkBackground
+                                )
                             )
                         )
-                    )
-            )
+                )
+            }
 
             // Rating badge overlaid on image
             if (sub.rating.isNotEmpty()) {

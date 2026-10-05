@@ -59,7 +59,8 @@ fun ProgressiveImageContent(
     ratio: Float = 0f,
     fixedSized: Boolean = false,
     fallbackAspectRatio: Float = 4f / 3f,
-    onImageClick: (() -> Unit)? = null
+    onImageClick: (() -> Unit)? = null,
+    onImageSuccess: (() -> Unit)? = null
 ) {
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
@@ -102,6 +103,7 @@ fun ProgressiveImageContent(
             ),
             contentDescription = contentDescription,
             contentScale = contentScale,
+            onSuccess = { onImageSuccess?.invoke() },
             loading = {
                 if (placeholderUrl != null) {
                     // 占位已可见：右下角小进度芯片，不打断视觉
@@ -134,7 +136,7 @@ fun ProgressiveImageContent(
     }
 }
 
-/** 环形进度（contentLength 已知）+ 百分比/网速；未知总量退化为不定态环 + 网速。 */
+/** 环形进度 + 百分比/网速；总量未知时以“已加载字节”替代百分比，网速在测速窗口就绪后显示——芯片始终有文字。 */
 @Composable
 fun LoadProgressChip(url: String, modifier: Modifier = Modifier) {
     val state by ImageLoadProgress.stateFor(url).collectAsState()
@@ -153,6 +155,12 @@ fun LoadProgressChip(url: String, modifier: Modifier = Modifier) {
     }
     val percentText = fraction?.let {
         stringResource(R.string.load_percent_format, (it * 100).toInt())
+    }
+    // Content-Length 缺失（分块传输）时没有百分比——用已加载字节数兜底，避免只剩一个环
+    val bytesText = if (fraction == null && st != null && st.bytes > 0) {
+        stringResource(R.string.load_downloaded_format, Formatter.formatFileSize(context, st.bytes))
+    } else {
+        null
     }
 
     Surface(
@@ -179,12 +187,20 @@ fun LoadProgressChip(url: String, modifier: Modifier = Modifier) {
                     strokeWidth = 2.dp
                 )
             }
-            if (percentText != null || speedText != null) {
+            if (percentText != null || bytesText != null || speedText != null) {
                 Spacer(Modifier.width(8.dp))
                 Column {
                     if (percentText != null) {
                         Text(
                             percentText,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (bytesText != null) {
+                        Text(
+                            bytesText,
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Bold

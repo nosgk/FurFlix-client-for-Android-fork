@@ -112,6 +112,10 @@ fun UserProfileScreen(
     val repository = remember { FurRepository.getInstance(context) }
     val bannerStore = remember { UserBannerStore.getInstance(repository) }
     val userBanners by bannerStore.banners.collectAsState()
+    // 画廊卡片的统计浮层与首页同源（CardStatsCache 详情回填实时推送）
+    val cardStats by remember {
+        com.furflix.app.data.local.CardStatsCache.getInstance(context).flow
+    }.collectAsState(initial = emptyMap())
     val watchlistBlur by repository.watchlistBannerBlurFlow.collectAsState(initial = 0f)
     val bannerSource by repository.watchlistBannerSourceFlow.collectAsState(
         initial = FurRepository.WATCHLIST_BANNER_SOURCE_BANNER
@@ -405,7 +409,7 @@ fun UserProfileScreen(
                                         span = { StaggeredGridItemSpan.FullLine }
                                     ) { submission ->
                                         Box(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                            SubmissionCard(submission = submission, onClick = { onNavigateToPost(submission.id) }, onAuthorClick = { onNavigateToUser(it) })
+                                            SubmissionCard(submission = submission, onClick = { onNavigateToPost(submission.id) }, onAuthorClick = { onNavigateToUser(it) }, stats = cardStats[submission.id])
                                         }
                                     }
                                 } else {
@@ -420,6 +424,7 @@ fun UserProfileScreen(
                                             showTitle = mode == GalleryViewMode.GRID,
                                             compact = mode == GalleryViewMode.GRID,
                                             ratio = if (mode == GalleryViewMode.MASONRY) submission.thumbnailWidthOnHeightRatio else 0f,
+                                            stats = cardStats[submission.id],
                                             onAuthorClick = { onNavigateToUser(it) }
                                         )
                                     }
