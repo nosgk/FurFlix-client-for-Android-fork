@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Profile consistency batch**: the user page's watching/watchers tabs
+  now show each card's real profile banner via a shared banner store
+  (warmed in either the My-page watchlist or the user page, keyed by
+  lowercase username); watchlist card backgrounds gain an Appearance
+  setting pair — source (profile banner / latest-artwork thumbnail,
+  whose resolution still follows the thumbnail-quality tier, without
+  touching the profile page header banner) and a 0-20 dp gaussian blur
+  slider (0 = sharp) — applied to the card background only; the
+  My-page watchlist gets a local search over username, display name
+  and note, and long-pressing a user card (haptic confirmed) opens a
+  private local note editor shown under the name; the post detail
+  title is translatable under a new Titles category (bilingual under
+  the original or replacing it per display mode, with a manual toggle);
+  the comment icon in the stats bar now also scrolls the page so the
+  comments land on screen, in single-pane and two-pane layouts.
 - **Download & gallery experience batch** (download-gallery-ux RFC): the
   downloads page renders saved images at their measured aspect ratio
   (grid/masonry/list modes with a shared column preference) so nothing is
@@ -140,6 +155,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   results render the empty state instead of an error banner; search tag chips
   support `!tag` exclusion polarity (tap to flip, red strikethrough) joined
   into a single `@keywords` group.
+
+### Fixed
+- Viewing-history masonry degenerated into a uniform grid: rebuilding
+  history entries from the stats cache dropped the parsed thumbnail
+  ratio, so every card pre-sized to 1:1. The ratio is carried again,
+  and previously cached entries recover immediately.
+- Compact grid/masonry cards in the My-page favorites and viewing
+  history hid their titles; they now show the one-line title like the
+  same card everywhere else.
 
 ### Changed
 - **SEO / website**: meta description, Open Graph and JSON-LD structured data,
