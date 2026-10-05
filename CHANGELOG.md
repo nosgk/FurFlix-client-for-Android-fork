@@ -27,7 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stable footer keys for smoother scrolling. Residual hardcoded strings
   ("No favorites yet.", meta labels, share-chooser title) extracted into
   resources with zh-CN mirrors.
-- **Online translation** (opt-in, Settings → General → Translation): on-demand (opt-in, Settings → General → Translation): on-demand
+- **Author gallery strip** (two-pane detail): the wide-screen info pane
+  gains an "Author Gallery" section that anchors the current submission in
+  the author's works — highlighted tile with prior works to its left — and
+  keeps paging as the strip scrolls; served by the author gallery listing
+  (NSFW/muted-word filters already applied) with quality-negotiated
+  thumbnails.
+- **Online translation** (opt-in, Settings → General → Translation): on-demand
   and auto translation of post descriptions (HTML-preserving for capable
   providers), tags, comments and user bios. Five built-in providers —
   Microsoft Edge (default: keyless and reachable from mainland China), two
