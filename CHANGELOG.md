@@ -8,7 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Browsing experience batch** (browse-ux RFC): user-adjustable gallery grid
+- **Download & gallery experience batch** (download-gallery-ux RFC): the
+  downloads page renders saved images at their measured aspect ratio
+  (grid/masonry/list modes with a shared column preference) so nothing is
+  cropped anymore; a real download pipeline (serial queue, per-task
+  progress bar with percent and live speed, failure states with a retry
+  button, filename dedupe, correct extensions from URL or content type,
+  MediaStore cleanup on failure, and orphan-free metadata) replaces the
+  old fire-and-forget download, and the detail page's check icon now
+  reflects the actual task state; long-press multi-select on the main
+  galleries with batch favorite (serial, rate-aware) and batch download
+  (detail-resolving two-stage tasks); user page gallery folders with an
+  in-place folder browser and isolated pagination; gallery view modes and
+  the paw pull-to-refresh applied to the user page and tag search;
+  auto-hiding top/bottom bars with an Appearance switch; a text size
+  setting (five steps multiplied over the system font scale); progressive
+  hero loading (cached thumbnail placeholder, ratio-preset container, ring
+  progress with percent and speed keyed per URL); automatic 3x retry with
+  backoff for images and page fetches, surfacing raw error codes with a
+  manual retry; neighbor-page prefetch and click-time prewarming for
+  instant page turns; per-keyword search count chips (single-page fetch
+  count, parallel); and zh-CN mirrors for every new string. Hardcoded
+  user-page empty/error strings extracted into resources.
+
+- **Browsing experience batch** (browse-ux RFC): user-adjustable gallery grid- **Browsing experience batch** (browse-ux RFC): user-adjustable gallery grid
   columns (auto-by-width or fixed 2-5) applied to every submission grid;
   thumbnail quality preference (auto / data saver / high) with cards now
   negotiating their own CDN tier from the measured lane width — previously
