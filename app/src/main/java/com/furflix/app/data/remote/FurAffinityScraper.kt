@@ -563,6 +563,14 @@ object FurAffinityScraper {
                 thumbnailUrl = "https:$thumbnailUrl"
             }
 
+            // Listing thumbs carry display dimensions in data-width/data-height
+            // (width can be fractional, e.g. "238.09"); the ratio lets the UI
+            // pre-size items before the image loads. Missing attributes → 0,
+            // which makes the UI fall back to a fixed ratio instead of failing.
+            val thumbWidth = imgEl?.attr("data-width")?.toFloatOrNull() ?: 0f
+            val thumbHeight = imgEl?.attr("data-height")?.toFloatOrNull() ?: 0f
+            val thumbRatio = if (thumbWidth > 0f && thumbHeight > 0f) thumbWidth / thumbHeight else 0f
+
             // Title and author — iOS: "figcaption p a" (index 0 = title, 1 = author link)
             val captionLinks = figure.select("figcaption p a")
             val title = captionLinks.getOrNull(0)?.text()?.trim()
@@ -592,6 +600,7 @@ object FurAffinityScraper {
                 author = author,
                 authorUsername = authorUsername,
                 thumbnailUrl = thumbnailUrl,
+                thumbnailWidthOnHeightRatio = thumbRatio,
                 rating = rating,
                 favorites = 0,
                 comments = 0,

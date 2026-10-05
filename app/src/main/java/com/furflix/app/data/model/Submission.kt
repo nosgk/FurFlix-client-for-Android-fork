@@ -10,6 +10,9 @@ data class Submission(
     val authorUsername: String = "",
     val authorAvatar: String = "",
     val thumbnailUrl: String = "",
+    // Aspect ratio of the listing thumbnail, parsed from the img's data-width/
+    // data-height attributes; 0 = unknown → UI falls back to a fixed ratio.
+    val thumbnailWidthOnHeightRatio: Float = 0f,
     val fullImageUrl: String = "",
     val description: String = "",
     val rating: String = "",
