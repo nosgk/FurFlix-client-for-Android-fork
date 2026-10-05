@@ -217,7 +217,19 @@ class TranslationService private constructor(private val context: Context) {
             }
             // [FurFlix 增补] htmlIn=false 的服务商面对 HTML 内容先剥标签（<br>→换行 + 反转义）
             val payload = if (contentIsHtml && !profile.htmlIn) htmlToText(chunk) else chunk
-            parts.add(executeChunk(payload, profile, config))
+            parts.add(
+                try {
+                    executeChunk(payload, profile, config)
+                } catch (e: TranslationException) {
+                    // [FurFlix] Google translateHtml 会拒绝 FA 畸形 HTML 块（属性缺空格、
+                    // 空属性值紧跟无引号值等，规则无法穷举）→ 400 时降级为剥标签纯文本重译
+                    if (contentIsHtml && profile.htmlIn && e.code == 400) {
+                        executeChunk(htmlToText(chunk), profile, config)
+                    } else {
+                        throw e
+                    }
+                }
+            )
         }
         return parts.joinToString("")
     }

@@ -62,14 +62,15 @@ class TranslationException(
     val detail: String? = null,
 ) : Exception(message)
 
-/** 蓝本重试判定：配置类错误与取消不重试，其余（超时/限流/服务器错误等）可重试。 */
+/** 蓝本重试判定：配置类错误与取消不重试；本项目追加——4xx（除 408/429）是确定性
+ *  客户端错误，同载荷重试无意义，应立即走降级路径。 */
 val TranslationException.isRetryable: Boolean
     get() = when (message) {
         TranslationErrors.NO_KEY,
         TranslationErrors.INVALID_KEY,
         TranslationErrors.CANCELLED,
         TranslationErrors.NOTHING -> false
-        else -> true
+        else -> !(code != null && code in 400..499 && code != 408 && code != 429)
     }
 
 /** 内置目标语言表（15 种；母语名恒显，不本地化——与语言选择器原则一致）。 */

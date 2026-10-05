@@ -820,8 +820,9 @@ private fun TagsSection(tags: List<String>, onTagClick: (String) -> Unit) {
         onDispose { entries.forEach { it.cancel() } }
     }
 
-    // 批量翻译靠缓存 + in-flight 合并；页面开关再次打开时对失败条目重试
-    LaunchedEffect(auto) {
+    // 批量翻译靠缓存 + in-flight 合并；键含 prefs.enabled：偏好晚到（首帧默认值）时补触发；
+    // 页面开关再次打开时对失败条目重试
+    LaunchedEffect(prefs.enabled, auto) {
         if (prefs.enabled && auto) {
             entries.forEach { entry ->
                 val s = entry.state.value

@@ -52,7 +52,9 @@ private val K_PROFILE_OPENAI = stringPreferencesKey("translateProfileOpenAI")
 data class TranslationUiPrefs(
     val enabled: Boolean = false,
     val auto: Boolean = false,
-    val tagsAuto: Boolean = false,
+    // [FurFlix 偏离蓝本] 标签自动翻译默认开：FA 标签短小廉价（缓存+合并兜底），
+    // 且"启用翻译即标签可译"符合 zh-first 用户预期。用户显式关闭后存键生效。
+    val tagsAuto: Boolean = true,
     val displayModes: Map<TranslationCategory, TranslationDisplayMode> = emptyMap(),
 ) {
     fun displayMode(category: TranslationCategory): TranslationDisplayMode =
@@ -97,7 +99,7 @@ class TranslationSettings private constructor(private val context: Context) {
         TranslationUiPrefs(
             enabled = p[K_ENABLED] ?: false,
             auto = p[K_AUTO] ?: false,
-            tagsAuto = p[K_TAGS_AUTO] ?: false,
+            tagsAuto = p[K_TAGS_AUTO] ?: true, // 默认开，见 TranslationUiPrefs 注释
             displayModes = parseDisplayModes(p[K_DISPLAY_MODES] ?: "{}"),
         )
     }
