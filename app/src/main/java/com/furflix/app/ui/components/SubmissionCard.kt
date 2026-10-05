@@ -100,9 +100,11 @@ fun SubmissionCard(
                 scaleY = cardScale
             }
             .combinedClickable(
+                interactionSource = cardInteractionSource,
+                // Compose 1.8+ 新重载：interactionSource 与 indication 必须成对给出
+                indication = androidx.compose.foundation.LocalIndication.current,
                 onClick = onClick,
-                onLongClick = hapticLongClick,
-                interactionSource = cardInteractionSource
+                onLongClick = hapticLongClick
             ),
         shape = RoundedCornerShape(if (compact) 8.dp else 12.dp),
         colors = CardDefaults.cardColors(
