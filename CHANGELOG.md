@@ -8,7 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Online translation** (opt-in, Settings → General → Translation): on-demand
+- **Browsing experience batch** (browse-ux RFC): user-adjustable gallery grid
+  columns (auto-by-width or fixed 2-5) applied to every submission grid;
+  thumbnail quality preference (auto / data saver / high) with cards now
+  negotiating their own CDN tier from the measured lane width — previously
+  only the masonry prefetch negotiated, so warmed URLs never matched what
+  cards actually requested; a stats overlay on grid/masonry cards
+  (favorites / views / comments, pink heart when favorited) backfilled from
+  a unit-tested LRU stats cache fed by detail-page parses — FA listings
+  carry no such numbers, so locally unknown submissions stay clean; tag
+  long-press menu on the detail page (search / append to the origin list's
+  keyword group / save as quick preset / copy) with a quick-preset chip row
+  on the search tab; a per-item storage management screen (image cache,
+  translation cache, search history, viewed-submission stats, bundled
+  read-only tag lexicon); a two-pane detail layout on wide screens
+  (artwork left, independently scrolling info pane right; auto at >=600dp
+  with a manual override in Appearance); and lazy-grid content types with
+  stable footer keys for smoother scrolling. Residual hardcoded strings
+  ("No favorites yet.", meta labels, share-chooser title) extracted into
+  resources with zh-CN mirrors.
+- **Online translation** (opt-in, Settings → General → Translation): on-demand (opt-in, Settings → General → Translation): on-demand
   and auto translation of post descriptions (HTML-preserving for capable
   providers), tags, comments and user bios. Five built-in providers —
   Microsoft Edge (default: keyless and reachable from mainland China), two
