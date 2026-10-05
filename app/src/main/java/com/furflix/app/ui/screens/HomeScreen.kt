@@ -478,7 +478,7 @@ fun HomeScreen(
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
-                                            onClick = { onNavigateToPost(submission.id) },
+                                            onClick = { viewModel.prefetchSubmission(submission.id); onNavigateToPost(submission.id) },
                                             showTitle = showTitles,
                                             compact = compact,
                                             ratio = submission.thumbnailWidthOnHeightRatio,
@@ -542,7 +542,7 @@ fun HomeScreen(
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
-                                            onClick = { onNavigateToPost(submission.id) },
+                                            onClick = { viewModel.prefetchSubmission(submission.id); onNavigateToPost(submission.id) },
                                             showTitle = showTitles,
                                             compact = compact,
                                             stats = cardStats[submission.id],
@@ -641,6 +641,8 @@ fun HomeScreen(
                         Column(modifier = Modifier.fillMaxSize()) {
                         
                         val tagSuggestions by viewModel.tagSuggestions.collectAsState()
+                        // 分词计数 chips：逐词并行抓取（首页抓取数口径），点击直搜该词
+                        val keywordCounts by viewModel.searchKeywordCounts.collectAsState()
 
                         androidx.compose.animation.AnimatedVisibility(
                             visible = isHeaderVisible || showFilters || !hasSearched,
@@ -679,6 +681,49 @@ fun HomeScreen(
                                         viewModel.updateSearchFilters(newFilters)
                                     }
                                 )
+
+                                if (keywordCounts.isNotEmpty() && hasSearched) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState())
+                                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        keywordCounts.forEach { (word, count) ->
+                                            val label = when {
+                                                count == -1 -> "$word · …"
+                                                count == -2 -> "$word · ?"
+                                                else -> "$word · $count"
+                                            }
+                                            Surface(
+                                                shape = RoundedCornerShape(16.dp),
+                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                                onClick = { viewModel.loadSearch(word) }
+                                            ) {
+                                                Text(
+                                                    label,
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                        }
+                                        if (keywordCounts.size > 1) {
+                                            Surface(
+                                                shape = RoundedCornerShape(16.dp),
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                            ) {
+                                                Text(
+                                                    "$searchQuery · ${submissions.size}",
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                         
@@ -914,7 +959,7 @@ fun HomeScreen(
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
-                                            onClick = { onNavigateToPost(submission.id) },
+                                            onClick = { viewModel.prefetchSubmission(submission.id); onNavigateToPost(submission.id) },
                                             showTitle = showTitles,
                                             compact = true,
                                             ratio = submission.thumbnailWidthOnHeightRatio,
@@ -972,7 +1017,7 @@ fun HomeScreen(
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
-                                            onClick = { onNavigateToPost(submission.id) },
+                                            onClick = { viewModel.prefetchSubmission(submission.id); onNavigateToPost(submission.id) },
                                             showTitle = showTitles,
                                             compact = !isList,
                                             stats = cardStats[submission.id],

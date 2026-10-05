@@ -426,6 +426,59 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 相邻页预取：解析详情（命中缓存则跳过）并把原图 enqueue 进 Coil 缓存。
+     * 进度上报按 URL 键隔离，预取流量不会污染当前页的进度显示。
+     */
+    fun prefetchSubmission(postId: String) {
+        if (postId.isBlank()) return
+        viewModelScope.launch {
+            if (_submissionDetails.value[postId] == null) {
+                try {
+                    val sub = repository.getSubmission(postId)
+                    if (sub != null) {
+                        _submissionDetails.update { it + (postId to sub) }
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            val sub = _submissionDetails.value[postId]
+            if (sub?.fullImageUrl?.isNotEmpty() == true) {
+                val request = coil3.request.ImageRequest.Builder(getApplication())
+                    .data(sub.fullImageUrl)
+                    .build()
+                com.furflix.app.ui.components.ImageLoaderFactory
+                    .getInstance(getApplication())
+                    .enqueue(request)
+            }
+        }
+    }
+
+    private val _searchKeywordCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    /** 分词计数：-1 = 抓取中，-2 = 失败；空 map = 不展示。 */
+    val searchKeywordCounts: StateFlow<Map<String, Int>> = _searchKeywordCounts.asStateFlow()
+
+    private fun loadKeywordCounts(query: String) {
+        val words = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.distinct()
+        if (words.size < 2 || words.size > 4) {
+            _searchKeywordCounts.value = emptyMap()
+            return
+        }
+        viewModelScope.launch {
+            _searchKeywordCounts.value = words.associateWith { -1 }
+            words.forEach { word ->
+                launch {
+                    try {
+                        val result = repository.search(word, 1, _searchFilters.value)
+                        _searchKeywordCounts.value = _searchKeywordCounts.value + (word to result.size)
+                    } catch (_: Exception) {
+                        _searchKeywordCounts.value = _searchKeywordCounts.value + (word to -2)
+                    }
+                }
+            }
+        }
+    }
+
     fun loadSearch(query: String) {
         val currentFilters = _searchFilters.value
         if (query.isBlank() && currentFilters.keywords.isEmpty()) return
@@ -467,6 +520,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             _isLoading.value = false
         }
+        // 多词搜索时逐词并行抓取计数（首页抓取数口径，见 RFC §11/C9）
+        loadKeywordCounts(query)
     }
 
     fun loadWatchlist() {

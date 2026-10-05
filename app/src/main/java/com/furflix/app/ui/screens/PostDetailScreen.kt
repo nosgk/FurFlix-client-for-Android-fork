@@ -175,6 +175,10 @@ fun PostDetailScreen(
         if (pagerState.currentPage >= effectiveSubmissions.size - 3) {
             onLoadMore()
         }
+        // 相邻页预取：详情解析 + 原图预热，翻页即秒开
+        for (p in intArrayOf(pagerState.currentPage - 1, pagerState.currentPage + 1)) {
+            effectiveSubmissions.getOrNull(p)?.id?.let { viewModel.prefetchSubmission(it) }
+        }
     }
 
     BackHandler { onBack() }
