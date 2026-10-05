@@ -140,6 +140,7 @@ fun TagSearchScreen(
 
                 // 多选动作条：与首页/用户页同一套批量操作
                 if (selectionActive) {
+                    val batchQueuedText = stringResource(R.string.toast_batch_download_queued, selection.ids.size)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -157,7 +158,6 @@ fun TagSearchScreen(
                             Icon(Icons.Default.Favorite, contentDescription = stringResource(R.string.action_batch_favorite), tint = Color(0xFFFF007F))
                         }
                         IconButton(onClick = {
-                            val batchQueuedText = stringResource(R.string.toast_batch_download_queued, selection.ids.size)
                             selection.ids.forEach { com.furflix.app.data.download.DownloadManager.enqueueDownload(context, it) }
                             android.widget.Toast.makeText(context, batchQueuedText, android.widget.Toast.LENGTH_SHORT).show()
                             com.furflix.app.data.selection.SelectionStore.exit()

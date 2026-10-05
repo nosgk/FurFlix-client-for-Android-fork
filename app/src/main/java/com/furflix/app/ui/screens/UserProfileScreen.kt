@@ -302,6 +302,7 @@ fun UserProfileScreen(
                 },
                 actions = {
                     if (selectionActive) {
+                        val batchQueuedText = stringResource(R.string.toast_batch_download_queued, selection.ids.size)
                         // 与首页多选同一套动作：全选 / 批量收藏 / 批量下载 / 退出
                         IconButton(onClick = {
                             com.furflix.app.data.selection.SelectionStore.selectAll(pageSource, submissions.map { it.id })
@@ -312,7 +313,6 @@ fun UserProfileScreen(
                             Icon(Icons.Default.Favorite, contentDescription = stringResource(R.string.action_batch_favorite), tint = Color(0xFFFF007F), modifier = Modifier.size(20.dp))
                         }
                         IconButton(onClick = {
-                            val batchQueuedText = stringResource(R.string.toast_batch_download_queued, selection.ids.size)
                             selection.ids.forEach { com.furflix.app.data.download.DownloadManager.enqueueDownload(context, it) }
                             android.widget.Toast.makeText(context, batchQueuedText, android.widget.Toast.LENGTH_SHORT).show()
                             com.furflix.app.data.selection.SelectionStore.exit()
