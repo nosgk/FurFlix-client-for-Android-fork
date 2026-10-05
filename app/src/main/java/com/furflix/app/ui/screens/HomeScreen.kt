@@ -122,6 +122,8 @@ fun HomeScreen(
     val selectedTab by viewModel.selectedTab.collectAsState()
     val hasSearched by viewModel.hasSearched.collectAsState()
     val recentSearches by viewModel.recentSearches.collectAsState()
+    // 收藏夹页(page 3)的下拉刷新走 WatchlistViewModel,复位条件要一并看它的加载态
+    val watchlistIsLoading by watchlistViewModel.isLoading.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     // Resolve tab labels as plain strings first — stringResource() is @Composable,
@@ -145,7 +147,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val repository = remember { FurRepository.getInstance(context) }
     val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
-    
+
     var showTitles by rememberSaveable { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
@@ -300,8 +302,8 @@ fun HomeScreen(
             val pullThreshold = 330f
             var hasTriggered by remember { mutableStateOf(false) }
 
-            LaunchedEffect(isLoading, isRefreshing) {
-                if (!isLoading && isRefreshing) {
+            LaunchedEffect(isLoading, watchlistIsLoading, isRefreshing) {
+                if (!isLoading && !watchlistIsLoading && isRefreshing) {
                     isRefreshing = false
                     pullProgress = 0f
                     hasTriggered = false
@@ -317,7 +319,7 @@ fun HomeScreen(
                         available: Offset,
                         source: NestedScrollSource
                     ): Offset {
-                        if (available.y > 0 && source == NestedScrollSource.UserInput && !isRefreshing && pagerState.currentPage != 3) {
+                        if (available.y > 0 && source == NestedScrollSource.UserInput && !isRefreshing) {
                             pullProgress = (pullProgress + available.y).coerceIn(0f, pullThreshold * 1.5f)
                             if (pullProgress >= pullThreshold && !hasTriggered) {
                                 hasTriggered = true
@@ -326,7 +328,7 @@ fun HomeScreen(
                                     0 -> viewModel.loadBrowse()
                                     1 -> viewModel.loadLatest()
                                     2 -> viewModel.loadSearch(currentSearchQuery)
-                                    3 -> {}
+                                    3 -> watchlistViewModel.refresh()
                                 }
                             }
                             return Offset(0f, available.y)
@@ -875,7 +877,7 @@ fun HomeScreen(
                             watchlistViewModel.refreshIfNeeded()
                         }
                         ProfileScreen(
-                            isGrid = viewMode != GalleryViewMode.LIST,
+                            viewMode = viewMode,
                             onNavigateToUser = onNavigateToUser,
                             onNavigateToPost = onNavigateToPost,
                             onNavigateToFavoritesPost = onNavigateToFavoritesPost,

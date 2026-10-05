@@ -100,7 +100,22 @@ class WatchlistViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    private fun loadData() {
+    /**
+     * Pull-to-refresh entry: reload page 1 of the current tab in place.
+     * Clears nothing up front so [loadData]'s skip-if-cached guard is bypassed
+     * explicitly instead of blanking the list into the full-screen spinner —
+     * the pull overlay is the only visible feedback.
+     */
+    fun refresh() {
+        when (_currentTab.value) {
+            TAB_FAVORITES -> { favoritesPage = 1; favoritesMore = true }
+            TAB_FOLLOWING -> { followingPage = 1; followingMore = true }
+            TAB_FOLLOWERS -> { followersPage = 1; followersMore = true }
+        }
+        loadData(force = true)
+    }
+
+    private fun loadData(force: Boolean = false) {
         val tab = _currentTab.value
         val currentList = when (tab) {
             TAB_FAVORITES -> _favoritesList.value
@@ -108,7 +123,7 @@ class WatchlistViewModel(application: Application) : AndroidViewModel(applicatio
             TAB_FOLLOWERS -> _followersList.value
             else -> emptyList()
         }
-        if (currentList.isNotEmpty()) return
+        if (currentList.isNotEmpty() && !force) return
 
         when (tab) {
             TAB_FAVORITES -> { favoritesPage = 1; favoritesMore = true }

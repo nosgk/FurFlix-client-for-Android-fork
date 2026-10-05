@@ -16,6 +16,11 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,12 +47,13 @@ import com.furflix.app.ui.components.SubmissionCard
 import com.furflix.app.ui.components.WatchlistGridItem
 import com.furflix.app.ui.components.WatchlistItem
 import com.furflix.app.ui.theme.*
+import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.viewmodel.WatchlistViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
-    isGrid: Boolean,
+    viewMode: GalleryViewMode,
     onNavigateToUser: (String) -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
@@ -100,7 +106,7 @@ fun ProfileScreen(
                     isLoading = isLoading,
                     isLoadingMore = isLoadingMore,
                     errorMessage = errorMessage,
-                    isGrid = isGrid,
+                    viewMode = viewMode,
                     onNavigateToPost = onNavigateToFavoritesPost,
                     onNavigateToUser = onNavigateToUser,
                     onLoadMore = { viewModel.loadMore() },
@@ -115,7 +121,7 @@ fun ProfileScreen(
                     isLoadingMore = isLoadingMore,
                     errorMessage = errorMessage,
                     currentTab = currentTab,
-                    isGrid = isGrid,
+                    isGrid = viewMode != GalleryViewMode.LIST,
                     onSetTab = { viewModel.setTab(it) },
                     onLoadMore = { viewModel.loadMore() },
                     onNavigateToUser = onNavigateToUser,
@@ -132,7 +138,7 @@ private fun FavoritesContent(
     isLoading: Boolean,
     isLoadingMore: Boolean,
     errorMessage: String?,
-    isGrid: Boolean,
+    viewMode: GalleryViewMode,
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onLoadMore: () -> Unit = {},
@@ -151,8 +157,51 @@ private fun FavoritesContent(
             EmptyState(message = "No favorites yet.", icon = Icons.Default.FavoriteBorder)
         }
         else -> {
-            Crossfade(targetState = isGrid, animationSpec = tween(300), label = "favGridList") { grid ->
-                if (grid) {
+            Crossfade(targetState = viewMode, animationSpec = tween(300), label = "favViewMode") { mode ->
+                when (mode) {
+                    GalleryViewMode.MASONRY -> {
+                        val staggeredState = rememberLazyStaggeredGridState()
+                        LaunchedEffect(scrollToTopTrigger) {
+                            if (scrollToTopTrigger > 0) staggeredState.animateScrollToItem(0)
+                        }
+                        LaunchedEffect(staggeredState) {
+                            snapshotFlow {
+                                val lastVisible = staggeredState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
+                                val total = staggeredState.layoutInfo.totalItemsCount
+                                lastVisible >= total - 4
+                            }.distinctUntilChanged().collect { shouldLoadMore ->
+                                if (shouldLoadMore && !isLoadingMore && submissions.isNotEmpty()) {
+                                    onLoadMore()
+                                }
+                            }
+                        }
+                        LazyVerticalStaggeredGrid(
+                            state = staggeredState,
+                            modifier = Modifier.fillMaxSize(),
+                            columns = StaggeredGridCells.Fixed(2),
+                            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalItemSpacing = 4.dp
+                        ) {
+                            staggeredItems(
+                                items = submissions,
+                                key = { it.id }
+                            ) { submission ->
+                                SubmissionCard(
+                                    submission = submission,
+                                    onClick = { onNavigateToPost(submission.id) },
+                                    showTitle = false,
+                                    compact = true,
+                                    ratio = submission.thumbnailWidthOnHeightRatio,
+                                    onAuthorClick = { onNavigateToUser(it) }
+                                )
+                            }
+                            if (isLoadingMore) {
+                                item(span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
+                            }
+                        }
+                    }
+                    GalleryViewMode.GRID -> {
                     val gridState = rememberLazyGridState()
                     LaunchedEffect(scrollToTopTrigger) {
                         if (scrollToTopTrigger > 0) gridState.animateScrollToItem(0)
@@ -189,7 +238,8 @@ private fun FavoritesContent(
                             item { LoadingMoreFooter() }
                         }
                     }
-                } else {
+                    }
+                    GalleryViewMode.LIST -> {
                     val listState = rememberLazyListState()
                     LaunchedEffect(scrollToTopTrigger) {
                         if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
@@ -221,6 +271,7 @@ private fun FavoritesContent(
                         if (isLoadingMore) {
                             item { LoadingMoreFooter() }
                         }
+                    }
                     }
                 }
             }
