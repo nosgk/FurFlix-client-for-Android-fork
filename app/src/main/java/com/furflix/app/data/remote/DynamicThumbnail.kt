@@ -21,7 +21,7 @@ class DynamicThumbnail(private val thumbnailUrl: String) {
         val longestSide = maxOf(displayWidthPx, displayHeightPx)
         val target = when (quality) {
             QUALITY_HIGH -> MAX_TIER
-            QUALITY_DATA_SAVER -> smallestTierCovering(minOf(longestSide, DATA_SAVER_CAP))
+            QUALITY_DATA_SAVER -> smallestTierCovering(minOf(longestSide, DATA_SAVER_CAP.toFloat()))
             else -> smallestTierCovering(longestSide)
         }
         return thumbnailUrl.replace(SIZE_REGEX) { "${it.groupValues[1]}${target}${it.groupValues[3]}" }
