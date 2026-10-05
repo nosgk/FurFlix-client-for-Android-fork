@@ -341,16 +341,17 @@ private fun CommentThreadRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            // flash 底色最先画：连接线与内容都压在其上，高亮脉冲不再盖掉指示线
+            .background(flashColor)
             .drawWithContent {
                 // Connectors first, content second: the avatar must cover the
                 // elbow endpoint, not the other way around.
-                drawThreadConnectors(info, lineColor)
+                drawThreadConnectors(info, lineColor, topPadding = 8.dp)
                 drawContent()
             }
-            .background(flashColor)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
             modifier = Modifier
                 .padding(start = STEP * info.depth, end = 12.dp, top = 8.dp, bottom = 8.dp)
         ) {
@@ -464,7 +465,7 @@ private fun ContinueThreadRow(
         modifier = Modifier
             .fillMaxWidth()
             .drawWithContent {
-                drawThreadConnectors(info, lineColor)
+                drawThreadConnectors(info, lineColor, topPadding = 6.dp)
                 drawContent()
             }
             .clickable(onClick = onOpen)
@@ -511,11 +512,16 @@ private fun ContinueThreadRow(
  * pass-through verticals, this row's tee/elbow into its avatar, and the stem
  * that feeds its children. Drawn behind the row content — indentation padding
  * never clips the lines, and the avatar paints over the elbow endpoint.
+ *
+ * [topPadding] must match the row's real top padding: the elbow anchors at
+ * avatar-center, so rows whose content grows (bilingual translations expand
+ * the body) keep the avatar pinned to the top — CommentThreadRow aligns Top —
+ * and the geometry stays valid at any height.
  */
-private fun DrawScope.drawThreadConnectors(info: ThreadInfo, color: Color) {
+private fun DrawScope.drawThreadConnectors(info: ThreadInfo, color: Color, topPadding: androidx.compose.ui.unit.Dp) {
     val s = STEP.toPx()
     val strokeW = 1.5.dp.toPx()
-    val rowPadding = 8.dp.toPx()
+    val rowPadding = topPadding.toPx()
     val avatarRadius = AVATAR_SIZE.toPx() / 2f
     val cy = rowPadding + avatarRadius
     val radius = s / 2f
