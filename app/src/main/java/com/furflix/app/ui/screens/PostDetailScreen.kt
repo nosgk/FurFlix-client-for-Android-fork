@@ -132,6 +132,7 @@ fun PostDetailScreen(
     viewModel: MainViewModel
 ) {
     val submissionDetailsMap by viewModel.submissionDetails.collectAsState()
+    val cardStats by viewModel.cardStats.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -139,6 +140,7 @@ fun PostDetailScreen(
     // 双栏决策：偏好优先；auto 时屏宽 ≥600dp（平板/横屏）启用左图右文
     val detailRepository = remember { FurRepository.getInstance(context) }
     val detailLayoutPref by detailRepository.detailLayoutFlow.collectAsState(initial = FurRepository.DETAIL_LAYOUT_AUTO)
+    val detailSplit by detailRepository.detailSplitFlow.collectAsState(initial = FurRepository.DETAIL_SPLIT_DEFAULT)
     val twoPane = when (detailLayoutPref) {
         FurRepository.DETAIL_LAYOUT_DUAL -> true
         FurRepository.DETAIL_LAYOUT_SINGLE -> false
@@ -309,6 +311,7 @@ fun PostDetailScreen(
                                 AuthorGallerySection(
                                     username = sub.authorUsername.ifEmpty { sub.author },
                                     currentPostId = currentPostId,
+                                    cardStats = cardStats,
                                     onNavigateToPost = onNavigateToPost
                                 )
                             }
@@ -348,18 +351,18 @@ fun PostDetailScreen(
                         }
                     }
                     if (twoPane) {
-                        // 宽屏：左侧大图固定满高，右侧信息栏独立滚动（单一滚动容器，无嵌套滚动）
+                        // 宽屏：左侧大图占比可在设置里调（默认 65%），右侧信息栏独立滚动
                         Row(modifier = Modifier.weight(1f)) {
                             TwoPaneHeroImage(
                                 sub = sub,
                                 modifier = Modifier
-                                    .weight(1.5f)
+                                    .weight(detailSplit.toFloat())
                                     .fillMaxHeight(),
                                 onImageClick = { showZoom = true }
                             )
                             detailBody(
                                 Modifier
-                                    .weight(1f)
+                                    .weight((100 - detailSplit).toFloat())
                                     .verticalScroll(scrollState)
                             )
                         }
@@ -1156,6 +1159,7 @@ private const val AUTHOR_GALLERY_MAX_PAGES = 30
 private fun AuthorGallerySection(
     username: String,
     currentPostId: String,
+    cardStats: Map<String, com.furflix.app.data.model.CardStats>,
     onNavigateToPost: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -1254,6 +1258,7 @@ private fun AuthorGallerySection(
                         AuthorGalleryTile(
                             submission = galleryItem,
                             isCurrent = galleryItem.id == currentPostId,
+                            stats = cardStats[galleryItem.id],
                             quality = quality,
                             onClick = { onNavigateToPost(galleryItem.id) }
                         )
@@ -1268,6 +1273,7 @@ private fun AuthorGallerySection(
 private fun AuthorGalleryTile(
     submission: Submission,
     isCurrent: Boolean,
+    stats: com.furflix.app.data.model.CardStats?,
     quality: Int,
     onClick: () -> Unit
 ) {
@@ -1315,6 +1321,71 @@ private fun AuthorGalleryTile(
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White
                 )
+            }
+        }
+
+        // 统计浮层：仅展示本地已知（详情页回填）的帖子；104dp 小块放不下
+        // 三项一行，收成两行：心形+收藏在上，浏览/评论在下。已收藏心形标红。
+        if (stats != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.55f to Color.Transparent,
+                                1.0f to Color.Black.copy(alpha = 0.55f)
+                            )
+                        )
+                    )
+            )
+            val statStyle = MaterialTheme.typography.labelSmall.copy(
+                shadow = Shadow(
+                    color = Color.Black.copy(alpha = 0.8f),
+                    offset = Offset(0f, 1f),
+                    blurRadius = 4f
+                )
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Favorite,
+                        contentDescription = null,
+                        modifier = Modifier.size(11.dp),
+                        tint = if (stats.favorited) Pink else Color.White.copy(alpha = 0.9f)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(formatCount(stats.favorites), style = statStyle, color = Color.White)
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = null,
+                            modifier = Modifier.size(11.dp),
+                            tint = Color.White.copy(alpha = 0.85f)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(formatCount(stats.views), style = statStyle, color = Color.White)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.ChatBubble,
+                            contentDescription = null,
+                            modifier = Modifier.size(11.dp),
+                            tint = Color.White.copy(alpha = 0.85f)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(formatCount(stats.comments), style = statStyle, color = Color.White)
+                    }
+                }
             }
         }
     }
