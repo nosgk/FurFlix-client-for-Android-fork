@@ -24,11 +24,17 @@ class FurRepository(private val context: Context) {
     companion object {
         private val COOKIES_KEY = stringPreferencesKey("fa_cookies")
         private val USERNAME_KEY = stringPreferencesKey("fa_username")
+
+        /** 详情页布局取值（detailLayoutFlow） */
+        const val DETAIL_LAYOUT_AUTO = "auto"
+        const val DETAIL_LAYOUT_SINGLE = "single"
+        const val DETAIL_LAYOUT_DUAL = "dual"
     private val RECENT_SEARCHES_KEY = stringPreferencesKey("recent_searches")
     private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
     private val VIEW_MODE_KEY = stringPreferencesKey("view_mode")
     private val GRID_COLUMNS_KEY = intPreferencesKey("grid_columns")
     private val THUMBNAIL_QUALITY_KEY = intPreferencesKey("thumbnail_quality")
+    private val DETAIL_LAYOUT_KEY = stringPreferencesKey("detail_layout")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
         private val THEME_ID_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_id")
         private val APP_ICON_KEY = stringPreferencesKey("app_icon")
@@ -267,6 +273,21 @@ class FurRepository(private val context: Context) {
     suspend fun saveThumbnailQuality(quality: Int) {
         context.dataStore.edit { prefs ->
             prefs[THUMBNAIL_QUALITY_KEY] = quality
+        }
+    }
+
+    /**
+     * 详情页布局：auto = 屏宽 ≥600dp（平板/横屏）自动左图右文双栏；
+     * single / dual 强制指定。
+     */
+    val detailLayoutFlow: kotlinx.coroutines.flow.Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[DETAIL_LAYOUT_KEY] ?: DETAIL_LAYOUT_AUTO
+    }
+
+    suspend fun saveDetailLayout(layout: String) {
+        context.dataStore.edit { prefs ->
+            prefs[DETAIL_LAYOUT_KEY] =
+                if (layout == DETAIL_LAYOUT_SINGLE || layout == DETAIL_LAYOUT_DUAL) layout else DETAIL_LAYOUT_AUTO
         }
     }
 

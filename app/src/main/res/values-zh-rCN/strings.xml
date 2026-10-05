@@ -73,6 +73,12 @@
     <string name="settings_thumb_quality_auto">自动</string>
     <string name="settings_thumb_quality_save">省流量</string>
     <string name="settings_thumb_quality_high">高清</string>
+    <string name="settings_detail_layout">详情页布局</string>
+    <!-- 平板/横屏时详情页可作品与信息左右分栏 -->
+    <string name="settings_detail_layout_desc">宽屏时作品与信息左右分栏</string>
+    <string name="settings_detail_layout_auto">自动</string>
+    <string name="settings_detail_layout_single">单栏</string>
+    <string name="settings_detail_layout_dual">双栏</string>
     <string name="settings_app_icon">应用图标</string>
 
     <!-- About Developer -->

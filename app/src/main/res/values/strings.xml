@@ -69,6 +69,12 @@
     <string name="settings_thumb_quality_auto">Auto</string>
     <string name="settings_thumb_quality_save">Data saver</string>
     <string name="settings_thumb_quality_high">High</string>
+    <string name="settings_detail_layout">Detail Layout</string>
+    <!-- Tablets / landscape can show artwork and info side by side -->
+    <string name="settings_detail_layout_desc">Artwork and info side by side on wide screens</string>
+    <string name="settings_detail_layout_auto">Auto</string>
+    <string name="settings_detail_layout_single">Single</string>
+    <string name="settings_detail_layout_dual">Two columns</string>
     <string name="settings_app_icon">App Icon</string>
 
     <!-- About Developer -->

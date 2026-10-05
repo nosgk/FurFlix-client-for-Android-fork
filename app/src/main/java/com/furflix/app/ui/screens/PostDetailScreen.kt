@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +78,7 @@ import com.furflix.app.ui.components.Particle
 import com.furflix.app.ui.components.HazeTopAppBar
 import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.data.local.DownloadHelper
+import com.furflix.app.data.repository.FurRepository
 import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -124,6 +126,15 @@ fun PostDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+
+    // 双栏决策：偏好优先；auto 时屏宽 ≥600dp（平板/横屏）启用左图右文
+    val detailRepository = remember { FurRepository.getInstance(context) }
+    val detailLayoutPref by detailRepository.detailLayoutFlow.collectAsState(initial = FurRepository.DETAIL_LAYOUT_AUTO)
+    val twoPane = when (detailLayoutPref) {
+        FurRepository.DETAIL_LAYOUT_DUAL -> true
+        FurRepository.DETAIL_LAYOUT_SINGLE -> false
+        else -> LocalConfiguration.current.screenWidthDp >= 600
+    }
 
     // 翻译功能：页面级标签开关（初始值来自全局设置；存在即完全接管本页）
     val translationPrefs = rememberTranslationPrefs()
@@ -189,17 +200,13 @@ fun PostDetailScreen(
                     }
                 } else if (submission != null) {
                     val sub = submission
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .verticalScroll(scrollState)
-                    ) {
-                        // ── Hero image ──────────────────────────────────────
-                        HeroImage(sub, onImageClick = { showZoom = true })
-
-                        Column(
-                            modifier = Modifier.padding(horizontal = 20.dp)
-                        ) {
+                    // 信息栏提为局部 Composable lambda，单栏/双栏共用同一份内容；
+                    // 编译器会包成 rememberComposableLambda，内部 remember 状态稳定。
+                    val detailBody: @Composable (Modifier) -> Unit = { bodyModifier ->
+                        Column(modifier = bodyModifier) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 20.dp)
+                            ) {
                             // Tab state lives up here so the stats bar can jump
                             // straight to the Comments tab.
                             var selectedTab by remember { mutableIntStateOf(0) }
@@ -318,6 +325,34 @@ fun PostDetailScreen(
                             }
 
                             Spacer(modifier = Modifier.height(150.dp))
+                            }
+                        }
+                    }
+                    if (twoPane) {
+                        // 宽屏：左侧大图固定满高，右侧信息栏独立滚动（单一滚动容器，无嵌套滚动）
+                        Row(modifier = Modifier.weight(1f)) {
+                            TwoPaneHeroImage(
+                                sub = sub,
+                                modifier = Modifier
+                                    .weight(1.5f)
+                                    .fillMaxHeight(),
+                                onImageClick = { showZoom = true }
+                            )
+                            detailBody(
+                                Modifier
+                                    .weight(1f)
+                                    .verticalScroll(scrollState)
+                            )
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .verticalScroll(scrollState)
+                        ) {
+                            // ── Hero image ──────────────────────────────────────
+                            HeroImage(sub, onImageClick = { showZoom = true })
+                            detailBody(Modifier)
                         }
                     }
                 }
@@ -421,6 +456,113 @@ fun PostDetailScreen(
                 ZoomableImageViewer(
                     imageUrl = submission?.fullImageUrl ?: "",
                     onClose = { showZoom = false }
+                )
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------------------
+// Two-pane hero: fills the left pane's full height, scales to fit (no unbounded height)
+// -----------------------------------------------------------------------------------------
+
+@Composable
+private fun TwoPaneHeroImage(
+    sub: Submission,
+    modifier: Modifier = Modifier,
+    onImageClick: () -> Unit = {}
+) {
+    Box(modifier = modifier.background(DarkBackground)) {
+        if (sub.fullImageUrl.isNotEmpty()) {
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(sub.fullImageUrl)
+                    .crossfade(300)
+                    .build(),
+                imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
+                contentDescription = sub.title,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(onClick = onImageClick),
+                contentScale = ContentScale.Fit,
+                loading = {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                },
+                error = {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.BrokenImage,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+            )
+
+            // Rating badge overlaid on image
+            if (sub.rating.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .padding(14.dp)
+                        .align(Alignment.TopStart),
+                    shape = RoundedCornerShape(8.dp),
+                    color = when {
+                        sub.rating.contains("General", true) -> Rating_General.copy(alpha = 0.9f)
+                        sub.rating.contains("Mature", true) -> Rating_Mature.copy(alpha = 0.9f)
+                        sub.rating.contains("Adult", true) -> Rating_Adult.copy(alpha = 0.9f)
+                        else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                    }
+                ) {
+                    Text(
+                        text = sub.rating,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // Zoom hint — same affordance as the single-pane hero
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(14.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .clickable(onClick = onImageClick)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.ZoomIn,
+                    contentDescription = stringResource(R.string.cd_zoom_artwork),
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.BrokenImage,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                    modifier = Modifier.size(48.dp)
                 )
             }
         }
