@@ -108,6 +108,8 @@ fun UserProfileScreen(
     val selectedTab by viewModel.currentTab.collectAsState()
     val activeFolder by viewModel.activeFolder.collectAsState()
     val repository = remember { FurRepository.getInstance(context) }
+    val bannerStore = remember { com.furflix.app.data.local.UserBannerStore.getInstance(repository) }
+    val userBanners by bannerStore.banners.collectAsState()
     // 画廊三视图与列数偏好与画廊全局共用（一处设置全局生效）
     val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
@@ -187,6 +189,24 @@ fun UserProfileScreen(
             else -> watchersList.isNotEmpty()
         }
     )
+
+    // 关注/粉丝卡片的背景预热：与“我的-关注列表”共用 UserBannerStore，滚到谁就补谁的资料页横幅
+    val watchKeys = remember(watchingList) { watchingList.mapTo(mutableSetOf()) { it.username } }
+    val watcherKeys = remember(watchersList) { watchersList.mapTo(mutableSetOf()) { it.username } }
+    val warmedBannerUsers = remember { mutableSetOf<String>() }
+    LaunchedEffect(selectedTab, watchKeys, watcherKeys) {
+        if (selectedTab != UserViewModel.TAB_WATCHING && selectedTab != UserViewModel.TAB_WATCHERS) {
+            return@LaunchedEffect
+        }
+        val keys = if (selectedTab == UserViewModel.TAB_WATCHING) watchKeys else watcherKeys
+        snapshotFlow {
+            listState.layoutInfo.visibleItemsInfo
+                .mapNotNull { info -> (info.key as? String)?.takeIf { it in keys } }
+        }.collect { visible ->
+            val fresh = visible.filter { warmedBannerUsers.add(it) }
+            if (fresh.isNotEmpty()) bannerStore.prefetch(fresh)
+        }
+    }
     LaunchedEffect(listState) {
         snapshotFlow {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -417,11 +437,15 @@ fun UserProfileScreen(
                                             WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
                                         }
                                     }
-                                } else {
-                                    items(watchingList, key = { it.username }, contentType = { "watch" }) { user ->
-                                        WatchlistGridItem(user = user, onClick = { onNavigateToUser(user.username) })
+                                    } else {
+                                        items(watchingList, key = { it.username }, contentType = { "watch" }) { user ->
+                                            WatchlistGridItem(
+                                                user = user,
+                                                bannerUrl = userBanners[user.username.lowercase()],
+                                                onClick = { onNavigateToUser(user.username) }
+                                            )
+                                        }
                                     }
-                                }
                             }
                             if (isLoadingMore) {
                                 item(key = "footer", span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
@@ -445,11 +469,15 @@ fun UserProfileScreen(
                                             WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
                                         }
                                     }
-                                } else {
-                                    items(watchersList, key = { it.username }, contentType = { "watch" }) { user ->
-                                        WatchlistGridItem(user = user, onClick = { onNavigateToUser(user.username) })
+                                    } else {
+                                        items(watchersList, key = { it.username }, contentType = { "watch" }) { user ->
+                                            WatchlistGridItem(
+                                                user = user,
+                                                bannerUrl = userBanners[user.username.lowercase()],
+                                                onClick = { onNavigateToUser(user.username) }
+                                            )
+                                        }
                                     }
-                                }
                             }
                             if (isLoadingMore) {
                                 item(key = "footer", span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }

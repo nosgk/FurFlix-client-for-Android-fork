@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -78,7 +79,15 @@ fun ProfileScreen(
     val currentTab by viewModel.currentTab.collectAsState()
     val followingHasMore by viewModel.followingHasMore.collectAsState()
     val followersHasMore by viewModel.followersHasMore.collectAsState()
-    val userBanners by viewModel.userBanners.collectAsState()
+
+    // 关注卡片的横幅走共享仓库：“我的-关注列表”与用户页关注/粉丝 tab 同源同缓存
+    val context = LocalContext.current
+    val bannerStore = remember {
+        com.furflix.app.data.local.UserBannerStore.getInstance(
+            com.furflix.app.data.repository.FurRepository.getInstance(context)
+        )
+    }
+    val userBanners by bannerStore.banners.collectAsState()
 
     // 浏览历史 = 统计缓存中带展示字段的条目；缓存按最旧在前排序，倒序即最新在前。
     // ratio 必须带回：丢了它瀑布流每块都按 1:1 预设，视觉上退化成等高网格
@@ -160,7 +169,7 @@ fun ProfileScreen(
                     isGrid = viewMode != GalleryViewMode.LIST,
                     banners = userBanners,
                     onRefresh = { viewModel.refresh() },
-                    onWarmBanners = { viewModel.prefetchUserBanners(it) },
+                    onWarmBanners = { bannerStore.prefetch(it) },
                     onSetTab = { viewModel.setTab(it) },
                     onLoadMore = { viewModel.loadMore() },
                     onNavigateToUser = onNavigateToUser,
@@ -645,7 +654,7 @@ private fun WatchlistContent(
                             items(currentData, key = { it.username }, contentType = { "watch_user" }) { user ->
                                 WatchlistGridItem(
                                     user = user,
-                                    bannerUrl = banners[user.username],
+                                    bannerUrl = banners[user.username.lowercase()],
                                     onClick = { onNavigateToUser(user.username) }
                                 )
                             }
