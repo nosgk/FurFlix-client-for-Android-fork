@@ -77,9 +77,8 @@ object ImageLoaderFactory {
                 DiskCache.Builder()
                     .directory(context.cacheDir.resolve("image_cache").absolutePath.toPath())
                     .maxSizePercent(0.25)
-                    // FA CDN 缓存头短且多变：忽略头提高重复浏览命中率（磁盘即二级缓存，
-                    // 内存缓存承担新鲜度），减少反复拉取与快速滑动的反复解码
-                    .respectCacheHeaders(false)
+                    // Coil 3 网络层默认即不尊重 Cache-Control 头（新鲜度由内存缓存承担），
+                    // 重复浏览直接命中磁盘缓存：减少反复拉取与快速滑动的反复解码
                     .build()
             )
             // Coil 3 removed ImageLoader-level crossfade; fades are set per-request
