@@ -38,6 +38,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (all ABIs) are available on demand via `workflow_dispatch` (`build_type: debug`).
 - Privacy audit: the app contains **no telemetry** — no analytics, crash
   reporting or tracking SDKs; all network traffic goes to furaffinity.net only.
+- **Masonry gallery view**: third gallery layout (grid / masonry / list) on
+  `LazyVerticalStaggeredGrid`, switchable from the top bar and from a
+  segmented control in Appearance. Listing thumbnails now parse the
+  `data-width`/`data-height` attributes FA already ships, so masonry cards
+  pre-size to the real artwork ratio (zero jump on load; ratios clamped to
+  keep extreme artwork from unbalancing the lanes) and get tier-negotiated
+  CDN thumbnails (`DynamicThumbnail`, 600px ceiling) with a first-screen
+  prefetch — grid/list keep their fixed ratios.
+- **Threaded comments (楼中楼)**: FA's reply nesting (container width style)
+  is parsed into an indentation level and rebuilt into a tree by a unit-tested
+  pure function; comments render as a flattened list with stateless connector
+  lines, sp-aware folding by container width, and an in-place focus mode
+  (branch drill-down under the same thread root, back key unwinds, target row
+  flashes). Failed comment rows degrade to hidden comments instead of
+  disappearing, keeping counts consistent.
+- **Search hardening**: `SearchFilters` is now `@Serializable` and persisted
+  (last-used filters restored as panel prefill, NSFW gate re-applied on top);
+  the POST form is built by a deterministic, unit-tested builder with an
+  explicit `perpage=72` shared between the request and the full-page
+  pagination heuristic (no more wasted request on the last page); empty
+  results render the empty state instead of an error banner; search tag chips
+  support `!tag` exclusion polarity (tap to flip, red strikethrough) joined
+  into a single `@keywords` group.
 
 ### Changed
 - **SEO / website**: meta description, Open Graph and JSON-LD structured data,
