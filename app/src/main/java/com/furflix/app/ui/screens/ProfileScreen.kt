@@ -25,9 +25,12 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PersonSearch
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -49,10 +52,14 @@ import com.furflix.app.ui.components.PawPullRefreshBox
 import com.furflix.app.ui.components.SubmissionCard
 import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.ui.components.masonryGridCells
+import com.furflix.app.ui.components.UserNoteDialog
 import com.furflix.app.ui.components.WatchlistGridItem
 import com.furflix.app.ui.components.WatchlistItem
 import com.furflix.app.ui.theme.*
+import com.furflix.app.data.local.UserBannerStore
 import com.furflix.app.data.model.GalleryViewMode
+import com.furflix.app.data.model.WatchlistUser
+import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.viewmodel.WatchlistViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -82,12 +89,15 @@ fun ProfileScreen(
 
     // 关注卡片的横幅走共享仓库：“我的-关注列表”与用户页关注/粉丝 tab 同源同缓存
     val context = LocalContext.current
-    val bannerStore = remember {
-        com.furflix.app.data.local.UserBannerStore.getInstance(
-            com.furflix.app.data.repository.FurRepository.getInstance(context)
-        )
-    }
+    val repository = remember { FurRepository.getInstance(context) }
+    val bannerStore = remember { UserBannerStore.getInstance(repository) }
     val userBanners by bannerStore.banners.collectAsState()
+    val watchlistBlur by repository.watchlistBannerBlurFlow.collectAsState(initial = 0f)
+    val bannerSource by repository.watchlistBannerSourceFlow.collectAsState(
+        initial = FurRepository.WATCHLIST_BANNER_SOURCE_BANNER
+    )
+    val userNotes by repository.userNotesFlow.collectAsState(initial = emptyMap())
+    var noteEditingUser by remember { mutableStateOf<WatchlistUser?>(null) }
 
     // 浏览历史 = 统计缓存中带展示字段的条目；缓存按最旧在前排序，倒序即最新在前。
     // ratio 必须带回：丢了它瀑布流每块都按 1:1 预设，视觉上退化成等高网格
@@ -168,11 +178,15 @@ fun ProfileScreen(
                     currentTab = currentTab,
                     isGrid = viewMode != GalleryViewMode.LIST,
                     banners = userBanners,
+                    bannerSource = bannerSource,
+                    blurDp = watchlistBlur,
+                    notes = userNotes,
                     onRefresh = { viewModel.refresh() },
                     onWarmBanners = { bannerStore.prefetch(it) },
                     onSetTab = { viewModel.setTab(it) },
                     onLoadMore = { viewModel.loadMore() },
                     onNavigateToUser = onNavigateToUser,
+                    onEditNote = { noteEditingUser = it },
                     scrollToTopTrigger = scrollToTopTrigger
                 )
                 2 -> HistoryContent(
@@ -188,6 +202,18 @@ fun ProfileScreen(
                 )
             }
         }
+    }
+
+    noteEditingUser?.let { noteUser ->
+        UserNoteDialog(
+            user = noteUser,
+            currentNote = userNotes[noteUser.username.lowercase()] ?: "",
+            onSave = { note ->
+                noteEditingUser = null
+                coroutineScope.launch { repository.saveUserNote(noteUser.username, note) }
+            },
+            onDismiss = { noteEditingUser = null }
+        )
     }
 }
 
@@ -509,29 +535,44 @@ private fun WatchlistContent(
     currentTab: Int,
     isGrid: Boolean,
     banners: Map<String, String>,
+    bannerSource: String,
+    blurDp: Float,
+    notes: Map<String, String>,
     onRefresh: () -> Unit,
     onWarmBanners: (List<String>) -> Unit,
     onSetTab: (Int) -> Unit,
     onLoadMore: () -> Unit,
     onNavigateToUser: (String) -> Unit,
+    onEditNote: (WatchlistUser) -> Unit,
     scrollToTopTrigger: Int = 0
 ) {
     val currentData = if (currentTab == WatchlistViewModel.TAB_FOLLOWING) followingList else followersList
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
 
-    // 可见用户卡片的横幅预热：滚到谁就补谁的资料页横幅（VM 侧串行限速、去重）
-    val warmedUsers = remember { mutableSetOf<String>() }
-    LaunchedEffect(currentData, isGrid) {
-        if (currentData.isEmpty()) return@LaunchedEffect
+    // 本地搜索：用户名 / 显示名 / 备注任一命中（只过滤已加载条目，翻页照常）
+    var searchQuery by remember { mutableStateOf("") }
+    val displayData = remember(currentData, searchQuery, notes) {
+        if (searchQuery.isBlank()) currentData else currentData.filter { user ->
+            user.username.contains(searchQuery, ignoreCase = true) ||
+                user.displayName.contains(searchQuery, ignoreCase = true) ||
+                (notes[user.username.lowercase()] ?: "").contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    // 可见用户卡片的横幅预热：滚到谁就补谁的资料页横幅（共享仓库串行限速、去重）；
+    // bannerSource 入 key：设置切换来源后重置本轮去重，可见卡片按新来源重建
+    val warmedUsers = remember(bannerSource) { mutableSetOf<String>() }
+    LaunchedEffect(displayData, isGrid, bannerSource) {
+        if (displayData.isEmpty()) return@LaunchedEffect
         snapshotFlow {
             // grid/list 两种 State 类型没有公共 layoutInfo，分支放流内取值
             if (isGrid) {
                 gridState.layoutInfo.visibleItemsInfo
-                    .mapNotNull { currentData.getOrNull(it.index)?.username }
+                    .mapNotNull { displayData.getOrNull(it.index)?.username }
             } else {
                 listState.layoutInfo.visibleItemsInfo
-                    .mapNotNull { currentData.getOrNull(it.index)?.username }
+                    .mapNotNull { displayData.getOrNull(it.index)?.username }
             }
         }.collect { visible ->
             val fresh = visible.filter { warmedUsers.add(it) }
@@ -624,6 +665,35 @@ private fun WatchlistContent(
             Spacer(Modifier.weight(1f))
         }
 
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = {
+                Text(
+                    stringResource(R.string.watchlist_search_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SubtleGray
+                )
+            },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = SubtleGray) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.search_clear_recent),
+                            tint = SubtleGray
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
         PawPullRefreshBox(isRefreshing = isLoading, onRefresh = onRefresh) {
         when {
             isLoading && currentData.isEmpty() -> {
@@ -641,6 +711,13 @@ private fun WatchlistContent(
                 }
             }
             else -> {
+                if (displayData.isEmpty() && currentData.isNotEmpty()) {
+                    // 本地列表非空但搜索无命中
+                    EmptyState(
+                        message = stringResource(R.string.watchlist_search_empty),
+                        icon = Icons.Default.PersonSearch
+                    )
+                } else {
                 Crossfade(targetState = isGrid, animationSpec = tween(300), label = "watchlistGridList") { grid ->
                     if (grid) {
                         LazyVerticalGrid(
@@ -651,11 +728,14 @@ private fun WatchlistContent(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            items(currentData, key = { it.username }, contentType = { "watch_user" }) { user ->
+                            items(displayData, key = { it.username }, contentType = { "watch_user" }) { user ->
                                 WatchlistGridItem(
                                     user = user,
                                     bannerUrl = banners[user.username.lowercase()],
-                                    onClick = { onNavigateToUser(user.username) }
+                                    blurDp = blurDp,
+                                    note = notes[user.username.lowercase()],
+                                    onClick = { onNavigateToUser(user.username) },
+                                    onLongClick = { onEditNote(user) }
                                 )
                             }
                             if (isLoadingMore) {
@@ -669,8 +749,13 @@ private fun WatchlistContent(
                             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 120.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            items(currentData, key = { it.username }, contentType = { "watch_user" }) { user ->
-                                WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
+                            items(displayData, key = { it.username }, contentType = { "watch_user" }) { user ->
+                                WatchlistItem(
+                                    user = user,
+                                    note = notes[user.username.lowercase()],
+                                    onClick = { onNavigateToUser(user.username) },
+                                    onLongClick = { onEditNote(user) }
+                                )
                             }
                             if (isLoadingMore) {
                                 item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
@@ -695,6 +780,7 @@ private fun WatchlistContent(
                             onLoadMore()
                         }
                     }
+                }
                 }
             }
         }

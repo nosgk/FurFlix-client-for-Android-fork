@@ -88,6 +88,16 @@
     <string name="settings_detail_split_desc">Share of the artwork pane</string>
     <!-- %1$d = artwork pane %, %2$d = info pane % -->
     <string name="settings_detail_split_value">%1$d%% / %2$d%%</string>
+    <!-- Watchlist card background: source + gaussian blur for followed-user cards -->
+    <string name="settings_watchlist_card_bg">Watchlist Card Background</string>
+    <string name="settings_watchlist_card_bg_desc">Background art source for followed-user cards</string>
+    <string name="settings_watchlist_bg_profile">Profile banner</string>
+    <string name="settings_watchlist_bg_latest">Latest artwork</string>
+    <string name="settings_watchlist_card_bg_note">Latest-artwork thumbnails follow the thumbnail quality tier. The profile page header banner is unaffected.</string>
+    <string name="settings_watchlist_bg_blur">Card Background Blur</string>
+    <string name="settings_watchlist_bg_blur_desc">Gaussian blur radius; 0 keeps it sharp</string>
+    <!-- %1$d = blur radius in dp -->
+    <string name="settings_watchlist_bg_blur_value">%1$d dp</string>
     <string name="settings_app_icon">App Icon</string>
 
     <!-- About Developer -->
@@ -140,6 +150,12 @@
     <string name="profile_watchlist">Watchlist</string>
     <string name="profile_view_history">Viewing History</string>
     <string name="history_empty">Nothing viewed yet.</string>
+    <!-- Watchlist search & local user notes (long-press a user card) -->
+    <string name="watchlist_search_hint">Search followed users</string>
+    <string name="watchlist_search_empty">No users match the search.</string>
+    <string name="user_note_title">Note · %s</string>
+    <string name="user_note_hint">Add a local note for this user…</string>
+    <string name="user_note_clear">Clear note</string>
     
     <string name="post_view_profile">Profile</string>
     <string name="post_description">Description</string>

@@ -92,6 +92,16 @@
     <string name="settings_detail_split_desc">左栏主图占比,拖动即时预览</string>
     <!-- %1$d = 主图占比, %2$d = 信息栏占比 -->
     <string name="settings_detail_split_value">%1$d%% / %2$d%%</string>
+    <!-- 关注卡片背景:来源与高斯模糊 -->
+    <string name="settings_watchlist_card_bg">关注列表卡片背景</string>
+    <string name="settings_watchlist_card_bg_desc">关注/粉丝卡片的背景图来源</string>
+    <string name="settings_watchlist_bg_profile">个人页横幅</string>
+    <string name="settings_watchlist_bg_latest">最新作品缩略图</string>
+    <string name="settings_watchlist_card_bg_note">最新作品来源的分辨率跟随缩略图质量档位;不影响用户主页上方的横幅。</string>
+    <string name="settings_watchlist_bg_blur">卡片背景模糊</string>
+    <string name="settings_watchlist_bg_blur_desc">高斯模糊半径,0 为清晰原图</string>
+    <!-- %1$d = 模糊半径(dp) -->
+    <string name="settings_watchlist_bg_blur_value">%1$d dp</string>
     <string name="settings_app_icon">应用图标</string>
 
     <!-- About Developer -->
@@ -146,6 +156,12 @@
     <string name="profile_watchlist">关注列表</string>
     <string name="profile_view_history">浏览历史</string>
     <string name="history_empty">暂无浏览记录。</string>
+    <!-- 关注列表搜索与本地用户备注(长按用户卡片) -->
+    <string name="watchlist_search_hint">搜索已关注的用户</string>
+    <string name="watchlist_search_empty">没有匹配的用户。</string>
+    <string name="user_note_title">备注 · %s</string>
+    <string name="user_note_hint">给该用户添加本地备注…</string>
+    <string name="user_note_clear">清除备注</string>
 
     <string name="post_view_profile">个人主页</string>
     <string name="post_description">简介</string>

@@ -18,10 +18,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,6 +45,7 @@ import com.furflix.app.utils.IconManager
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun AppearanceSettingsScreen(
@@ -525,6 +528,103 @@ fun AppearanceSettingsScreen(
                     onCheckedChange = { scope.launch { repository.saveHideBarsOnScroll(it) } }
                 )
             }
+
+            // --- Watchlist card background: source + gaussian blur ---
+            val bannerSource by repository.watchlistBannerSourceFlow.collectAsState(
+                initial = FurRepository.WATCHLIST_BANNER_SOURCE_BANNER
+            )
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Wallpaper, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.settings_watchlist_card_bg),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_watchlist_card_bg_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val sourceOptions = listOf(
+                    stringResource(R.string.settings_watchlist_bg_profile) to FurRepository.WATCHLIST_BANNER_SOURCE_BANNER,
+                    stringResource(R.string.settings_watchlist_bg_latest) to FurRepository.WATCHLIST_BANNER_SOURCE_LATEST
+                )
+                sourceOptions.forEach { (name, source) ->
+                    val isSelected = bannerSource == source
+                    val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(bgColor)
+                            .clickable { scope.launch { repository.saveWatchlistBannerSource(source) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(name, color = textColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                stringResource(R.string.settings_watchlist_card_bg_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 模糊半径滑杆：0 = 清晰原图，拖动即时预览，松手持久化
+            val savedBlur by repository.watchlistBannerBlurFlow.collectAsState(initial = 0f)
+            var pendingBlur by remember(savedBlur) { mutableFloatStateOf(savedBlur) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_watchlist_bg_blur),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_watchlist_bg_blur_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    stringResource(R.string.settings_watchlist_bg_blur_value, pendingBlur.roundToInt()),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Slider(
+                value = pendingBlur,
+                onValueChange = { pendingBlur = it },
+                onValueChangeFinished = {
+                    scope.launch { repository.saveWatchlistBannerBlur(pendingBlur) }
+                },
+                valueRange = 0f..FurRepository.WATCHLIST_BANNER_BLUR_MAX
+            )
 
             // --- Detail layout (auto by width / single / two-pane) ---
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

@@ -65,6 +65,8 @@ import com.furflix.app.data.model.ContactLink
 import com.furflix.app.data.model.GalleryFolder
 import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.data.model.UserProfile
+import com.furflix.app.data.model.WatchlistUser
+import com.furflix.app.data.local.UserBannerStore
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.*
 import com.furflix.app.ui.theme.*
@@ -108,8 +110,15 @@ fun UserProfileScreen(
     val selectedTab by viewModel.currentTab.collectAsState()
     val activeFolder by viewModel.activeFolder.collectAsState()
     val repository = remember { FurRepository.getInstance(context) }
-    val bannerStore = remember { com.furflix.app.data.local.UserBannerStore.getInstance(repository) }
+    val bannerStore = remember { UserBannerStore.getInstance(repository) }
     val userBanners by bannerStore.banners.collectAsState()
+    val watchlistBlur by repository.watchlistBannerBlurFlow.collectAsState(initial = 0f)
+    val bannerSource by repository.watchlistBannerSourceFlow.collectAsState(
+        initial = FurRepository.WATCHLIST_BANNER_SOURCE_BANNER
+    )
+    val userNotes by repository.userNotesFlow.collectAsState(initial = emptyMap())
+    var noteEditingUser by remember { mutableStateOf<WatchlistUser?>(null) }
+    val screenScope = rememberCoroutineScope()
     // 画廊三视图与列数偏好与画廊全局共用（一处设置全局生效）
     val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
@@ -190,11 +199,12 @@ fun UserProfileScreen(
         }
     )
 
-    // 关注/粉丝卡片的背景预热：与“我的-关注列表”共用 UserBannerStore，滚到谁就补谁的资料页横幅
+    // 关注/粉丝卡片的背景预热：与“我的-关注列表”共用 UserBannerStore，滚到谁就补谁的资料页横幅；
+    // bannerSource 入 key：来源切换后重置本轮去重，可见卡片按新来源重建
     val watchKeys = remember(watchingList) { watchingList.mapTo(mutableSetOf()) { it.username } }
     val watcherKeys = remember(watchersList) { watchersList.mapTo(mutableSetOf()) { it.username } }
-    val warmedBannerUsers = remember { mutableSetOf<String>() }
-    LaunchedEffect(selectedTab, watchKeys, watcherKeys) {
+    val warmedBannerUsers = remember(bannerSource) { mutableSetOf<String>() }
+    LaunchedEffect(selectedTab, watchKeys, watcherKeys, bannerSource) {
         if (selectedTab != UserViewModel.TAB_WATCHING && selectedTab != UserViewModel.TAB_WATCHERS) {
             return@LaunchedEffect
         }
@@ -434,7 +444,12 @@ fun UserProfileScreen(
                                         span = { StaggeredGridItemSpan.FullLine }
                                     ) { user ->
                                         Box(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                            WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
+                                            WatchlistItem(
+                                                user = user,
+                                                note = userNotes[user.username.lowercase()],
+                                                onClick = { onNavigateToUser(user.username) },
+                                                onLongClick = { noteEditingUser = user }
+                                            )
                                         }
                                     }
                                     } else {
@@ -442,7 +457,10 @@ fun UserProfileScreen(
                                             WatchlistGridItem(
                                                 user = user,
                                                 bannerUrl = userBanners[user.username.lowercase()],
-                                                onClick = { onNavigateToUser(user.username) }
+                                                blurDp = watchlistBlur,
+                                                note = userNotes[user.username.lowercase()],
+                                                onClick = { onNavigateToUser(user.username) },
+                                                onLongClick = { noteEditingUser = user }
                                             )
                                         }
                                     }
@@ -466,7 +484,12 @@ fun UserProfileScreen(
                                         span = { StaggeredGridItemSpan.FullLine }
                                     ) { user ->
                                         Box(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                            WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
+                                            WatchlistItem(
+                                                user = user,
+                                                note = userNotes[user.username.lowercase()],
+                                                onClick = { onNavigateToUser(user.username) },
+                                                onLongClick = { noteEditingUser = user }
+                                            )
                                         }
                                     }
                                     } else {
@@ -474,7 +497,10 @@ fun UserProfileScreen(
                                             WatchlistGridItem(
                                                 user = user,
                                                 bannerUrl = userBanners[user.username.lowercase()],
-                                                onClick = { onNavigateToUser(user.username) }
+                                                blurDp = watchlistBlur,
+                                                note = userNotes[user.username.lowercase()],
+                                                onClick = { onNavigateToUser(user.username) },
+                                                onLongClick = { noteEditingUser = user }
                                             )
                                         }
                                     }
@@ -510,6 +536,18 @@ fun UserProfileScreen(
                 onTabSelected = { selectTab(it, fromBottom = true) }
             )
         }
+    }
+
+    noteEditingUser?.let { noteUser ->
+        UserNoteDialog(
+            user = noteUser,
+            currentNote = userNotes[noteUser.username.lowercase()] ?: "",
+            onSave = { note ->
+                noteEditingUser = null
+                screenScope.launch { repository.saveUserNote(noteUser.username, note) }
+            },
+            onDismiss = { noteEditingUser = null }
+        )
     }
 }
 

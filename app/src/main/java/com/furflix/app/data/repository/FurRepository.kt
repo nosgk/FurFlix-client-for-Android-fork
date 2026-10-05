@@ -15,12 +15,18 @@ import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.data.remote.FurAffinityScraper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 import com.furflix.app.data.local.TagsDatabase
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "furflix_prefs")
 
 @SuppressLint("StaticFieldLeak")
 class FurRepository(private val context: Context) {
+
+    private val json = Json { ignoreUnknownKeys = true }
+    private val userNotesSerializer = MapSerializer(String.serializer(), String.serializer())
 
     companion object {
         private val COOKIES_KEY = stringPreferencesKey("fa_cookies")
@@ -35,6 +41,14 @@ class FurRepository(private val context: Context) {
         const val DETAIL_SPLIT_DEFAULT = 65
         const val DETAIL_SPLIT_MIN = 50
         const val DETAIL_SPLIT_MAX = 75
+
+        /** 关注卡片背景来源取值（watchlistBannerSourceFlow） */
+        const val WATCHLIST_BANNER_SOURCE_BANNER = "banner"
+        const val WATCHLIST_BANNER_SOURCE_LATEST = "latest_thumb"
+
+        /** 关注卡片背景模糊半径上限（dp） */
+        const val WATCHLIST_BANNER_BLUR_MAX = 20f
+
     private val RECENT_SEARCHES_KEY = stringPreferencesKey("recent_searches")
     private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
     private val VIEW_MODE_KEY = stringPreferencesKey("view_mode")
@@ -43,6 +57,9 @@ class FurRepository(private val context: Context) {
     private val THUMBNAIL_QUALITY_KEY = intPreferencesKey("thumbnail_quality")
     private val DETAIL_LAYOUT_KEY = stringPreferencesKey("detail_layout")
     private val DETAIL_SPLIT_KEY = intPreferencesKey("detail_split_percent")
+    private val WATCHLIST_BANNER_SOURCE_KEY = stringPreferencesKey("watchlist_banner_source")
+    private val WATCHLIST_BANNER_BLUR_KEY = floatPreferencesKey("watchlist_banner_blur_dp")
+    private val USER_NOTES_KEY = stringPreferencesKey("user_notes")
     private val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
     private val HIDE_BARS_KEY = booleanPreferencesKey("hide_bars_on_scroll")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
@@ -377,6 +394,55 @@ class FurRepository(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[DETAIL_SPLIT_KEY] = percent.coerceIn(DETAIL_SPLIT_MIN, DETAIL_SPLIT_MAX)
         }
+    }
+
+    /**
+     * 关注/粉丝用户卡片的背景图来源：banner = 资料页横幅（原行为）；
+     * latest_thumb = 该用户最新作品的缩略图（分辨率仍走缩略图档位协商）。
+     * 只影响列表卡片，用户主页顶部的横幅不受牵连。
+     */
+    val watchlistBannerSourceFlow: kotlinx.coroutines.flow.Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[WATCHLIST_BANNER_SOURCE_KEY] ?: WATCHLIST_BANNER_SOURCE_BANNER
+    }
+
+    suspend fun saveWatchlistBannerSource(source: String) {
+        context.dataStore.edit { prefs ->
+            prefs[WATCHLIST_BANNER_SOURCE_KEY] =
+                if (source == WATCHLIST_BANNER_SOURCE_LATEST) source else WATCHLIST_BANNER_SOURCE_BANNER
+        }
+    }
+
+    /** 关注卡片背景的高斯模糊半径（dp，0 = 清晰不模糊）。 */
+    val watchlistBannerBlurFlow: kotlinx.coroutines.flow.Flow<Float> = context.dataStore.data.map { prefs ->
+        prefs[WATCHLIST_BANNER_BLUR_KEY] ?: 0f
+    }
+
+    suspend fun saveWatchlistBannerBlur(dp: Float) {
+        context.dataStore.edit { prefs ->
+            prefs[WATCHLIST_BANNER_BLUR_KEY] = dp.coerceIn(0f, WATCHLIST_BANNER_BLUR_MAX)
+        }
+    }
+
+    /**
+     * 用户本地备注：username(小写) → 备注。纯本地数据，不与站点交互；
+     * 存空串 = 清除。坏 JSON 视为无备注重来。
+     */
+    val userNotesFlow: kotlinx.coroutines.flow.Flow<Map<String, String>> = context.dataStore.data.map { prefs ->
+        decodeUserNotes(prefs[USER_NOTES_KEY])
+    }
+
+    suspend fun saveUserNote(username: String, note: String) {
+        context.dataStore.edit { prefs ->
+            val current = decodeUserNotes(prefs[USER_NOTES_KEY]).toMutableMap()
+            if (note.isBlank()) current.remove(username.lowercase()) else current[username.lowercase()] = note
+            prefs[USER_NOTES_KEY] =
+                if (current.isEmpty()) "" else json.encodeToString(userNotesSerializer, current)
+        }
+    }
+
+    private fun decodeUserNotes(raw: String?): Map<String, String> {
+        if (raw.isNullOrEmpty()) return emptyMap()
+        return runCatching { json.decodeFromString(userNotesSerializer, raw) }.getOrDefault(emptyMap())
     }
 
     val appIconFlow: kotlinx.coroutines.flow.Flow<com.furflix.app.ui.theme.AppIcon> = context.dataStore.data.map { prefs ->
