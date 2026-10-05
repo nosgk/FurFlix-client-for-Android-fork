@@ -243,7 +243,7 @@ private fun FavoritesContent(
                                 SubmissionCard(
                                     submission = submission,
                                     onClick = { onNavigateToPost(submission.id) },
-                                    showTitle = false,
+                                    showTitle = true,
                                     compact = true,
                                     ratio = submission.thumbnailWidthOnHeightRatio,
                                     stats = cardStats[submission.id],
@@ -288,7 +288,7 @@ private fun FavoritesContent(
                             SubmissionCard(
                                 submission = submission,
                                 onClick = { onNavigateToPost(submission.id) },
-                                showTitle = false,
+                                showTitle = true,
                                 compact = true,
                                 stats = cardStats[submission.id],
                                 forceFavorited = true,
@@ -400,7 +400,7 @@ private fun HistoryContent(
                             SubmissionCard(
                                 submission = submission,
                                 onClick = { onNavigateToPost(submission.id) },
-                                showTitle = false,
+                                showTitle = true,
                                 compact = true,
                                 ratio = submission.thumbnailWidthOnHeightRatio,
                                 stats = cardStats[submission.id],
@@ -428,7 +428,7 @@ private fun HistoryContent(
                             SubmissionCard(
                                 submission = submission,
                                 onClick = { onNavigateToPost(submission.id) },
-                                showTitle = false,
+                                showTitle = true,
                                 compact = true,
                                 stats = cardStats[submission.id],
                                 forceFavorited = submission.isFavorited,
