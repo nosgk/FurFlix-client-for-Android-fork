@@ -401,7 +401,11 @@ fun HomeScreen(
                         available: Offset,
                         source: NestedScrollSource
                     ): Offset {
-                        if (available.y > 0 && source == NestedScrollSource.UserInput && !isRefreshing) {
+                        // 第 3 页（我的）有自己的 PawPullRefreshBox：外层不再参与，
+                        // 否则内层刷新期间继续下拉会同时弹出两个爪印
+                        if (available.y > 0 && source == NestedScrollSource.UserInput && !isRefreshing &&
+                            pagerState.currentPage != 3
+                        ) {
                             pullProgress = (pullProgress + available.y).coerceIn(0f, pullThreshold * 1.5f)
                             if (pullProgress >= pullThreshold && !hasTriggered) {
                                 hasTriggered = true
@@ -410,7 +414,6 @@ fun HomeScreen(
                                     0 -> viewModel.loadBrowse()
                                     1 -> viewModel.loadLatest()
                                     2 -> viewModel.loadSearch(currentSearchQuery)
-                                    3 -> watchlistViewModel.refresh()
                                 }
                             }
                             return Offset(0f, available.y)
@@ -1242,10 +1245,12 @@ fun SearchBar(
     tagSuggestions: List<String> = emptyList(),
     onTypingWordChanged: (String) -> Unit = {}
 ) {
-    var tags by remember(query) { 
-        mutableStateOf(
-            Regex("@keywords\\s+(\\S+)").findAll(query).map { it.groupValues[1] }.toList()
-        )
+    // 上一轮查询解析出的标签；新词搜索时若无本轮新增，则不再自动带入旧标签
+    val inheritedTags = remember(query) {
+        Regex("@keywords\\s+(\\S+)").findAll(query).map { it.groupValues[1] }.toList()
+    }
+    var tags by remember(query) {
+        mutableStateOf(inheritedTags)
     }
     var text by remember(query) { 
         mutableStateOf(
@@ -1377,6 +1382,12 @@ fun SearchBar(
                                 tags = addTagToken(tags, lastWord.removePrefix("#"))
                                 finalText = finalText.substring(0, finalText.lastIndexOf(lastWord)).trim()
                                 text = "\u200B" + finalText
+                            }
+
+                            // 输入新词搜索 = 全新查询：上一轮遗留的标签不再自动带入
+                            //（本轮通过 #词/建议点选新加的标签除外，保留组合意图）
+                            if (finalText.isNotEmpty() && tags == inheritedTags) {
+                                tags = emptyList()
                             }
 
                             val finalQuery = buildString {
