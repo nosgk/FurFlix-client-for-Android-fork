@@ -95,6 +95,7 @@ import com.furflix.app.data.local.DownloadHelper
 import com.furflix.app.data.repository.FurRepository
 import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.furflix.app.ui.components.ZoomableImageViewer
 import com.furflix.app.ui.theme.*
@@ -324,6 +325,7 @@ fun PostDetailScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             // ── Stats bar ───────────────────────────────────
+                            val commentJumpMarginPx = with(LocalDensity.current) { 12.dp.toPx() }
                             StatsRow(
                                 sub = sub,
                                 onToggleFavorite = { viewModel.toggleFavorite(currentPostId) },
@@ -332,7 +334,7 @@ fun PostDetailScreen(
                                     pagerScope.launch {
                                         if (!tabsAnchorY.isNaN()) {
                                             // Tab 行内容偏移 = (窗口坐标差) + 已滚动距离；留一点余量
-                                            val target = (tabsAnchorY - scrollRootY + scrollState.value - 12.dp.toPx()).roundToInt()
+                                            val target = (tabsAnchorY - scrollRootY + scrollState.value - commentJumpMarginPx).roundToInt()
                                             scrollState.animateScrollTo(target.coerceAtLeast(0))
                                         }
                                     }
