@@ -66,6 +66,22 @@
     <string name="settings_thumbnail_quality">Thumbnail Quality</string>
     <!-- FA CDN serves pixel tiers 200-600; Auto negotiates by displayed size -->
     <string name="settings_thumbnail_quality_desc">CDN tier in px; Auto fits the displayed size</string>
+    <!-- Text size multiplies the system font scale; 1.0 = follow system -->
+    <string name="settings_text_size">Text size</string>
+    <string name="settings_text_size_desc">Multiplies the system font scale</string>
+    <string name="settings_text_scale_small">Small</string>
+    <string name="settings_text_scale_standard">System</string>
+    <string name="settings_text_scale_large">Large</string>
+    <string name="settings_text_scale_xlarge">XL</string>
+    <string name="settings_text_scale_max">XXL</string>
+    <!-- Text size multiplies the system font scale; 1.0 = follow system -->
+    <string name="settings_text_size">Text size</string>
+    <string name="settings_text_size_desc">Multiplies the system font scale</string>
+    <string name="settings_text_scale_small">Small</string>
+    <string name="settings_text_scale_standard">System</string>
+    <string name="settings_text_scale_large">Large</string>
+    <string name="settings_text_scale_xlarge">XL</string>
+    <string name="settings_text_scale_max">XXL</string>
     <string name="settings_thumb_quality_auto">Auto</string>
     <string name="settings_detail_layout">Detail Layout</string>
     <!-- Tablets / landscape can show artwork and info side by side -->

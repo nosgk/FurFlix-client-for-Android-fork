@@ -11,7 +11,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.os.Build
@@ -49,11 +52,17 @@ class MainActivity : AppCompatActivity() {
             val repository = remember { com.furflix.app.data.repository.FurRepository.getInstance(this) }
             val themePref by repository.themeFlow.collectAsState(initial = com.furflix.app.ui.theme.ThemePreference.DEFAULT)
             val appIcon by repository.appIconFlow.collectAsState(initial = null)
-            
+            val textScale by repository.textScaleFlow.collectAsState(initial = 1f)
+
             if (appIcon != null) {
                 pendingAppIcon = appIcon
             }
 
+            // 文字缩放：用户倍率乘在系统 fontScale 之上（1.0 = 跟随系统）
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, density.fontScale * textScale)
+            ) {
             FurFlixTheme(themePreference = themePref) {
                 var showSplash by remember { mutableStateOf(true) }
 
@@ -67,6 +76,7 @@ class MainActivity : AppCompatActivity() {
                         FurFlixNavGraph()
                     }
                 }
+            }
             }
         }
     }

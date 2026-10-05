@@ -59,6 +59,7 @@ fun AppearanceSettingsScreen(
     val thumbnailQuality by repository.thumbnailQualityFlow.collectAsState(initial = 0)
     val detailLayoutPref by repository.detailLayoutFlow.collectAsState(initial = FurRepository.DETAIL_LAYOUT_AUTO)
     val detailSplit by repository.detailSplitFlow.collectAsState(initial = FurRepository.DETAIL_SPLIT_DEFAULT)
+    val textScale by repository.textScaleFlow.collectAsState(initial = 1f)
     // 乐观覆盖：先本地生效，持久化值回流后对齐（与 HomeScreen 顶栏切换同款）
     var pendingViewMode by remember { mutableStateOf<com.furflix.app.data.model.GalleryViewMode?>(null) }
     val viewMode = pendingViewMode ?: persistedViewMode
@@ -443,6 +444,56 @@ fun AppearanceSettingsScreen(
                             .clip(RoundedCornerShape(24.dp))
                             .background(bgColor)
                             .clickable { scope.launch { repository.saveThumbnailQuality(tier) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(name, color = textColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // --- Text size (multiplies the system font scale) ---
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.FormatSize, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.settings_text_size),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_text_size_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val scaleOptions = listOf(
+                    stringResource(R.string.settings_text_scale_small) to 0.85f,
+                    stringResource(R.string.settings_text_scale_standard) to 1.0f,
+                    stringResource(R.string.settings_text_scale_large) to 1.15f,
+                    stringResource(R.string.settings_text_scale_xlarge) to 1.3f,
+                    stringResource(R.string.settings_text_scale_max) to 1.5f
+                )
+                scaleOptions.forEach { (name, scale) ->
+                    val isSelected = textScale == scale
+                    val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(bgColor)
+                            .clickable { scope.launch { repository.saveTextScale(scale) } },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(name, color = textColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)

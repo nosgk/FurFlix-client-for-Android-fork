@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import com.furflix.app.R
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.LoadingMoreFooter
+import com.furflix.app.ui.components.PawPullRefreshBox
 import com.furflix.app.ui.screens.InlineFiltersRow
 import com.furflix.app.ui.screens.InlineSearchFilters
 import com.furflix.app.ui.screens.SearchBar
@@ -117,7 +118,11 @@ fun TagSearchScreen(
                     )
                 }
 
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                PawPullRefreshBox(
+                    isRefreshing = isLoading,
+                    onRefresh = { viewModel.refresh() },
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                ) {
             if (isLoading && submissions.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),

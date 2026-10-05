@@ -79,6 +79,11 @@ class TagSearchViewModel(
         }
     }
 
+    /** 下拉刷新：重放当前关键词与筛选（分页从第 1 页重来）。 */
+    fun refresh() {
+        loadSearch(_searchQuery.value)
+    }
+
     fun loadMore() {
         if (!hasMore || _isLoadingMore.value || _isLoading.value) return
         viewModelScope.launch {

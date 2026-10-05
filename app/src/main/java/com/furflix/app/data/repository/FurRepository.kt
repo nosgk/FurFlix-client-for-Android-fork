@@ -42,6 +42,7 @@ class FurRepository(private val context: Context) {
     private val THUMBNAIL_QUALITY_KEY = intPreferencesKey("thumbnail_quality")
     private val DETAIL_LAYOUT_KEY = stringPreferencesKey("detail_layout")
     private val DETAIL_SPLIT_KEY = intPreferencesKey("detail_split_percent")
+    private val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
         private val THEME_ID_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_id")
         private val APP_ICON_KEY = stringPreferencesKey("app_icon")
@@ -289,6 +290,17 @@ class FurRepository(private val context: Context) {
     suspend fun saveGridColumns(count: Int) {
         context.dataStore.edit { prefs ->
             prefs[GRID_COLUMNS_KEY] = count
+        }
+    }
+
+    /** 文字缩放倍率：1.0 = 跟随系统（默认），其余档位乘在系统 fontScale 之上。 */
+    val textScaleFlow: kotlinx.coroutines.flow.Flow<Float> = context.dataStore.data.map { prefs ->
+        prefs[TEXT_SCALE_KEY] ?: 1f
+    }
+
+    suspend fun saveTextScale(scale: Float) {
+        context.dataStore.edit { prefs ->
+            prefs[TEXT_SCALE_KEY] = scale
         }
     }
 
