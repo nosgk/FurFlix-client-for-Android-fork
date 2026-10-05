@@ -205,11 +205,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val initialNsfw = repository.nsfwEnabledFlow.first()
             _nsfwEnabled.value = initialNsfw
-            _searchFilters.value = _searchFilters.value.copy(
+            // Restore last-used search filters (order/range/types/keywords survive
+            // restarts), then re-apply the NSFW gate — the sfw cookie outranks
+            // remembered rating checkboxes.
+            val restoredFilters = repository.loadLastSearchFilters()
+                ?: com.furflix.app.data.model.SearchFilters()
+            _searchFilters.value = restoredFilters.copy(
                 ratingMature = initialNsfw,
                 ratingAdult = initialNsfw
             )
-            
+
             val defaultTab = repository.defaultTabFlow.first()
             _selectedTab.value = defaultTab
             // Trigger load based on default tab
@@ -348,6 +353,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val itemsToAdd = mutableListOf<String>()
         if (trimmed.isNotEmpty()) itemsToAdd.add(trimmed)
         itemsToAdd.addAll(currentFilters.keywords)
+
+        // Remember the filter set for the next launch (prefills the panels only;
+        // nothing is auto-researched on startup).
+        viewModelScope.launch { repository.saveSearchFilters(currentFilters) }
 
         if (itemsToAdd.isNotEmpty()) {
             viewModelScope.launch {

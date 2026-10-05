@@ -32,6 +32,7 @@ class FurRepository(private val context: Context) {
         private val BLOCKED_ARTISTS_KEY = stringPreferencesKey("blocked_artists")
         private val NSFW_ENABLED_KEY = booleanPreferencesKey("nsfw_enabled")
     private val DOWNLOAD_FOLDER_KEY = stringPreferencesKey("download_folder")
+    private val LAST_SEARCH_FILTERS_KEY = stringPreferencesKey("last_search_filters")
 
         @Volatile
         private var INSTANCE: FurRepository? = null
@@ -290,5 +291,27 @@ class FurRepository(private val context: Context) {
 
     suspend fun saveDownloadFolder(uriString: String) {
         context.dataStore.edit { prefs -> prefs[DOWNLOAD_FOLDER_KEY] = uriString }
+    }
+
+    // --- Last search filters (JSON in a single key; unknown fields are
+    // ignored so adding filter fields never bricks old stored values) ---
+
+    private val filterJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    suspend fun saveSearchFilters(filters: com.furflix.app.data.model.SearchFilters) {
+        context.dataStore.edit { prefs ->
+            prefs[LAST_SEARCH_FILTERS_KEY] =
+                filterJson.encodeToString(com.furflix.app.data.model.SearchFilters.serializer(), filters)
+        }
+    }
+
+    suspend fun loadLastSearchFilters(): com.furflix.app.data.model.SearchFilters? {
+        val prefs = context.dataStore.data.first()
+        val raw = prefs[LAST_SEARCH_FILTERS_KEY] ?: return null
+        return try {
+            filterJson.decodeFromString(com.furflix.app.data.model.SearchFilters.serializer(), raw)
+        } catch (_: Exception) {
+            null
+        }
     }
 }

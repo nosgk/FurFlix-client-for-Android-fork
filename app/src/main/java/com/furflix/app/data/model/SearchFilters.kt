@@ -1,5 +1,13 @@
 package com.furflix.app.data.model
 
+import kotlinx.serialization.Serializable
+
+/**
+ * Mirrors FA's search form as a value type so it can be persisted (last-used
+ * filters survive restarts) and built deterministically. Hard constraint: the
+ * query always posts mode=extended because @keywords/! operators require it.
+ */
+@Serializable
 data class SearchFilters(
     val orderBy: String = "date",
     val orderDirection: String = "desc",
