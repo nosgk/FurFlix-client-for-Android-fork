@@ -643,6 +643,7 @@ fun HomeScreen(
                         val tagSuggestions by viewModel.tagSuggestions.collectAsState()
                         // 分词计数 chips：逐词并行抓取（首页抓取数口径），点击直搜该词
                         val keywordCounts by viewModel.searchKeywordCounts.collectAsState()
+                        val searchResults by viewModel.searchSubmissions.collectAsState()
 
                         androidx.compose.animation.AnimatedVisibility(
                             visible = isHeaderVisible || showFilters || !hasSearched,
@@ -715,7 +716,7 @@ fun HomeScreen(
                                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
                                             ) {
                                                 Text(
-                                                    "$searchQuery · ${submissions.size}",
+                                                    "$searchQuery · ${searchResults.size}",
                                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                                     style = MaterialTheme.typography.labelMedium,
                                                     color = MaterialTheme.colorScheme.onSurface
