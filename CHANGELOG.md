@@ -33,6 +33,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keeps paging as the strip scrolls; served by the author gallery listing
   (NSFW/muted-word filters already applied) with quality-negotiated
   thumbnails.
+- **Viewing history** (Profile tab): a third "Viewing History" tab lists
+  locally viewed submissions newest-first, built from the stats cache which
+  now also carries display fields (title/author/thumbnail/rating); rows use
+  the familiar list cards with a count + clear header; re-opening a cached
+  submission bumps its recency. The storage screen entry is renamed
+  accordingly.
+- **Gallery tile stats**: author-gallery tiles show the favorites/views/
+  comments overlay (pink heart when favorited) for locally known
+  submissions, in a two-row compact layout sized for the tile.
+- **Adjustable two-pane split**: the detail layout's artwork pane share is
+  a slider in Appearance (50-75%, 5% steps, default 65%) with live preview
+  and a percentage readout.
+- **Explicit thumbnail tiers**: the vague auto/data-saver/high dial becomes
+  direct selection of every tier FA's CDN serves (200/300/320/400/600px),
+  labeled with pixel values; stored legacy values migrate to tiers
+  300/600 and the negotiator falls back to auto for unknown values.
 - **Online translation** (opt-in, Settings → General → Translation): on-demand
   and auto translation of post descriptions (HTML-preserving for capable
   providers), tags, comments and user bios. Five built-in providers —
