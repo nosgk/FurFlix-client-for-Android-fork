@@ -51,7 +51,13 @@ fun AppearanceSettingsScreen(
     
     val themePref by repository.themeFlow.collectAsState(initial = ThemePreference.DEFAULT)
     val appIcon by repository.appIconFlow.collectAsState(initial = AppIcon.DARK)
-    val viewMode by repository.viewModeFlow.collectAsState(initial = com.furflix.app.data.model.GalleryViewMode.GRID)
+    val persistedViewMode by repository.viewModeFlow.collectAsState(initial = com.furflix.app.data.model.GalleryViewMode.GRID)
+    // 乐观覆盖：先本地生效，持久化值回流后对齐（与 HomeScreen 顶栏切换同款）
+    var pendingViewMode by remember { mutableStateOf<com.furflix.app.data.model.GalleryViewMode?>(null) }
+    val viewMode = pendingViewMode ?: persistedViewMode
+    LaunchedEffect(persistedViewMode) {
+        if (pendingViewMode == persistedViewMode) pendingViewMode = null
+    }
 
     val hazeState = remember { HazeState() }
 
@@ -206,7 +212,10 @@ fun AppearanceSettingsScreen(
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(24.dp))
                                 .background(bgColor)
-                                .clickable { scope.launch { repository.saveViewMode(mode) } },
+                                .clickable {
+                                    pendingViewMode = mode
+                                    scope.launch { repository.saveViewMode(mode) }
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(name, color = textColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)

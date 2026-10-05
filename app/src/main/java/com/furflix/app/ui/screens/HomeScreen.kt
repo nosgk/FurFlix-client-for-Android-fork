@@ -146,7 +146,14 @@ fun HomeScreen(
     // View options
     val context = LocalContext.current
     val repository = remember { FurRepository.getInstance(context) }
-    val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
+    val persistedViewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
+    // 乐观覆盖：DataStore 落盘→回流的延迟会让切换晚一拍才重绘；先本地生效，
+    // 持久化值回流后对齐（与 Downloads 页 isGrid 开关的本地先行做法一致）
+    var pendingViewMode by remember { mutableStateOf<GalleryViewMode?>(null) }
+    val viewMode = pendingViewMode ?: persistedViewMode
+    LaunchedEffect(persistedViewMode) {
+        if (pendingViewMode == persistedViewMode) pendingViewMode = null
+    }
 
     var showTitles by rememberSaveable { mutableStateOf(true) }
 
@@ -210,14 +217,14 @@ fun HomeScreen(
                     // Gallery layout: grid → masonry → list
                     IconButton(
                         onClick = {
+                            val next = when (viewMode) {
+                                GalleryViewMode.GRID -> GalleryViewMode.MASONRY
+                                GalleryViewMode.MASONRY -> GalleryViewMode.LIST
+                                GalleryViewMode.LIST -> GalleryViewMode.GRID
+                            }
+                            pendingViewMode = next
                             coroutineScope.launch {
-                                repository.saveViewMode(
-                                    when (viewMode) {
-                                        GalleryViewMode.GRID -> GalleryViewMode.MASONRY
-                                        GalleryViewMode.MASONRY -> GalleryViewMode.LIST
-                                        GalleryViewMode.LIST -> GalleryViewMode.GRID
-                                    }
-                                )
+                                repository.saveViewMode(next)
                             }
                         },
                         modifier = Modifier.size(36.dp)
