@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.GTranslate
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Title
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.Icon
@@ -339,6 +340,7 @@ private data class DialogOption<T>(val value: T, val label: String)
 
 private fun TranslationCategory.titleRes(): Int = when (this) {
     TranslationCategory.DESCRIPTION -> R.string.translation_content_description
+    TranslationCategory.TITLE -> R.string.translation_content_title
     TranslationCategory.TAG -> R.string.translation_content_tags
     TranslationCategory.COMMENT -> R.string.translation_content_comments
     TranslationCategory.USER_PROFILE -> R.string.translation_content_profile
@@ -347,6 +349,7 @@ private fun TranslationCategory.titleRes(): Int = when (this) {
 private val TranslationCategory.icon: ImageVector
     get() = when (this) {
         TranslationCategory.DESCRIPTION -> Icons.Default.Folder
+        TranslationCategory.TITLE -> Icons.Default.Title
         TranslationCategory.TAG -> Icons.Default.Pets
         TranslationCategory.COMMENT -> Icons.Default.GTranslate
         TranslationCategory.USER_PROFILE -> Icons.Default.Public

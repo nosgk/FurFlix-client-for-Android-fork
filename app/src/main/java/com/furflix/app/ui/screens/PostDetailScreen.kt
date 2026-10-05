@@ -239,13 +239,51 @@ fun PostDetailScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // ── Title ───────────────────────────────────────
-                            Text(
-                                text = sub.title,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                            // ── Title（双语翻译：原文恒显，译文按类别显示方式跟进）──
+                            if (sub.title.isNotBlank()) {
+                                val titleEntry = rememberTranslationEntry(
+                                    key = sub.id,
+                                    text = sub.title,
+                                    category = TranslationCategory.TITLE,
+                                    singleRequest = true
+                                )
+                                TranslatableAutoEffect(titleEntry, translationPrefs)
+                                val titleState by titleEntry.state.collectAsStateWithLifecycle()
+                                val titleSuccess = titleState as? TranslationUiState.Success
+                                val titleMode = translationPrefs.displayMode(TranslationCategory.TITLE)
+                                Row(verticalAlignment = Alignment.Top) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = if (titleSuccess != null && titleSuccess.showing &&
+                                                titleMode == TranslationDisplayMode.TRANSLATION_ONLY
+                                            ) {
+                                                titleSuccess.translated
+                                            } else {
+                                                sub.title
+                                            },
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        if (titleSuccess != null && titleSuccess.showing &&
+                                            titleMode == TranslationDisplayMode.BILINGUAL &&
+                                            titleSuccess.translated.isNotBlank() &&
+                                            titleSuccess.translated != sub.title
+                                        ) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = titleSuccess.translated,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = Color.White.copy(alpha = 0.72f)
+                                            )
+                                        }
+                                    }
+                                    if (translationPrefs.enabled) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        TranslationIconButton(entry = titleEntry, enabled = true)
+                                    }
+                                }
+                            }
 
                             // Accent underline
                             Spacer(modifier = Modifier.height(8.dp))

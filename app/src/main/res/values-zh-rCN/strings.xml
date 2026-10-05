@@ -370,6 +370,7 @@
     <string name="translation_mode_bilingual">双语对照</string>
     <string name="translation_mode_translation_only">仅显示译文</string>
     <string name="translation_content_description">作品描述</string>
+    <string name="translation_content_title">标题</string>
     <string name="translation_content_tags">标签</string>
     <string name="translation_content_comments">评论</string>
     <string name="translation_content_profile">用户简介</string>

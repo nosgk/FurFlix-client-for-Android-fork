@@ -360,6 +360,7 @@
     <string name="translation_mode_bilingual">Bilingual</string>
     <string name="translation_mode_translation_only">Translation only</string>
     <string name="translation_content_description">Description</string>
+    <string name="translation_content_title">Titles</string>
     <string name="translation_content_tags">Tags</string>
     <string name="translation_content_comments">Comments</string>
     <string name="translation_content_profile">User profile</string>

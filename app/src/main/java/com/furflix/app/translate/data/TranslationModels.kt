@@ -17,9 +17,10 @@ enum class TranslationProvider(val id: String, val shortLabel: String) {
     }
 }
 
-/** 可翻译内容类别（蓝本 7 类裁至本项目存在的 4 类）。 */
+/** 可翻译内容类别（蓝本 7 类裁至本项目存在的 5 类）。 */
 enum class TranslationCategory(val id: String) {
     DESCRIPTION("description"),
+    TITLE("title"),
     TAG("tag"),
     COMMENT("comment"),
     USER_PROFILE("userProfile");
