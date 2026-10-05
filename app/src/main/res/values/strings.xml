@@ -243,6 +243,7 @@
     <string name="meta_gender">Gender</string>
     <string name="profile_no_favorites">No favorites yet.</string>
     <string name="share_via">Share via</string>
+    <string name="post_author_gallery">Author Gallery</string>
     <string name="downloads_delete_confirm">Delete this image?</string>
     <string name="user_unfollow">Unfollow</string>
     <string name="user_unfollow_confirm">Stop watching %s?</string>

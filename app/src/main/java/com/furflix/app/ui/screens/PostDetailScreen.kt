@@ -25,6 +25,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.pager.HorizontalPager
@@ -36,9 +39,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +58,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,15 +69,18 @@ import androidx.core.text.HtmlCompat
 import androidx.core.graphics.toColorInt
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
+import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.furflix.app.R
 import com.furflix.app.data.model.Comment
 import com.furflix.app.data.model.Submission
+import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.ui.components.CustomTabRow
 import com.furflix.app.ui.components.CommentsSection
 import com.furflix.app.ui.components.DefaultHazeStyle
+import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.screens.GlassActionBar
 import com.furflix.app.ui.screens.GlassActionItem
 import com.furflix.app.ui.components.Particle
@@ -292,6 +301,16 @@ fun PostDetailScreen(
                                         onTagSavePreset = { viewModel.addQuickPreset("@keywords $it") }
                                     )
                                 }
+                            }
+
+                            // ── Author gallery（宽屏右栏专属：当前作品前后的作者作品）──
+                            if (twoPane && sub.author.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(24.dp))
+                                AuthorGallerySection(
+                                    username = sub.authorUsername.ifEmpty { sub.author },
+                                    currentPostId = currentPostId,
+                                    onNavigateToPost = onNavigateToPost
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(24.dp))
@@ -1120,6 +1139,195 @@ private fun TagsSection(
             }
         }
     }
+}
+
+// -----------------------------------------------------------------------------------------
+// Author gallery (two-pane info column): a strip of the author's works around the
+// current submission. Pages are fetched via the author gallery listing (which already
+// applies the NSFW/muted-words filters); loading stops at the current post or a small
+// cap, then extends on demand as the strip is scrolled. Unknown positions start at
+// the author's latest works.
+// -----------------------------------------------------------------------------------------
+
+private const val AUTHOR_GALLERY_INITIAL_PAGES = 4
+private const val AUTHOR_GALLERY_MAX_PAGES = 30
+
+@Composable
+private fun AuthorGallerySection(
+    username: String,
+    currentPostId: String,
+    onNavigateToPost: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val repository = remember { FurRepository.getInstance(context) }
+    val quality = LocalThumbnailQuality.current
+    val listState = rememberLazyListState()
+
+    var galleryItems by remember(username) { mutableStateOf<List<Submission>>(emptyList()) }
+    var loading by remember(username) { mutableStateOf(true) }
+    var nextPage by remember(username) { mutableIntStateOf(1) }
+    var exhausted by remember(username) { mutableStateOf(false) }
+    var extending by remember(username) { mutableStateOf(false) }
+    var currentIsListed by remember(username) { mutableStateOf(false) }
+
+    // 初次加载：首页先出图，随后顺序翻页定位当前作品；上限内找不到就从最新排起
+    LaunchedEffect(username) {
+        val collected = mutableListOf<Submission>()
+        var found = false
+        var page = 1
+        while (page <= AUTHOR_GALLERY_INITIAL_PAGES && !found) {
+            val batch = runCatching { repository.getUserGallery(username, page) }
+                .getOrDefault(emptyList())
+            if (batch.isEmpty()) {
+                exhausted = true
+                break
+            }
+            collected.addAll(batch)
+            galleryItems = collected.toList()
+            found = collected.any { it.id == currentPostId }
+            page++
+        }
+        loading = false
+        currentIsListed = found
+        nextPage = page
+    }
+
+    // 条带滚到尾端继续向后翻页（可连续浏览）；key 含 loading/exhausted，
+    // 初次加载结束、监听尚未挂载时也要（重新）挂上
+    LaunchedEffect(galleryItems, loading, exhausted) {
+        if (loading || exhausted) return@LaunchedEffect
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
+            .collect { last ->
+                if (last >= galleryItems.size - 4 && !extending && !exhausted) {
+                    extending = true
+                    val batch = runCatching { repository.getUserGallery(username, nextPage) }
+                        .getOrDefault(emptyList())
+                    if (batch.isEmpty() || nextPage >= AUTHOR_GALLERY_MAX_PAGES) {
+                        exhausted = true
+                    } else {
+                        galleryItems = galleryItems + batch
+                        nextPage++
+                    }
+                    extending = false
+                }
+            }
+    }
+
+    // 命中当前作品时把它放到条带偏左位置，左右都能看到"前后"
+    LaunchedEffect(currentIsListed, galleryItems.size) {
+        if (currentIsListed && galleryItems.isNotEmpty()) {
+            val idx = galleryItems.indexOfFirst { it.id == currentPostId }
+            if (idx > 2) listState.scrollToItem(idx - 2)
+        }
+    }
+
+    if (loading || galleryItems.isNotEmpty()) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Icon(
+                    Icons.Default.Collections,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = stringResource(R.string.post_author_gallery),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            LazyRow(
+                state = listState,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (loading && galleryItems.isEmpty()) {
+                    items(6) { AuthorGalleryTilePlaceholder() }
+                } else {
+                    items(
+                        items = galleryItems,
+                        key = { it.id },
+                        contentType = { "author_gallery" }
+                    ) { galleryItem ->
+                        AuthorGalleryTile(
+                            submission = galleryItem,
+                            isCurrent = galleryItem.id == currentPostId,
+                            quality = quality,
+                            onClick = { onNavigateToPost(galleryItem.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthorGalleryTile(
+    submission: Submission,
+    isCurrent: Boolean,
+    quality: Int,
+    onClick: () -> Unit
+) {
+    val tilePx = with(LocalDensity.current) { 104.dp.toPx() }
+    val thumbUrl = remember(submission.thumbnailUrl, tilePx, quality) {
+        DynamicThumbnail(submission.thumbnailUrl).bestThumbnailUrl(tilePx, tilePx, quality)
+    }
+    Box(
+        modifier = Modifier
+            .size(104.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .border(
+                width = if (isCurrent) 2.dp else 1.dp,
+                color = if (isCurrent) Pink else ChipBorder,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .clickable(onClick = onClick)
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(thumbUrl)
+                .crossfade(200)
+                .build(),
+            imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
+            contentDescription = submission.title,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        if (submission.rating.isNotEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .padding(4.dp)
+                    .align(Alignment.TopStart),
+                shape = RoundedCornerShape(4.dp),
+                color = when {
+                    submission.rating.contains("General", true) -> Rating_General
+                    submission.rating.contains("Mature", true) -> Rating_Mature
+                    submission.rating.contains("Adult", true) -> Rating_Adult
+                    else -> MaterialTheme.colorScheme.primary
+                }
+            ) {
+                Text(
+                    text = submission.rating.take(1),
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthorGalleryTilePlaceholder() {
+    Box(
+        modifier = Modifier
+            .size(104.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(DarkSurfaceVariant)
+    )
 }
 
 // -----------------------------------------------------------------------------------------

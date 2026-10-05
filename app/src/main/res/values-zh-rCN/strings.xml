@@ -252,6 +252,8 @@
     <string name="meta_gender">性别</string>
     <string name="profile_no_favorites">暂无收藏。</string>
     <string name="share_via">分享至</string>
+    <!-- 宽屏右栏的作者作品条带 -->
+    <string name="post_author_gallery">作者画廊</string>
     <string name="downloads_delete_confirm">删除这张图片?</string>
     <string name="user_unfollow">取消关注</string>
     <string name="user_unfollow_confirm">不再关注 %s?</string>
