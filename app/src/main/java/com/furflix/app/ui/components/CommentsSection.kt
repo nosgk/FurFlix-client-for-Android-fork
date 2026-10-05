@@ -64,9 +64,9 @@ import com.furflix.app.ui.theme.CommentBodyColor
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.MutedText
 import com.furflix.app.ui.theme.SubtleGray
+import com.furflix.app.translate.data.TranslationCategory
 import com.furflix.app.translate.ui.TranslatableAutoEffect
 import com.furflix.app.translate.ui.TranslatableText
-import com.furflix.app.translate.ui.TranslationCategory
 import com.furflix.app.translate.ui.TranslationIconButton
 import com.furflix.app.translate.ui.rememberTranslationEntry
 import com.furflix.app.translate.ui.rememberTranslationPrefs
