@@ -1,5 +1,12 @@
 package com.furflix.app.data
 
+/**
+ * Single source of truth for the search/gallery page size: feeds the browse
+ * URL, the search POST form, and the "full page means more pages" pagination
+ * heuristic — keeping them in sync is what stops paging from drifting.
+ */
+const val SEARCH_PAGE_SIZE = 72
+
 val FA_CATEGORIES = listOf(
     0 to "All",
     34 to "3D Models",

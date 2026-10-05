@@ -338,7 +338,7 @@ object FurAffinityScraper {
     suspend fun getBrowsePage(page: Int = 1, filters: com.furflix.app.data.model.SearchFilters = com.furflix.app.data.model.SearchFilters()): List<Submission> = withContext(Dispatchers.IO) {
         try {
             val browseParams = filters.toBrowseQueryMap().map { "${it.key}=${it.value}" }.joinToString("&")
-            val url = "$FA_BASE/browse/?$browseParams&page=$page&perpage=72"
+            val url = "$FA_BASE/browse/?$browseParams&page=$page&perpage=${com.furflix.app.data.SEARCH_PAGE_SIZE}"
             
             val forceNsfw = filters.ratingAdult || filters.ratingMature
             val doc = fetchDocument(url, forceNsfw)
@@ -352,13 +352,10 @@ object FurAffinityScraper {
     suspend fun search(query: String, page: Int = 1, filters: com.furflix.app.data.model.SearchFilters = com.furflix.app.data.model.SearchFilters()): List<Submission> =
         withContext(Dispatchers.IO) {
             try {
-                val finalQuery = filters.buildKeywordQuery(query)
+                // Deterministic form: q/page/perpage first, then the filter map
+                // in declaration order (see SearchFilters.buildSearchForm).
                 val formBuilder = okhttp3.FormBody.Builder()
-                formBuilder.add("q", finalQuery)
-                formBuilder.add("page", page.toString())
-                
-                // Add all filters
-                filters.toSearchQueryMap().forEach { (key, value) ->
+                filters.buildSearchForm(query, page).forEach { (key, value) ->
                     formBuilder.add(key, value)
                 }
                 

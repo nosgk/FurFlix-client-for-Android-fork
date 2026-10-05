@@ -447,11 +447,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             latestHasMore = unique.isNotEmpty()
                             if (unique.isEmpty()) latestPage-- else _latestSubmissions.value = _latestSubmissions.value + unique
                         }
-                        TAB_SEARCH -> {
-                            val unique = result.filter { r -> _searchSubmissions.value.none { it.id == r.id } }
-                            searchHasMore = unique.isNotEmpty()
-                            if (unique.isEmpty()) searchPage-- else _searchSubmissions.value = _searchSubmissions.value + unique
-                        }
+                    TAB_SEARCH -> {
+                        val unique = result.filter { r -> _searchSubmissions.value.none { it.id == r.id } }
+                        // Full page = possibly more pages; a short page means the
+                        // site has no more to give, so don't burn one more request
+                        // just to learn that.
+                        searchHasMore = result.size >= com.furflix.app.data.SEARCH_PAGE_SIZE && unique.isNotEmpty()
+                        if (unique.isEmpty()) searchPage-- else _searchSubmissions.value = _searchSubmissions.value + unique
+                    }
                     }
                 }
             } catch (e: Exception) {

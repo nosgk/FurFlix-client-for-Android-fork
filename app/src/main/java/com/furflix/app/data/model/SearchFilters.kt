@@ -1,5 +1,6 @@
 package com.furflix.app.data.model
 
+import com.furflix.app.data.SEARCH_PAGE_SIZE
 import kotlinx.serialization.Serializable
 
 /**
@@ -64,12 +65,26 @@ data class SearchFilters(
 
     fun buildKeywordQuery(baseQuery: String): String {
         if (keywords.isEmpty()) return baseQuery
+        // Single @keywords group (iOS searchQueryText semantics): "!tag"
+        // exclusions only take effect inside the same group as their includes.
         val kw = if (mode == "extended") {
-            keywords.joinToString(" ") { "@keywords $it" }
+            "@keywords " + keywords.joinToString(" ")
         } else {
             keywords.joinToString(" ")
         }
         return if (baseQuery.isBlank()) kw else "$baseQuery $kw"
+    }
+
+    /**
+     * Deterministic search form — fixed key order, q/page/perpage always
+     * present, filter map in declaration order. Pure and order-stable so a
+     * unit test can assert the output verbatim.
+     */
+    fun buildSearchForm(query: String, page: Int): List<Pair<String, String>> = buildList {
+        add("q" to buildKeywordQuery(query))
+        add("page" to page.toString())
+        add("perpage" to SEARCH_PAGE_SIZE.toString())
+        toSearchQueryMap().forEach { (key, value) -> add(key to value) }
     }
 
     val hasBrowseFilters: Boolean
