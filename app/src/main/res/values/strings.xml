@@ -278,6 +278,10 @@
     <string name="toast_batch_favorite_done">Favorited %1$d items</string>
     <!-- %1$d = failed item count -->
     <string name="toast_batch_favorite_failed">%1$d items failed</string>
+    <!-- User page gallery folders -->
+    <string name="profile_gallery_folders">Gallery folders</string>
+    <!-- %1$d = item count -->
+    <string name="folder_item_count">%1$d items</string>
     <string name="user_unfollow">Unfollow</string>
     <string name="user_unfollow_confirm">Stop watching %s?</string>
     <string name="toast_download_saved">Saved: %s</string>

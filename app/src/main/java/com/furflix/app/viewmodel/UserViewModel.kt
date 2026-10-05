@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.furflix.app.data.model.GalleryFolder
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.model.UserProfile
 import com.furflix.app.data.model.WatchlistUser
@@ -61,6 +62,12 @@ class UserViewModel(
 
     private val _currentTab = MutableStateFlow(TAB_GALLERY)
     val currentTab: StateFlow<Int> = _currentTab.asStateFlow()
+
+    /** 画廊文件夹浏览模式：非空 = 正在该文件夹内浏览。 */
+    private val _activeFolder = MutableStateFlow<GalleryFolder?>(null)
+    val activeFolder: StateFlow<GalleryFolder?> = _activeFolder.asStateFlow()
+    private var folderPage = 1
+    private var folderMore = true
 
     companion object {
         const val TAB_GALLERY = 0
@@ -218,6 +225,37 @@ class UserViewModel(
         }
     }
 
+    fun openFolder(folder: GalleryFolder) {
+        _activeFolder.value = folder
+        _submissions.value = emptyList()
+        _currentTab.value = TAB_GALLERY
+        folderPage = 1
+        folderMore = true
+        loadFolderContent()
+    }
+
+    fun closeFolder() {
+        _activeFolder.value = null
+        _submissions.value = emptyList()
+        loadGallery(force = true)
+    }
+
+    private fun loadFolderContent() {
+        val folder = _activeFolder.value ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+            try {
+                val result = repository.getUserGalleryFolder(username, folder, folderPage)
+                _submissions.value = result
+                if (result.isEmpty()) _errorMessage.value = "Folder is empty."
+            } catch (e: Exception) {
+                _errorMessage.value = "Error: ${e.message}"
+            }
+            _isLoading.value = false
+        }
+    }
+
     fun loadMore() {
         if (_isLoadingMore.value) return
         viewModelScope.launch {
@@ -225,6 +263,17 @@ class UserViewModel(
             try {
                 when (_currentTab.value) {
                     TAB_GALLERY -> {
+                        val folder = _activeFolder.value
+                        if (folder != null) {
+                            if (!folderMore) { _isLoadingMore.value = false; return@launch }
+                            folderPage++
+                            val more = repository.getUserGalleryFolder(username, folder, folderPage)
+                            val uniqueMore = more.filter { newSub -> _submissions.value.none { it.id == newSub.id } }
+                            folderMore = uniqueMore.isNotEmpty()
+                            if (uniqueMore.isEmpty()) folderPage--
+                            else _submissions.value = _submissions.value + uniqueMore
+                            return@launch
+                        }
                         if (!contentMore) { _isLoadingMore.value = false; return@launch }
                         currentPage++
                         val more = repository.getUserGallery(username, currentPage)
@@ -281,6 +330,15 @@ class UserViewModel(
      * force 绕过"已有数据即 return"守卫；列表先清空让刷新态可见。
      */
     fun refresh() {
+        val folder = _activeFolder.value
+        if (folder != null) {
+            repository.clearUserPagination(username)
+            _submissions.value = emptyList()
+            folderPage = 1
+            folderMore = true
+            loadFolderContent()
+            return
+        }
         viewModelScope.launch {
             repository.clearUserPagination(username)
             loadProfileInternal()

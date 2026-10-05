@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.furflix.app.data.model.ContactLink
+import com.furflix.app.data.model.GalleryFolder
 import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.data.model.UserProfile
 import com.furflix.app.data.repository.FurRepository
@@ -104,6 +105,7 @@ fun UserProfileScreen(
     val watchersList by viewModel.watchersList.collectAsState()
 
     val selectedTab by viewModel.currentTab.collectAsState()
+    val activeFolder by viewModel.activeFolder.collectAsState()
     val repository = remember { FurRepository.getInstance(context) }
     // 画廊三视图与列数偏好与画廊全局共用（一处设置全局生效）
     val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
@@ -302,6 +304,15 @@ fun UserProfileScreen(
                                 )
                             }
                         }
+                        if (profile.folders.isNotEmpty()) {
+                            item(key = "folders", span = StaggeredGridItemSpan.FullLine) {
+                                FoldersRow(
+                                    folders = profile.folders,
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    onOpen = { viewModel.openFolder(it) }
+                                )
+                            }
+                        }
                         if (profile.profileText.isNotBlank()) {
                             item(key = "bio", span = StaggeredGridItemSpan.FullLine) {
                                 BioCard(text = profile.profileText, modifier = Modifier.padding(horizontal = 16.dp))
@@ -325,6 +336,30 @@ fun UserProfileScreen(
 
                     when (selectedTab) {
                         UserViewModel.TAB_GALLERY, UserViewModel.TAB_FAVORITES -> {
+                            if (selectedTab == UserViewModel.TAB_GALLERY && activeFolder != null) {
+                                item(key = "folder_header", span = StaggeredGridItemSpan.FullLine) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(onClick = { viewModel.closeFolder() }) {
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.ArrowBack,
+                                                contentDescription = stringResource(R.string.action_back)
+                                            )
+                                        }
+                                        Text(
+                                            activeFolder?.name ?: "",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
                             if (errorMessage != null && submissions.isEmpty()) {
                                 item(key = "error", span = StaggeredGridItemSpan.FullLine) { ErrorState(message = errorMessage ?: "") }
                             }
@@ -445,6 +480,82 @@ fun UserProfileScreen(
                 hazeState = hazeState,
                 onTabSelected = { selectTab(it, fromBottom = true) }
             )
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------------------
+// Gallery folders strip (horizontal), opens the folder view in place
+// -----------------------------------------------------------------------------------------
+
+@Composable
+private fun FoldersRow(
+    folders: List<GalleryFolder>,
+    modifier: Modifier = Modifier,
+    onOpen: (GalleryFolder) -> Unit
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            stringResource(R.string.profile_gallery_folders),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(folders, key = { it.id }) { folder ->
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    onClick = { onOpen(folder) },
+                    modifier = Modifier.width(120.dp)
+                ) {
+                    Column {
+                        if (folder.thumbUrl.isNotEmpty()) {
+                            AsyncImage(
+                                model = folder.thumbUrl,
+                                contentDescription = folder.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(72.dp)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(72.dp)
+                                    .background(DarkSurfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Folder,
+                                    contentDescription = null,
+                                    tint = SubtleGray,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(
+                                folder.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (folder.count > 0) {
+                                Text(
+                                    stringResource(R.string.folder_item_count, folder.count),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SubtleGray
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

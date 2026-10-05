@@ -28,5 +28,6 @@ data class UserProfile(
     val acceptingTrades: String = "",    // "Yes" / "No" / "" (unknown)
     val acceptingCommissions: String = "",
     val species: String = "",
-    val contactLinks: List<ContactLink> = emptyList()
+    val contactLinks: List<ContactLink> = emptyList(),
+    val folders: List<GalleryFolder> = emptyList()
 )

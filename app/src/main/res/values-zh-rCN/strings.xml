@@ -288,6 +288,10 @@
     <string name="toast_batch_favorite_done">已收藏 %1$d 项</string>
     <!-- %1$d = 失败条数 -->
     <string name="toast_batch_favorite_failed">%1$d 项失败</string>
+    <!-- 用户页画廊文件夹 -->
+    <string name="profile_gallery_folders">画廊文件夹</string>
+    <!-- %1$d = 条目数 -->
+    <string name="folder_item_count">%1$d 项</string>
     <string name="user_unfollow">取消关注</string>
     <string name="user_unfollow_confirm">不再关注 %s?</string>
     <string name="toast_download_saved">已保存:%s</string>

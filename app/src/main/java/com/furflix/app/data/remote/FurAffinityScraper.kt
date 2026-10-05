@@ -410,6 +410,42 @@ object FurAffinityScraper {
     fun clearUserPagination(username: String) {
         galleryNextUrls.remove(username)
         favoritesNextUrls.remove(username)
+        folderNextUrls.keys.removeAll { it.startsWith("$username:") }
+    }
+
+    private val folderNextUrls = mutableMapOf<String, String>()
+
+    /**
+     * 文件夹内容分页：page 1 用文件夹自身的站内链接，后续页走 Next 缓存
+     * （键 username:folderId，与画廊/收藏分页互不覆盖）。
+     */
+    suspend fun getUserGalleryFolder(
+        username: String,
+        folder: com.furflix.app.data.model.GalleryFolder,
+        page: Int = 1,
+        forceNsfw: Boolean? = null
+    ): List<Submission> = withContext(Dispatchers.IO) {
+        try {
+            val url = if (page == 1) {
+                "$FA_BASE${folder.href}"
+            } else {
+                folderNextUrls["$username:${folder.id}"] ?: return@withContext emptyList()
+            }
+            val doc = fetchDocument(url, forceNsfw)
+            val nextA = doc.select("a").firstOrNull {
+                it.text().contains("Next", ignoreCase = true) && it.attr("href").contains("/gallery/", ignoreCase = true)
+            }
+            val key = "$username:${folder.id}"
+            if (nextA != null) {
+                folderNextUrls[key] = "$FA_BASE${nextA.attr("href")}"
+            } else {
+                folderNextUrls.remove(key)
+            }
+            parseSearchResults(doc)
+        } catch (e: Exception) {
+            Log.e("FurScraper", "getUserGalleryFolder error: ${e.message}", e)
+            emptyList()
+        }
     }
 
     suspend fun getUserGallery(username: String, page: Int = 1, forceNsfw: Boolean? = null): List<Submission> = withContext(Dispatchers.IO) {
@@ -980,6 +1016,33 @@ object FurAffinityScraper {
             com.furflix.app.data.model.ContactLink(type = type, label = label, url = linkUrl)
         }
 
+        // Gallery folders: 任何指向 /gallery/{user}/folder/{id}/{slug} 的链接都算一条；
+        // 区块不可见/为空时自然得到空列表（容错，不抛错）。计数取链接文本里的 (N)。
+        val folders = mutableListOf<com.furflix.app.data.model.GalleryFolder>()
+        val folderHrefRegex = Regex("/gallery/([^/]+)/folder/(\\d+)/([^/?#]+)")
+        for (a in doc.select("a[href*=/folder/]")) {
+            val hrefAttr = a.attr("href")
+            val m = folderHrefRegex.find(hrefAttr) ?: continue
+            val id = m.groupValues[2]
+            if (folders.any { it.id == id }) continue
+            val slug = m.groupValues[3]
+            val name = runCatching {
+                java.net.URLDecoder.decode(slug.replace('_', ' '), "UTF-8")
+            }.getOrDefault(slug).ifBlank { slug }
+            val thumb = a.selectFirst("img")?.attr("src") ?: ""
+            val count = Regex("[(\\[]\\s*([\\d,]+)").find(a.text())
+                ?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
+            folders.add(
+                com.furflix.app.data.model.GalleryFolder(
+                    id = id,
+                    name = name,
+                    href = if (hrefAttr.startsWith("/")) hrefAttr else "/$hrefAttr",
+                    thumbUrl = thumb,
+                    count = count
+                )
+            )
+        }
+
         com.furflix.app.data.model.UserProfile(
             username = username,
             displayName = displayName,
@@ -1001,7 +1064,8 @@ object FurAffinityScraper {
             acceptingTrades = acceptingTrades,
             acceptingCommissions = acceptingCommissions,
             species = species,
-            contactLinks = contactLinks
+            contactLinks = contactLinks,
+            folders = folders
         )
     }
 
