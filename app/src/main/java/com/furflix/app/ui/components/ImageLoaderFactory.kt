@@ -28,6 +28,12 @@ object ImageLoaderFactory {
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            // 画廊缩略图几乎全在 t.furaffinity.net 单一 host：OkHttp 默认每 host
+            // 5 并发会让首屏互相排队，提到 12 保障当前浏览画面优先吃满带宽
+            .dispatcher(okhttp3.Dispatcher().apply {
+                maxRequests = 48
+                maxRequestsPerHost = 12
+            })
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
                     .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36")
@@ -71,6 +77,9 @@ object ImageLoaderFactory {
                 DiskCache.Builder()
                     .directory(context.cacheDir.resolve("image_cache").absolutePath.toPath())
                     .maxSizePercent(0.25)
+                    // FA CDN 缓存头短且多变：忽略头提高重复浏览命中率（磁盘即二级缓存，
+                    // 内存缓存承担新鲜度），减少反复拉取与快速滑动的反复解码
+                    .respectCacheHeaders(false)
                     .build()
             )
             // Coil 3 removed ImageLoader-level crossfade; fades are set per-request

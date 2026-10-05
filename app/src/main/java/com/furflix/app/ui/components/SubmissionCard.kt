@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +30,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -71,12 +74,35 @@ fun SubmissionCard(
             callback()
         }
     }
+    // 多选勾选触觉：仅在本卡选中态真正翻转时触发（滚动入屏的既有选中态不响）
+    var wasSelected by remember { mutableStateOf(isSelected) }
+    LaunchedEffect(isSelected, selectionActive) {
+        if (selectionActive && isSelected != wasSelected) {
+            haptic.performHapticFeedback(
+                if (isSelected) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff
+            )
+        }
+        wasSelected = isSelected
+    }
+    // 按压态反馈：轻微缩小（水波纹由 Card 自带 indication 提供）
+    val cardInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val cardPressed by cardInteractionSource.collectIsPressedAsState()
+    val cardScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (cardPressed) 0.97f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(120),
+        label = "cardPressScale"
+    )
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = hapticLongClick
+                onLongClick = hapticLongClick,
+                interactionSource = cardInteractionSource
             ),
         shape = RoundedCornerShape(if (compact) 8.dp else 12.dp),
         colors = CardDefaults.cardColors(

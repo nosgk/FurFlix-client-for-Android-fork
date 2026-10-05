@@ -381,7 +381,8 @@ fun HomeScreen(
             // Pull-to-refresh
             var isRefreshing by remember { mutableStateOf(false) }
             var pullProgress by remember { mutableFloatStateOf(0f) }
-            val pullThreshold = 330f
+            // 与 PawPullRefreshBox 同一阻尼参数：0.65 倍率累积 + 下调阈值
+            val pullThreshold = 230f
             var hasTriggered by remember { mutableStateOf(false) }
 
             LaunchedEffect(isLoading, watchlistIsLoading, isRefreshing) {
@@ -406,7 +407,7 @@ fun HomeScreen(
                         if (available.y > 0 && source == NestedScrollSource.UserInput && !isRefreshing &&
                             pagerState.currentPage != 3
                         ) {
-                            pullProgress = (pullProgress + available.y).coerceIn(0f, pullThreshold * 1.5f)
+                            pullProgress = (pullProgress + available.y * 0.65f).coerceIn(0f, pullThreshold * 1.5f)
                             if (pullProgress >= pullThreshold && !hasTriggered) {
                                 hasTriggered = true
                                 isRefreshing = true

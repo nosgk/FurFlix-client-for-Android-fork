@@ -1,6 +1,7 @@
 package com.furflix.app.ui.components
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -63,7 +64,7 @@ fun ZoomableImageViewer(
                                 // Animate back to fit
                                 val startScale = scale
                                 val startOffset = offset
-                                animate(0f, 1f, animationSpec = tween(250)) { v, _ ->
+                                animate(0f, 1f, animationSpec = tween(250, easing = FastOutSlowInEasing)) { v, _ ->
                                     scale = startScale + (1f - startScale) * v
                                     offset = startOffset * (1f - v)
                                 }
@@ -71,7 +72,7 @@ fun ZoomableImageViewer(
                             } else {
                                 // Animate to 2.5x
                                 val startScale = scale
-                                animate(0f, 1f, animationSpec = tween(250)) { v, _ ->
+                                animate(0f, 1f, animationSpec = tween(250, easing = FastOutSlowInEasing)) { v, _ ->
                                     scale = startScale + (2.5f - startScale) * v
                                 }
                             }

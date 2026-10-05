@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -197,14 +198,14 @@ private fun GifPlayer(
                             if (scale > 1.5f) {
                                 val startScale = scale
                                 val startOffset = offset
-                                animate(0f, 1f, animationSpec = tween(250)) { v, _ ->
+                                animate(0f, 1f, animationSpec = tween(250, easing = FastOutSlowInEasing)) { v, _ ->
                                     scale = startScale + (1f - startScale) * v
                                     offset = startOffset * (1f - v)
                                 }
                                 offset = Offset.Zero
                             } else {
                                 val startScale = scale
-                                animate(0f, 1f, animationSpec = tween(250)) { v, _ ->
+                                animate(0f, 1f, animationSpec = tween(250, easing = FastOutSlowInEasing)) { v, _ ->
                                     scale = startScale + (2.5f - startScale) * v
                                 }
                             }

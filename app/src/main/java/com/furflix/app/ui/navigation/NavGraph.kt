@@ -70,7 +70,30 @@ fun FurFlixNavGraph(
     CompositionLocalProvider(LocalThumbnailQuality provides thumbnailQuality) {
         NavHost(
             navController = navController,
-            startDestination = Routes.HOME
+            startDestination = Routes.HOME,
+            // 全局页面转场：轻位移 + 淡入淡出，进场慢出场快（FastOutSlowIn 曲线）
+            enterTransition = {
+                androidx.compose.animation.fadeIn(
+                    androidx.compose.animation.core.tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                ) + androidx.compose.animation.slideInHorizontally(
+                    androidx.compose.animation.core.tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                ) { it / 10 }
+            },
+            exitTransition = {
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(180)) +
+                    androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(180)) { -it / 20 }
+            },
+            popEnterTransition = {
+                androidx.compose.animation.fadeIn(
+                    androidx.compose.animation.core.tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                ) + androidx.compose.animation.slideInHorizontally(
+                    androidx.compose.animation.core.tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                ) { -it / 20 }
+            },
+            popExitTransition = {
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(180)) +
+                    androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(180)) { it / 10 }
+            }
         ) {
         composable(Routes.HOME) {
             HomeScreen(

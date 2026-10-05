@@ -38,7 +38,8 @@ fun PawPullRefreshBox(
     content: @Composable BoxScope.() -> Unit
 ) {
     var pullProgress by remember { mutableFloatStateOf(0f) }
-    val pullThreshold = 330f
+    // 阻尼下拉：位移按 0.65 倍率累积（渐进阻力），阈值相应下调保持原触发手感
+    val pullThreshold = 230f
     var hasTriggered by remember { mutableStateOf(false) }
 
     // 嵌套滚动连接只 remember 一次：经 rememberUpdatedState 读取最新值，
@@ -63,7 +64,8 @@ fun PawPullRefreshBox(
                 source: NestedScrollSource
             ): Offset {
                 if (available.y > 0 && source == NestedScrollSource.UserInput && !currentRefreshing) {
-                    pullProgress = (pullProgress + available.y).coerceIn(0f, pullThreshold * 1.5f)
+                    // 阻尼：越拉越沉，避免一段狠拽直接触顶（跟手感调优）
+                    pullProgress = (pullProgress + available.y * 0.65f).coerceIn(0f, pullThreshold * 1.5f)
                     if (pullProgress >= pullThreshold && !hasTriggered) {
                         hasTriggered = true
                         currentOnRefresh()
