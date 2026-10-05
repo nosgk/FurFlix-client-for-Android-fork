@@ -162,7 +162,7 @@ private fun FavoritesContent(
             EmptyState(message = errorMessage, icon = Icons.Default.ErrorOutline)
         }
         submissions.isEmpty() && !isLoadingMore -> {
-            EmptyState(message = "No favorites yet.", icon = Icons.Default.FavoriteBorder)
+            EmptyState(message = stringResource(R.string.profile_no_favorites), icon = Icons.Default.FavoriteBorder)
         }
         else -> {
             Crossfade(targetState = viewMode, animationSpec = tween(300), label = "favViewMode") { mode ->
@@ -193,7 +193,8 @@ private fun FavoritesContent(
                         ) {
                             staggeredItems(
                                 items = submissions,
-                                key = { it.id }
+                                key = { it.id },
+                                contentType = { "submission" }
                             ) { submission ->
                                 SubmissionCard(
                                     submission = submission,
@@ -207,7 +208,11 @@ private fun FavoritesContent(
                                 )
                             }
                             if (isLoadingMore) {
-                                item(span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
+                                item(
+                                    span = StaggeredGridItemSpan.FullLine,
+                                    key = "loading_more",
+                                    contentType = "footer"
+                                ) { LoadingMoreFooter() }
                             }
                         }
                     }
@@ -235,7 +240,7 @@ private fun FavoritesContent(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        items(submissions, key = { it.id }) { submission ->
+                        items(submissions, key = { it.id }, contentType = { "submission" }) { submission ->
                             SubmissionCard(
                                 submission = submission,
                                 onClick = { onNavigateToPost(submission.id) },
@@ -247,7 +252,7 @@ private fun FavoritesContent(
                             )
                         }
                         if (isLoadingMore) {
-                            item { LoadingMoreFooter() }
+                            item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                         }
                     }
                     }
@@ -273,7 +278,7 @@ private fun FavoritesContent(
                         contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(submissions, key = { it.id }) { submission ->
+                        items(submissions, key = { it.id }, contentType = { "submission" }) { submission ->
                             SubmissionCard(
                                 submission = submission,
                                 onClick = { onNavigateToPost(submission.id) },
@@ -283,7 +288,7 @@ private fun FavoritesContent(
                             )
                         }
                         if (isLoadingMore) {
-                            item { LoadingMoreFooter() }
+                            item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                         }
                     }
                     }
@@ -424,11 +429,11 @@ private fun WatchlistContent(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            items(currentData, key = { it.username }) { user ->
+                            items(currentData, key = { it.username }, contentType = { "watch_user" }) { user ->
                                 WatchlistGridItem(user = user, onClick = { onNavigateToUser(user.username) })
                             }
                             if (isLoadingMore) {
-                                item { LoadingMoreFooter() }
+                                item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                             }
                         }
                     } else {
@@ -438,11 +443,11 @@ private fun WatchlistContent(
                             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 120.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            items(currentData, key = { it.username }) { user ->
+                            items(currentData, key = { it.username }, contentType = { "watch_user" }) { user ->
                                 WatchlistItem(user = user, onClick = { onNavigateToUser(user.username) })
                             }
                             if (isLoadingMore) {
-                                item { LoadingMoreFooter() }
+                                item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                             }
                         }
                     }

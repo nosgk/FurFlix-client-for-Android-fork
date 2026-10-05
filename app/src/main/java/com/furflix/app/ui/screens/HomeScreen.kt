@@ -455,7 +455,8 @@ fun HomeScreen(
                                 ) {
                                     staggeredItems(
                                         items = submissions,
-                                        key = { it.id }
+                                        key = { it.id },
+                                        contentType = { "submission" }
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
@@ -469,7 +470,11 @@ fun HomeScreen(
                                     }
 
                                     if (isLoadingMore) {
-                                        item(span = StaggeredGridItemSpan.FullLine) {
+                                        item(
+                                            span = StaggeredGridItemSpan.FullLine,
+                                            key = "loading_more",
+                                            contentType = "footer"
+                                        ) {
                                             LoadingMoreFooter()
                                         }
                                     }
@@ -511,7 +516,8 @@ fun HomeScreen(
                                 ) {
                                     items(
                                         items = submissions,
-                                        key = { it.id }
+                                        key = { it.id },
+                                        contentType = { "submission" }
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
@@ -879,7 +885,8 @@ fun HomeScreen(
                                 ) {
                                     staggeredItems(
                                         items = searchSubmissions,
-                                        key = { it.id }
+                                        key = { it.id },
+                                        contentType = { "submission" }
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
@@ -892,7 +899,11 @@ fun HomeScreen(
                                         )
                                     }
                                     if (isLoadingMore) {
-                                        item(span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
+                                        item(
+                                            span = StaggeredGridItemSpan.FullLine,
+                                            key = "loading_more",
+                                            contentType = "footer"
+                                        ) { LoadingMoreFooter() }
                                     }
                                 }
                                 LaunchedEffect(searchStaggeredState) {
@@ -929,7 +940,8 @@ fun HomeScreen(
                                 ) {
                                     items(
                                         items = searchSubmissions,
-                                        key = { it.id }
+                                        key = { it.id },
+                                        contentType = { "submission" }
                                     ) { submission ->
                                         SubmissionCard(
                                             submission = submission,
@@ -941,7 +953,7 @@ fun HomeScreen(
                                         )
                                     }
                                     if (isLoadingMore) {
-                                        item { LoadingMoreFooter() }
+                                        item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                                     }
                                 }
                                 LaunchedEffect(searchGridState) {

@@ -172,7 +172,8 @@ fun TagSearchScreen(
                 ) {
                     items(
                         items = submissions,
-                        key = { it.id }
+                        key = { it.id },
+                        contentType = { "submission" }
                     ) { submission ->
                         SubmissionCard(
                             submission = submission,
@@ -184,7 +185,7 @@ fun TagSearchScreen(
                         )
                     }
                     if (isLoadingMore) {
-                        item { LoadingMoreFooter() }
+                        item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                     }
                 }
 
