@@ -43,14 +43,17 @@ jobs:
             grep -E "> Task .*FAILED|FAILURE: Build|Lint found" /tmp/lint.log | head -2 | while IFS= read -r line; do
               echo "::error::${line:0:260}"
             done
-            grep -E "Error: |^e: |Lint found|Explanation" /tmp/lint.log | head -120 > lint-errors.txt || true
-            if [ -s lint-errors.txt ]; then
-              git config user.name "ci-log-bot"
-              git config user.email "ci-log-bot@users.noreply.github.com"
-              git add lint-errors.txt
-              git commit -m "ci(lint): error excerpt [skip ci]" || true
-              git push origin HEAD:main || echo "push failed (no write permission?)"
-            fi
+            {
+              echo "== matched error lines =="
+              grep -E "Error: |^e: |Lint found|Explanation|WARNING" /tmp/lint.log | head -120 || true
+              echo "== tail of lint.log =="
+              tail -100 /tmp/lint.log | head -c 9000
+            } > lint-errors.txt
+            git config user.name "ci-log-bot"
+            git config user.email "ci-log-bot@users.noreply.github.com"
+            git add lint-errors.txt
+            git commit -m "ci(lint): error excerpt [skip ci]" || true
+            git push origin HEAD:main || echo "push failed"
             exit 1
           fi
 
