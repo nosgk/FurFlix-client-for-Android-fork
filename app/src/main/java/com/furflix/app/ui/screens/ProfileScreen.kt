@@ -80,7 +80,8 @@ fun ProfileScreen(
     val followersHasMore by viewModel.followersHasMore.collectAsState()
     val userBanners by viewModel.userBanners.collectAsState()
 
-    // 浏览历史 = 统计缓存中带展示字段的条目；缓存按最旧在前排序，倒序即最新在前
+    // 浏览历史 = 统计缓存中带展示字段的条目；缓存按最旧在前排序，倒序即最新在前。
+    // ratio 必须带回：丢了它瀑布流每块都按 1:1 预设，视觉上退化成等高网格
     val historyEntries = remember(cardStats) {
         cardStats.map { (id, stats) ->
             com.furflix.app.data.model.Submission(
@@ -89,6 +90,7 @@ fun ProfileScreen(
                 author = stats.author,
                 authorUsername = stats.authorUsername,
                 thumbnailUrl = stats.thumbnailUrl,
+                thumbnailWidthOnHeightRatio = stats.ratio,
                 rating = stats.rating,
                 views = stats.views,
                 favorites = stats.favorites,
