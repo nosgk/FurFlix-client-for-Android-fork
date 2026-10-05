@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -163,9 +164,6 @@ fun HomeScreen(
     } else gridColumnsPref
     // 乐观覆盖：DataStore 落盘→回流的延迟会让切换晚一拍才重绘；先本地生效，
     // 持久化值回流后对齐（与 Downloads 页 isGrid 开关的本地先行做法一致）
-    val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
-    val barsVisibility = rememberBarsVisibility(selectedTab) { scrollSources[selectedTab]?.invoke() }
-    val barsVisible = !autoHideBars || barsVisibility.visible
     var pendingViewMode by remember { mutableStateOf<GalleryViewMode?>(null) }
     val viewMode = pendingViewMode ?: persistedViewMode
     LaunchedEffect(persistedViewMode) {
@@ -195,6 +193,9 @@ fun HomeScreen(
     val scrollers = remember { mutableMapOf<Int, suspend () -> Unit>() }
     // 各 tab 当前列表的滚动位置源，供顶底栏显隐判定
     val scrollSources = remember { mutableMapOf<Int, () -> Pair<Int, Int>>() }
+    val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
+    val barsVisibility = rememberBarsVisibility(selectedTab) { scrollSources[selectedTab]?.invoke() }
+    val barsVisible = !autoHideBars || barsVisibility.visible
     var profileScrollToTopTrigger by remember { mutableIntStateOf(0) }
 
     val focusManager = LocalFocusManager.current
@@ -454,7 +455,7 @@ fun HomeScreen(
                                 val staggeredState = rememberLazyStaggeredGridState()
                                 SideEffect {
                     scrollers[page] = { staggeredState.animateScrollToItem(0) }
-                    scrollSources[page] = { { staggeredState.firstVisibleItemIndex to staggeredState.firstVisibleItemScrollOffset } }
+                    scrollSources[page] = { staggeredState.firstVisibleItemIndex to staggeredState.firstVisibleItemScrollOffset }
                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
                                 LazyVerticalStaggeredGrid(
@@ -518,7 +519,7 @@ fun HomeScreen(
                                 val gridState = rememberLazyGridState()
                                 SideEffect {
                                     scrollers[page] = { gridState.animateScrollToItem(0) }
-                                    scrollSources[page] = { { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset } }
+                                    scrollSources[page] = { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
                                 LazyVerticalGrid(
@@ -890,7 +891,7 @@ fun HomeScreen(
                             if (isMasonry) {
                                 SideEffect {
                                     scrollers[2] = { searchStaggeredState.animateScrollToItem(0) }
-                                    scrollSources[2] = { { searchStaggeredState.firstVisibleItemIndex to searchStaggeredState.firstVisibleItemScrollOffset } }
+                                    scrollSources[2] = { searchStaggeredState.firstVisibleItemIndex to searchStaggeredState.firstVisibleItemScrollOffset }
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
                                 LazyVerticalStaggeredGrid(
@@ -948,7 +949,7 @@ fun HomeScreen(
                             } else {
                                 SideEffect {
                                     scrollers[2] = { searchGridState.animateScrollToItem(0) }
-                                    scrollSources[2] = { { searchGridState.firstVisibleItemIndex to searchGridState.firstVisibleItemScrollOffset } }
+                                    scrollSources[2] = { searchGridState.firstVisibleItemIndex to searchGridState.firstVisibleItemScrollOffset }
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
                                 LazyVerticalGrid(

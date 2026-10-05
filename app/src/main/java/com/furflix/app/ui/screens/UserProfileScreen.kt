@@ -108,11 +108,6 @@ fun UserProfileScreen(
     // 画廊三视图与列数偏好与画廊全局共用（一处设置全局生效）
     val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
-    val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
-    val barsVisibility = rememberBarsVisibility(selectedTab) {
-        listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
-    }
-    val barsVisible = !autoHideBars || barsVisibility.visible
     val hazeState = remember { HazeState() }
 
     val tabGallery = stringResource(R.string.user_gallery)
@@ -130,6 +125,11 @@ fun UserProfileScreen(
     }
 
     val listState = rememberLazyStaggeredGridState()
+    val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
+    val barsVisibility = rememberBarsVisibility(selectedTab) {
+        listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+    }
+    val barsVisible = !autoHideBars || barsVisibility.visible
     var scrollTarget by remember { mutableIntStateOf(0) }
     var scrollKey by remember { mutableIntStateOf(0) }
 
