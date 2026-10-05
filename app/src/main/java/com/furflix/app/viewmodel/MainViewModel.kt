@@ -68,11 +68,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _cardStats = MutableStateFlow<Map<String, com.furflix.app.data.model.CardStats>>(emptyMap())
     val cardStats: StateFlow<Map<String, com.furflix.app.data.model.CardStats>> = _cardStats.asStateFlow()
 
-    /** 统计浮层与浏览历史共用一份快照；收藏动作只覆盖计数与标记，展示字段沿用详情解析结果 */
+    /**
+     * 统计浮层与浏览历史共用一份快照；收藏动作只覆盖计数与标记，展示字段沿用详情解析结果。
+     * visited 仅由真实到访（详情页加载）置 true，统计预热默认 false——浏览历史不收录预热条目。
+     */
     private fun cardStatsOf(
         sub: Submission,
         favorited: Boolean = sub.isFavorited,
-        favorites: Int = sub.favorites
+        favorites: Int = sub.favorites,
+        visited: Boolean = false
     ): com.furflix.app.data.model.CardStats = com.furflix.app.data.model.CardStats(
         views = sub.views,
         favorites = favorites,
@@ -83,7 +87,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         authorUsername = sub.authorUsername,
         thumbnailUrl = sub.thumbnailUrl,
         rating = sub.rating,
-        ratio = sub.thumbnailWidthOnHeightRatio
+        ratio = sub.thumbnailWidthOnHeightRatio,
+        visited = visited
     )
 
     private var searchTagsJob: kotlinx.coroutines.Job? = null
@@ -132,6 +137,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (details.favUrl.isEmpty()) return
         val addToFavorites = !details.isFavorited
         val currentFavUrl = details.favUrl
+        // 收藏动作不改变“是否到访”的语义：真实浏览过的仍是历史，批量收藏不产生历史
+        val wasVisited = _cardStats.value[postId]?.visited ?: false
         _isTogglingFavorite.value = true
         // Optimistic update — toggle state + swap the fav/unfav URL
         _submissionDetails.update { current ->
@@ -150,7 +157,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // 卡片浮层的数据源与详情页同步更新：乐观写新值，失败回滚后写回原值
             cardStatsCache.put(
                 postId,
-                cardStatsOf(details, favorited = addToFavorites, favorites = details.favorites + if (addToFavorites) 1 else -1)
+                cardStatsOf(details, favorited = addToFavorites, favorites = details.favorites + if (addToFavorites) 1 else -1, visited = wasVisited)
             )
             try {
                 val success = repository.toggleFavorite(currentFavUrl)
@@ -161,7 +168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         newMap[postId] = details
                         newMap
                     }
-                    cardStatsCache.put(postId, cardStatsOf(details))
+                    cardStatsCache.put(postId, cardStatsOf(details, visited = wasVisited))
                 }
             } catch (_: Exception) {
                 _submissionDetails.update { current ->
@@ -169,7 +176,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     newMap[postId] = details
                     newMap
                 }
-                cardStatsCache.put(postId, cardStatsOf(details))
+                cardStatsCache.put(postId, cardStatsOf(details, visited = wasVisited))
             }
             _isTogglingFavorite.value = false
         }
@@ -497,7 +504,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val searchKeywordCounts: StateFlow<Map<String, Int>> = _searchKeywordCounts.asStateFlow()
 
     private fun loadKeywordCounts(query: String) {
-        val words = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.distinct()
+        // 分词 = 输入框词 + 筛选面板关键词；`@keywords` 是组语法标记不是搜索词，
+        // `!` 排除极性对计数无意义，按词本身计
+        val tokens = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() && it != "@keywords" }
+        val words = (tokens + _searchFilters.value.keywords)
+            .map { it.removePrefix("!") }
+            .filter { it.isNotBlank() }
+            .distinct()
         if (words.size < 2 || words.size > 4) {
             _searchKeywordCounts.value = emptyMap()
             return
@@ -651,11 +664,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadSubmission(postId: String) {
         _submissionDetails.value[postId]?.let { cached ->
-            // 已在内存：不重复抓取，但仍把浏览历史/统计顶到最新
-            viewModelScope.launch { cardStatsCache.put(postId, cardStatsOf(cached)) }
+            // 已在内存：不重复抓取，但仍把浏览历史/统计顶到最新；真实到访 → visited
+            viewModelScope.launch { cardStatsCache.put(postId, cardStatsOf(cached, visited = true)) }
             return
         }
-        
+
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
@@ -667,7 +680,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         newMap[postId] = result
                         newMap
                     }
-                    cardStatsCache.put(postId, cardStatsOf(result))
+                    cardStatsCache.put(postId, cardStatsOf(result, visited = true))
                 } else {
                     _errorMessage.value = getApplication<Application>().getString(R.string.error_load_details)
                 }

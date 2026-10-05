@@ -156,6 +156,9 @@
     <string name="profile_watchlist">关注列表</string>
     <string name="profile_view_history">浏览历史</string>
     <string name="history_empty">暂无浏览记录。</string>
+    <!-- 浏览历史子栏目:作品/用户 -->
+    <string name="history_tab_submissions">作品</string>
+    <string name="history_tab_users">用户</string>
     <!-- 关注列表搜索与本地用户备注(长按用户卡片) -->
     <string name="watchlist_search_hint">搜索已关注的用户</string>
     <string name="watchlist_search_empty">没有匹配的用户。</string>
@@ -324,6 +327,8 @@
     <string name="load_percent_format">%1$d%%</string>
     <!-- %1$s = 格式化大小,如 1.2 MB -->
     <string name="load_speed_format">%1$s/s</string>
+    <!-- %1$s = 已加载字节数(总量未知时替代百分比) -->
+    <string name="load_downloaded_format">已加载 %1$s</string>
     <!-- %1$s = HTTP 状态码或异常名,本身为英文 -->
     <string name="error_load_failed_with_code">加载失败(%1$s)</string>
     <string name="toast_cache_cleared">图片缓存已清除</string>

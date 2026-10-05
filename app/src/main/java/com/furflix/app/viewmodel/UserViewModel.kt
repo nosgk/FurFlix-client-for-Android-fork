@@ -106,6 +106,13 @@ class UserViewModel(
         try {
             val profile = repository.getUserProfile(username)
             _userProfile.value = profile
+            // 用户页真实到访才记入浏览历史的“用户”栏；自己的主页不计
+            if (profile.username.isNotBlank() &&
+                !profile.username.equals(repository.getUsername(), ignoreCase = true)
+            ) {
+                com.furflix.app.data.local.UserVisitCache.getInstance(getApplication())
+                    .put(profile.username, profile.displayName, profile.avatarUrl)
+            }
         } catch (e: Exception) {
             Log.e("UserVM", "loadProfile failed", e)
         }

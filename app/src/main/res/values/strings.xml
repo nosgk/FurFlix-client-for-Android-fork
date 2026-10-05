@@ -150,6 +150,9 @@
     <string name="profile_watchlist">Watchlist</string>
     <string name="profile_view_history">Viewing History</string>
     <string name="history_empty">Nothing viewed yet.</string>
+    <!-- Viewing-history sub-tabs: artworks vs visited users -->
+    <string name="history_tab_submissions">Artworks</string>
+    <string name="history_tab_users">Users</string>
     <!-- Watchlist search & local user notes (long-press a user card) -->
     <string name="watchlist_search_hint">Search followed users</string>
     <string name="watchlist_search_empty">No users match the search.</string>
@@ -314,6 +317,8 @@
     <string name="load_percent_format">%1$d%%</string>
     <!-- %1$s = formatted size, e.g. 1.2 MB -->
     <string name="load_speed_format">%1$s/s</string>
+    <!-- %1$s = formatted bytes loaded so far (unknown total size) -->
+    <string name="load_downloaded_format">%1$s loaded</string>
     <!-- %1$s = HTTP status code or exception name, English by nature -->
     <string name="error_load_failed_with_code">Failed to load (%1$s)</string>
     <string name="toast_cache_cleared">Image cache cleared</string>
