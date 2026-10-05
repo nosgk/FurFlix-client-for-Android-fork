@@ -41,7 +41,8 @@ class CommentTreeTest {
     fun `recursiveCount counts every descendant`() {
         val tree = listOf(c("a", 0), c("b", 8), c("c", 16), c("d", 8)).buildTree()
         assertEquals(4, tree.recursiveCount())
-        assertEquals(2, tree[0].answers[0].answers.recursiveCount())
+        val bSubtree = listOf(tree[0].answers[0])
+        assertEquals(2, bSubtree.recursiveCount())
     }
 
     @Test
