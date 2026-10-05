@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.furflix.app.ui.components.CustomTabRow
 import com.furflix.app.ui.components.EmptyState
 import com.furflix.app.ui.components.LoadingMoreFooter
+import com.furflix.app.ui.components.PawPullRefreshBox
 import com.furflix.app.ui.components.SubmissionCard
 import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.ui.components.masonryGridCells
@@ -52,6 +53,7 @@ import com.furflix.app.ui.components.WatchlistItem
 import com.furflix.app.ui.theme.*
 import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.viewmodel.WatchlistViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -60,6 +62,7 @@ fun ProfileScreen(
     columnsPref: Int = 2,
     cardStats: Map<String, com.furflix.app.data.model.CardStats> = emptyMap(),
     onClearHistory: () -> Unit = {},
+    onWarmStats: (List<String>) -> Unit = {},
     onNavigateToUser: (String) -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
@@ -75,6 +78,7 @@ fun ProfileScreen(
     val currentTab by viewModel.currentTab.collectAsState()
     val followingHasMore by viewModel.followingHasMore.collectAsState()
     val followersHasMore by viewModel.followersHasMore.collectAsState()
+    val userBanners by viewModel.userBanners.collectAsState()
 
     // 浏览历史 = 统计缓存中带展示字段的条目；缓存按最旧在前排序，倒序即最新在前
     val historyEntries = remember(cardStats) {
@@ -152,6 +156,9 @@ fun ProfileScreen(
                     errorMessage = errorMessage,
                     currentTab = currentTab,
                     isGrid = viewMode != GalleryViewMode.LIST,
+                    banners = userBanners,
+                    onRefresh = { viewModel.refresh() },
+                    onWarmBanners = { viewModel.prefetchUserBanners(it) },
                     onSetTab = { viewModel.setTab(it) },
                     onLoadMore = { viewModel.loadMore() },
                     onNavigateToUser = onNavigateToUser,
@@ -159,6 +166,10 @@ fun ProfileScreen(
                 )
                 2 -> HistoryContent(
                     entries = historyEntries,
+                    viewMode = viewMode,
+                    columnsPref = columnsPref,
+                    cardStats = cardStats,
+                    onWarmStats = onWarmStats,
                     onNavigateToPost = onNavigateToPost,
                     onNavigateToUser = onNavigateToUser,
                     onClear = onClearHistory,
@@ -332,6 +343,10 @@ private fun FavoritesContent(
 @Composable
 private fun HistoryContent(
     entries: List<com.furflix.app.data.model.Submission>,
+    viewMode: GalleryViewMode,
+    columnsPref: Int,
+    cardStats: Map<String, com.furflix.app.data.model.CardStats>,
+    onWarmStats: (List<String>) -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onClear: () -> Unit,
@@ -341,44 +356,131 @@ private fun HistoryContent(
         EmptyState(message = stringResource(R.string.history_empty), icon = Icons.Default.History)
         return
     }
-    val listState = rememberLazyListState()
-    LaunchedEffect(scrollToTopTrigger) {
-        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+    var isRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            // 本地列表本身即时回流；刷新动作顺带把第一屏的统计重新预热，
+            // 指示器按固定节奏收起，统计在后台就位后浮层自行更新
+            onWarmStats(entries.take(24).map { it.id })
+            delay(800)
+            isRefreshing = false
+        }
     }
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    PawPullRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { isRefreshing = true }
     ) {
-        item(key = "header", contentType = "header") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    stringResource(R.string.storage_entries_count, entries.size),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = SubtleGray
-                )
-                TextButton(onClick = onClear) {
-                    Text(
-                        stringResource(R.string.search_clear_recent),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge
-                    )
+        Crossfade(targetState = viewMode, animationSpec = tween(300), label = "historyViewMode") { mode ->
+            when (mode) {
+                GalleryViewMode.MASONRY -> {
+                    val staggeredState = rememberLazyStaggeredGridState()
+                    LaunchedEffect(scrollToTopTrigger) {
+                        if (scrollToTopTrigger > 0) staggeredState.animateScrollToItem(0)
+                    }
+                    LazyVerticalStaggeredGrid(
+                        state = staggeredState,
+                        modifier = Modifier.fillMaxSize(),
+                        columns = masonryGridCells(columnsPref),
+                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalItemSpacing = 4.dp
+                    ) {
+                        item(
+                            span = StaggeredGridItemSpan.FullLine,
+                            key = "header",
+                            contentType = "header"
+                        ) { HistoryHeader(entries.size, onClear) }
+                        staggeredItems(
+                            items = entries,
+                            key = { it.id },
+                            contentType = { "submission" }
+                        ) { submission ->
+                            SubmissionCard(
+                                submission = submission,
+                                onClick = { onNavigateToPost(submission.id) },
+                                showTitle = false,
+                                compact = true,
+                                ratio = submission.thumbnailWidthOnHeightRatio,
+                                stats = cardStats[submission.id],
+                                forceFavorited = submission.isFavorited,
+                                onAuthorClick = { onNavigateToUser(it) }
+                            )
+                        }
+                    }
+                }
+                GalleryViewMode.GRID -> {
+                    val gridState = rememberLazyGridState()
+                    LaunchedEffect(scrollToTopTrigger) {
+                        if (scrollToTopTrigger > 0) gridState.animateScrollToItem(0)
+                    }
+                    LazyVerticalGrid(
+                        state = gridState,
+                        modifier = Modifier.fillMaxSize(),
+                        columns = galleryGridCells(columnsPref, isList = false),
+                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
+                        items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
+                            SubmissionCard(
+                                submission = submission,
+                                onClick = { onNavigateToPost(submission.id) },
+                                showTitle = false,
+                                compact = true,
+                                stats = cardStats[submission.id],
+                                forceFavorited = submission.isFavorited,
+                                onAuthorClick = { onNavigateToUser(it) }
+                            )
+                        }
+                    }
+                }
+                GalleryViewMode.LIST -> {
+                    val listState = rememberLazyListState()
+                    LaunchedEffect(scrollToTopTrigger) {
+                        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+                    }
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
+                        items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
+                            SubmissionCard(
+                                submission = submission,
+                                onClick = { onNavigateToPost(submission.id) },
+                                forceFavorited = submission.isFavorited,
+                                onAuthorClick = { onNavigateToUser(it) }
+                            )
+                        }
+                    }
                 }
             }
         }
-        items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
-            SubmissionCard(
-                submission = submission,
-                onClick = { onNavigateToPost(submission.id) },
-                forceFavorited = submission.isFavorited,
-                onAuthorClick = { onNavigateToUser(it) }
+    }
+}
+
+@Composable
+private fun HistoryHeader(count: Int, onClear: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            stringResource(R.string.storage_entries_count, count),
+            style = MaterialTheme.typography.labelLarge,
+            color = SubtleGray
+        )
+        TextButton(onClick = onClear) {
+            Text(
+                stringResource(R.string.search_clear_recent),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelLarge
             )
         }
     }
@@ -395,6 +497,9 @@ private fun WatchlistContent(
     errorMessage: String?,
     currentTab: Int,
     isGrid: Boolean,
+    banners: Map<String, String>,
+    onRefresh: () -> Unit,
+    onWarmBanners: (List<String>) -> Unit,
     onSetTab: (Int) -> Unit,
     onLoadMore: () -> Unit,
     onNavigateToUser: (String) -> Unit,
@@ -403,6 +508,20 @@ private fun WatchlistContent(
     val currentData = if (currentTab == WatchlistViewModel.TAB_FOLLOWING) followingList else followersList
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
+
+    // 可见用户卡片的横幅预热：滚到谁就补谁的资料页横幅（VM 侧串行限速、去重）
+    val warmedUsers = remember { mutableSetOf<String>() }
+    LaunchedEffect(currentData, isGrid) {
+        if (currentData.isEmpty()) return@LaunchedEffect
+        val state = if (isGrid) gridState else listState
+        snapshotFlow {
+            state.layoutInfo.visibleItemsInfo
+                .mapNotNull { currentData.getOrNull(it.index)?.username }
+        }.collect { visible ->
+            val fresh = visible.filter { warmedUsers.add(it) }
+            if (fresh.isNotEmpty()) onWarmBanners(fresh)
+        }
+    }
 
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > 0) {
@@ -489,6 +608,7 @@ private fun WatchlistContent(
             Spacer(Modifier.weight(1f))
         }
 
+        PawPullRefreshBox(isRefreshing = isLoading, onRefresh = onRefresh) {
         when {
             isLoading && currentData.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -516,7 +636,11 @@ private fun WatchlistContent(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(currentData, key = { it.username }, contentType = { "watch_user" }) { user ->
-                                WatchlistGridItem(user = user, onClick = { onNavigateToUser(user.username) })
+                                WatchlistGridItem(
+                                    user = user,
+                                    bannerUrl = banners[user.username],
+                                    onClick = { onNavigateToUser(user.username) }
+                                )
                             }
                             if (isLoadingMore) {
                                 item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
@@ -557,6 +681,7 @@ private fun WatchlistContent(
                     }
                 }
             }
+        }
         }
     }
 }
