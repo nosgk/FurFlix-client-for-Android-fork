@@ -2,6 +2,7 @@ package com.furflix.app.data.remote
 
 import android.os.SystemClock
 import com.furflix.app.data.download.ProgressResponseBody
+import com.furflix.app.data.download.Speedometer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
