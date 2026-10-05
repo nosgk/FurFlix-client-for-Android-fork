@@ -25,6 +25,8 @@ class ProgressResponseBody(
     override fun source(): BufferedSource {
         var bs = bufferedSource
         if (bs == null) {
+            // 先捕获 contentLength：对象体内 delegate 会解析到 ForwardingSource 的 Source 属性
+            val length = delegate.contentLength()
             bs = object : ForwardingSource(delegate.source()) {
                 var totalRead = 0L
 
@@ -32,7 +34,7 @@ class ProgressResponseBody(
                     val read = super.read(sink, byteCount)
                     if (read > 0) {
                         totalRead += read
-                        onBytesRead(totalRead, delegate.contentLength())
+                        onBytesRead(totalRead, length)
                     }
                     return read
                 }
