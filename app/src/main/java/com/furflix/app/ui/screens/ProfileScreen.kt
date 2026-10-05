@@ -26,14 +26,18 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import com.furflix.app.data.selection.SelectionStore
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +69,10 @@ import com.furflix.app.viewmodel.WatchlistViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** "我的"页多选 source：与首页 browse/latest/search 及 user_/tag_ 前缀同级隔离 */
+private const val SELECTION_SOURCE_FAVORITES = "profile_fav"
+private const val SELECTION_SOURCE_HISTORY = "profile_hist"
+
 @Composable
 fun ProfileScreen(
     viewMode: GalleryViewMode,
@@ -72,6 +80,8 @@ fun ProfileScreen(
     cardStats: Map<String, com.furflix.app.data.model.CardStats> = emptyMap(),
     onClearHistory: () -> Unit = {},
     onWarmStats: (List<String>) -> Unit = {},
+    onBatchUnfavorite: (List<String>) -> Unit = {},
+    onRemoveHistory: (List<String>) -> Unit = {},
     onNavigateToUser: (String) -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
@@ -103,6 +113,23 @@ fun ProfileScreen(
     val userVisitCache = remember { com.furflix.app.data.local.UserVisitCache.getInstance(context) }
     val userVisits by userVisitCache.flow.collectAsState(initial = emptyList())
     var noteEditingUser by remember { mutableStateOf<WatchlistUser?>(null) }
+
+    // 多选批量（"我的"页）：收藏栏批量取消收藏，历史栏批量删除历史；
+    // source 独立成键，与首页 browse/latest/search 互不串扰
+    val selection by SelectionStore.state.collectAsState()
+    val favSelectionActive = selection.active && selection.source == SELECTION_SOURCE_FAVORITES
+    val histSelectionActive = selection.active && selection.source == SELECTION_SOURCE_HISTORY
+    androidx.activity.compose.BackHandler(enabled = favSelectionActive || histSelectionActive) {
+        SelectionStore.exit()
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            val current = SelectionStore.state.value
+            if (current.source == SELECTION_SOURCE_FAVORITES || current.source == SELECTION_SOURCE_HISTORY) {
+                SelectionStore.exit()
+            }
+        }
+    }
 
     // 浏览历史（作品栏）= 统计缓存中“真实到访”的条目；缓存按最旧在前排序，倒序即最新在前。
     // ratio 必须带回：丢了它瀑布流每块都按 1:1 预设，视觉上退化成等高网格。
@@ -147,6 +174,57 @@ fun ProfileScreen(
             .fillMaxSize()
             .background(DarkBackground)
     ) {
+        // 多选操作条：收藏栏=批量取消收藏，历史栏=批量删除历史（与首页多选同一套交互）
+        if (favSelectionActive || histSelectionActive) {
+            val selectAllSource = if (favSelectionActive) SELECTION_SOURCE_FAVORITES else SELECTION_SOURCE_HISTORY
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.selection_mode_n, selection.ids.size),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = {
+                        val ids = if (favSelectionActive) favoritesList.map { it.id } else historyEntries.map { it.id }
+                        SelectionStore.selectAll(selectAllSource, ids)
+                    }, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.DoneAll, contentDescription = stringResource(R.string.action_select_all), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(onClick = {
+                        val ids = selection.ids.toList()
+                        if (favSelectionActive) onBatchUnfavorite(ids) else onRemoveHistory(ids)
+                        SelectionStore.exit()
+                    }, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = if (favSelectionActive) Icons.Default.HeartBroken else Icons.Default.Delete,
+                            contentDescription = if (favSelectionActive) {
+                                stringResource(R.string.action_batch_unfavorite)
+                            } else {
+                                stringResource(R.string.action_batch_delete_history)
+                            },
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(onClick = { SelectionStore.exit() }, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_close), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+        }
+
         CustomTabRow(
             tabs = topTabs,
             selectedTab = pagerState.currentPage,
@@ -170,6 +248,8 @@ fun ProfileScreen(
                     viewMode = viewMode,
                     columnsPref = columnsPref,
                     cardStats = cardStats,
+                    selectionActive = favSelectionActive,
+                    selectedIds = selection.ids,
                     onNavigateToPost = onNavigateToFavoritesPost,
                     onNavigateToUser = onNavigateToUser,
                     onLoadMore = { viewModel.loadMore() },
@@ -207,6 +287,8 @@ fun ProfileScreen(
                     viewMode = viewMode,
                     columnsPref = columnsPref,
                     cardStats = cardStats,
+                    selectionActive = histSelectionActive,
+                    selectedIds = selection.ids,
                     onWarmStats = onWarmStats,
                     onNavigateToPost = onNavigateToPost,
                     onNavigateToUser = onNavigateToUser,
@@ -242,6 +324,8 @@ private fun FavoritesContent(
     viewMode: GalleryViewMode,
     columnsPref: Int,
     cardStats: Map<String, com.furflix.app.data.model.CardStats>,
+    selectionActive: Boolean,
+    selectedIds: Set<String>,
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onLoadMore: () -> Unit = {},
@@ -299,12 +383,21 @@ private fun FavoritesContent(
                             ) { submission ->
                                 SubmissionCard(
                                     submission = submission,
-                                    onClick = { onNavigateToPost(submission.id) },
+                                    onClick = {
+                                        if (selectionActive) {
+                                            SelectionStore.toggle(SELECTION_SOURCE_FAVORITES, submission.id)
+                                        } else {
+                                            onNavigateToPost(submission.id)
+                                        }
+                                    },
                                     showTitle = true,
                                     compact = true,
                                     ratio = submission.thumbnailWidthOnHeightRatio,
                                     stats = cardStats[submission.id],
                                     forceFavorited = true,
+                                    selectionActive = selectionActive,
+                                    isSelected = selectionActive && selectedIds.contains(submission.id),
+                                    onLongClick = { SelectionStore.toggle(SELECTION_SOURCE_FAVORITES, submission.id) },
                                     onAuthorClick = { onNavigateToUser(it) }
                                 )
                             }
@@ -347,11 +440,20 @@ private fun FavoritesContent(
                         items(submissions, key = { it.id }, contentType = { "submission" }) { submission ->
                             SubmissionCard(
                                 submission = submission,
-                                onClick = { onNavigateToPost(submission.id) },
+                                onClick = {
+                                    if (selectionActive) {
+                                        SelectionStore.toggle(SELECTION_SOURCE_FAVORITES, submission.id)
+                                    } else {
+                                        onNavigateToPost(submission.id)
+                                    }
+                                },
                                 showTitle = true,
                                 compact = true,
                                 stats = cardStats[submission.id],
                                 forceFavorited = true,
+                                selectionActive = selectionActive,
+                                isSelected = selectionActive && selectedIds.contains(submission.id),
+                                onLongClick = { SelectionStore.toggle(SELECTION_SOURCE_FAVORITES, submission.id) },
                                 onAuthorClick = { onNavigateToUser(it) }
                             )
                         }
@@ -388,9 +490,18 @@ private fun FavoritesContent(
                         items(submissions, key = { it.id }, contentType = { "submission" }) { submission ->
                             SubmissionCard(
                                 submission = submission,
-                                onClick = { onNavigateToPost(submission.id) },
+                                onClick = {
+                                    if (selectionActive) {
+                                        SelectionStore.toggle(SELECTION_SOURCE_FAVORITES, submission.id)
+                                    } else {
+                                        onNavigateToPost(submission.id)
+                                    }
+                                },
                                 stats = cardStats[submission.id],
                                 forceFavorited = true,
+                                selectionActive = selectionActive,
+                                isSelected = selectionActive && selectedIds.contains(submission.id),
+                                onLongClick = { SelectionStore.toggle(SELECTION_SOURCE_FAVORITES, submission.id) },
                                 onAuthorClick = { onNavigateToUser(it) }
                             )
                         }
@@ -414,6 +525,8 @@ private fun HistoryContent(
     viewMode: GalleryViewMode,
     columnsPref: Int,
     cardStats: Map<String, com.furflix.app.data.model.CardStats>,
+    selectionActive: Boolean,
+    selectedIds: Set<String>,
     onWarmStats: (List<String>) -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
@@ -472,6 +585,8 @@ private fun HistoryContent(
                             viewMode = viewMode,
                             columnsPref = columnsPref,
                             cardStats = cardStats,
+                            selectionActive = selectionActive,
+                            selectedIds = selectedIds,
                             onNavigateToPost = onNavigateToPost,
                             onNavigateToUser = onNavigateToUser,
                             onClear = onClear,
@@ -485,13 +600,15 @@ private fun HistoryContent(
     }
 }
 
-/** 浏览历史·作品：沿用全局网格/瀑布流/列表三视图，与画廊各页共用同一套卡片。 */
+/** 浏览历史·作品：沿用全局网格/瀑布流/列表三视图，与画廊各页共用同一套卡片；长按多选批量删除。 */
 @Composable
 private fun HistorySubmissionsContent(
     entries: List<com.furflix.app.data.model.Submission>,
     viewMode: GalleryViewMode,
     columnsPref: Int,
     cardStats: Map<String, com.furflix.app.data.model.CardStats>,
+    selectionActive: Boolean,
+    selectedIds: Set<String>,
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onClear: () -> Unit,
@@ -528,12 +645,21 @@ private fun HistorySubmissionsContent(
                     ) { submission ->
                         SubmissionCard(
                             submission = submission,
-                            onClick = { onNavigateToPost(submission.id) },
+                            onClick = {
+                                if (selectionActive) {
+                                    SelectionStore.toggle(SELECTION_SOURCE_HISTORY, submission.id)
+                                } else {
+                                    onNavigateToPost(submission.id)
+                                }
+                            },
                             showTitle = true,
                             compact = true,
                             ratio = submission.thumbnailWidthOnHeightRatio,
                             stats = cardStats[submission.id],
                             forceFavorited = submission.isFavorited,
+                            selectionActive = selectionActive,
+                            isSelected = selectionActive && selectedIds.contains(submission.id),
+                            onLongClick = { SelectionStore.toggle(SELECTION_SOURCE_HISTORY, submission.id) },
                             onAuthorClick = { onNavigateToUser(it) }
                         )
                     }
@@ -559,11 +685,20 @@ private fun HistorySubmissionsContent(
                     items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
                         SubmissionCard(
                             submission = submission,
-                            onClick = { onNavigateToPost(submission.id) },
+                            onClick = {
+                                if (selectionActive) {
+                                    SelectionStore.toggle(SELECTION_SOURCE_HISTORY, submission.id)
+                                } else {
+                                    onNavigateToPost(submission.id)
+                                }
+                            },
                             showTitle = true,
                             compact = true,
                             stats = cardStats[submission.id],
                             forceFavorited = submission.isFavorited,
+                            selectionActive = selectionActive,
+                            isSelected = selectionActive && selectedIds.contains(submission.id),
+                            onLongClick = { SelectionStore.toggle(SELECTION_SOURCE_HISTORY, submission.id) },
                             onAuthorClick = { onNavigateToUser(it) }
                         )
                     }
@@ -587,8 +722,18 @@ private fun HistorySubmissionsContent(
                     items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
                         SubmissionCard(
                             submission = submission,
-                            onClick = { onNavigateToPost(submission.id) },
+                            onClick = {
+                                if (selectionActive) {
+                                    SelectionStore.toggle(SELECTION_SOURCE_HISTORY, submission.id)
+                                } else {
+                                    onNavigateToPost(submission.id)
+                                }
+                            },
+                            stats = cardStats[submission.id],
                             forceFavorited = submission.isFavorited,
+                            selectionActive = selectionActive,
+                            isSelected = selectionActive && selectedIds.contains(submission.id),
+                            onLongClick = { SelectionStore.toggle(SELECTION_SOURCE_HISTORY, submission.id) },
                             onAuthorClick = { onNavigateToUser(it) }
                         )
                     }

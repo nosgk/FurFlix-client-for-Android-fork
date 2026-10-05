@@ -1158,6 +1158,15 @@ fun HomeScreen(
                             cardStats = cardStats,
                             onClearHistory = { viewModel.clearCardStats() },
                             onWarmStats = { viewModel.prefetchSubmissionStats(it) },
+                            onBatchUnfavorite = { ids -> viewModel.batchUnfavorite(ids) },
+                            onRemoveHistory = { ids ->
+                                viewModel.removeHistoryEntries(ids)
+                                android.widget.Toast.makeText(
+                                    context,
+                                    context.getString(R.string.toast_history_removed, ids.size),
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            },
                             onNavigateToUser = onNavigateToUser,
                             onNavigateToPost = onNavigateToPost,
                             onNavigateToFavoritesPost = onNavigateToFavoritesPost,
