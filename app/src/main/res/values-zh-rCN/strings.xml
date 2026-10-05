@@ -246,6 +246,12 @@
     <string name="post_tags">标签</string>
     <string name="post_no_description">暂无简介</string>
     <string name="post_no_comments">暂无评论</string>
+    <!-- 详情页信息芯片与详细信息 tab 共用的元数据标签;取值本身是站点抓取的英文原文,仅标签翻译 -->
+    <string name="meta_category">分类</string>
+    <string name="meta_species">种类</string>
+    <string name="meta_gender">性别</string>
+    <string name="profile_no_favorites">暂无收藏。</string>
+    <string name="share_via">分享至</string>
     <string name="downloads_delete_confirm">删除这张图片?</string>
     <string name="user_unfollow">取消关注</string>
     <string name="user_unfollow_confirm">不再关注 %s?</string>

@@ -237,6 +237,12 @@
     <string name="post_tags">Tags</string>
     <string name="post_no_description">No description</string>
     <string name="post_no_comments">No comments yet</string>
+    <!-- Meta labels also used by the info chips on the detail page -->
+    <string name="meta_category">Category</string>
+    <string name="meta_species">Species</string>
+    <string name="meta_gender">Gender</string>
+    <string name="profile_no_favorites">No favorites yet.</string>
+    <string name="share_via">Share via</string>
     <string name="downloads_delete_confirm">Delete this image?</string>
     <string name="user_unfollow">Unfollow</string>
     <string name="user_unfollow_confirm">Stop watching %s?</string>

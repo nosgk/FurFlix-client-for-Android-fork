@@ -394,6 +394,7 @@ fun PostDetailScreen(
             )
 
             // Glass action bar
+            val shareViaText = stringResource(R.string.share_via)
             val downloadIcon = if (downloadDone) Icons.Default.Check else Icons.Default.Download
             val bottomBarItems = listOf(
                 GlassActionItem(androidx.compose.ui.res.stringResource(id = R.string.action_back), Icons.AutoMirrored.Filled.ArrowBack, Color(0xFF00E5FF)),
@@ -432,7 +433,7 @@ fun PostDetailScreen(
                                     putExtra(Intent.EXTRA_TEXT, "https://www.furaffinity.net/view/${currentPostId}/")
                                     putExtra(Intent.EXTRA_SUBJECT, sub.title)
                                 }
-                                context.startActivity(Intent.createChooser(shareIntent, "Share via"))
+                                context.startActivity(Intent.createChooser(shareIntent, shareViaText))
                             }
                             2 -> {
                                 viewModel.toggleFavorite(currentPostId)
@@ -818,9 +819,9 @@ private fun InfoChipsRow(sub: Submission) {
             }
             InfoChipCard(Icons.Default.Shield, stringResource(R.string.filter_rating), sub.rating, ratingColor)
         }
-        if (sub.category.isNotEmpty()) InfoChipCard(Icons.Default.Folder, "Category", sub.category, Cyan)
-        if (sub.species.isNotEmpty()) InfoChipCard(Icons.Default.Pets, "Species", sub.species, Green)
-        if (sub.gender.isNotEmpty()) InfoChipCard(Icons.Default.Person, "Gender", sub.gender, Gold)
+        if (sub.category.isNotEmpty()) InfoChipCard(Icons.Default.Folder, stringResource(R.string.meta_category), sub.category, Cyan)
+        if (sub.species.isNotEmpty()) InfoChipCard(Icons.Default.Pets, stringResource(R.string.meta_species), sub.species, Green)
+        if (sub.gender.isNotEmpty()) InfoChipCard(Icons.Default.Person, stringResource(R.string.meta_gender), sub.gender, Gold)
     }
 }
 
@@ -1273,10 +1274,10 @@ private fun HtmlTextView(
 @Composable
 private fun MetaInfoContent(sub: Submission) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        MetaInfoCard("Category", sub.category)
-        MetaInfoCard("Species", sub.species)
-        MetaInfoCard("Gender", sub.gender)
-        MetaInfoCard("Rating", sub.rating)
+        MetaInfoCard(stringResource(R.string.meta_category), sub.category)
+        MetaInfoCard(stringResource(R.string.meta_species), sub.species)
+        MetaInfoCard(stringResource(R.string.meta_gender), sub.gender)
+        MetaInfoCard(stringResource(R.string.filter_rating), sub.rating)
         MetaInfoCard(stringResource(R.string.meta_resolution), sub.resolution)
         MetaInfoCard(stringResource(R.string.meta_file_size), sub.fileSize)
         MetaInfoCard(stringResource(R.string.meta_file_type), sub.fileType)
