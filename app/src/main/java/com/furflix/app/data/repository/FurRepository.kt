@@ -29,12 +29,18 @@ class FurRepository(private val context: Context) {
         const val DETAIL_LAYOUT_AUTO = "auto"
         const val DETAIL_LAYOUT_SINGLE = "single"
         const val DETAIL_LAYOUT_DUAL = "dual"
+
+        /** 双栏比例默认值：左栏主图占比 65%（历史默认 60，应用户"腾出更多主图空间"调整） */
+        const val DETAIL_SPLIT_DEFAULT = 65
+        const val DETAIL_SPLIT_MIN = 50
+        const val DETAIL_SPLIT_MAX = 75
     private val RECENT_SEARCHES_KEY = stringPreferencesKey("recent_searches")
     private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
     private val VIEW_MODE_KEY = stringPreferencesKey("view_mode")
     private val GRID_COLUMNS_KEY = intPreferencesKey("grid_columns")
     private val THUMBNAIL_QUALITY_KEY = intPreferencesKey("thumbnail_quality")
     private val DETAIL_LAYOUT_KEY = stringPreferencesKey("detail_layout")
+    private val DETAIL_SPLIT_KEY = intPreferencesKey("detail_split_percent")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
         private val THEME_ID_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_id")
         private val APP_ICON_KEY = stringPreferencesKey("app_icon")
@@ -263,11 +269,16 @@ class FurRepository(private val context: Context) {
     }
 
     /**
-     * 缩略图清晰度（DynamicThumbnail.QUALITY_AUTO / _DATA_SAVER / _HIGH），
-     * 作用于卡片自身的按物理像素协商与瀑布流预取。
+     * 缩略图档位（DynamicThumbnail.TIER_AUTO = 自动；其余 = 强制像素档位）。
+     * 旧值迁移：早期 1=省流量/2=高清 两档映射到 300/600，语义等价。
      */
     val thumbnailQualityFlow: kotlinx.coroutines.flow.Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[THUMBNAIL_QUALITY_KEY] ?: DynamicThumbnail.QUALITY_AUTO
+        when (val stored = prefs[THUMBNAIL_QUALITY_KEY]) {
+            null -> DynamicThumbnail.TIER_AUTO
+            1 -> 300
+            2 -> 600
+            else -> stored
+        }
     }
 
     suspend fun saveThumbnailQuality(quality: Int) {
@@ -288,6 +299,20 @@ class FurRepository(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[DETAIL_LAYOUT_KEY] =
                 if (layout == DETAIL_LAYOUT_SINGLE || layout == DETAIL_LAYOUT_DUAL) layout else DETAIL_LAYOUT_AUTO
+        }
+    }
+
+    /**
+     * 双栏比例：左栏主图宽度占比（%），设置里滑杆自由调节（吸附 5% 步进），
+     * 右栏信息 = 100 − 该值。
+     */
+    val detailSplitFlow: kotlinx.coroutines.flow.Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[DETAIL_SPLIT_KEY] ?: DETAIL_SPLIT_DEFAULT
+    }
+
+    suspend fun saveDetailSplit(percent: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[DETAIL_SPLIT_KEY] = percent.coerceIn(DETAIL_SPLIT_MIN, DETAIL_SPLIT_MAX)
         }
     }
 

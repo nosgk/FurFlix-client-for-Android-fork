@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.furflix.app.R
+import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.HazeTopAppBar
 import com.furflix.app.ui.theme.AppIcon
@@ -57,6 +58,7 @@ fun AppearanceSettingsScreen(
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
     val thumbnailQuality by repository.thumbnailQualityFlow.collectAsState(initial = 0)
     val detailLayoutPref by repository.detailLayoutFlow.collectAsState(initial = FurRepository.DETAIL_LAYOUT_AUTO)
+    val detailSplit by repository.detailSplitFlow.collectAsState(initial = FurRepository.DETAIL_SPLIT_DEFAULT)
     // 乐观覆盖：先本地生效，持久化值回流后对齐（与 HomeScreen 顶栏切换同款）
     var pendingViewMode by remember { mutableStateOf<com.furflix.app.data.model.GalleryViewMode?>(null) }
     val viewMode = pendingViewMode ?: persistedViewMode
@@ -401,7 +403,7 @@ fun AppearanceSettingsScreen(
                 }
             }
 
-            // --- Thumbnail quality (0 auto / 1 data saver / 2 high) ---
+            // --- Thumbnail tier (0 = auto fit, else forced pixel tier) ---
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
@@ -425,13 +427,12 @@ fun AppearanceSettingsScreen(
                 modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // 全部可用档位直选；标签即像素值（数值+单位，不参与翻译）
                 val qualityOptions = listOf(
-                    stringResource(R.string.settings_thumb_quality_auto) to 0,
-                    stringResource(R.string.settings_thumb_quality_save) to 1,
-                    stringResource(R.string.settings_thumb_quality_high) to 2
-                )
-                qualityOptions.forEach { (name, quality) ->
-                    val isSelected = thumbnailQuality == quality
+                    stringResource(R.string.settings_thumb_quality_auto) to DynamicThumbnail.TIER_AUTO
+                ) + DynamicThumbnail.TIERS.map { tier -> "${tier}px" to tier }
+                qualityOptions.forEach { (name, tier) ->
+                    val isSelected = thumbnailQuality == tier
                     val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
                     val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
 
@@ -441,10 +442,10 @@ fun AppearanceSettingsScreen(
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(24.dp))
                             .background(bgColor)
-                            .clickable { scope.launch { repository.saveThumbnailQuality(quality) } },
+                            .clickable { scope.launch { repository.saveThumbnailQuality(tier) } },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(name, color = textColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text(name, color = textColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -496,6 +497,44 @@ fun AppearanceSettingsScreen(
                     }
                 }
             }
+
+            // --- Two-pane split: artwork pane share, drag to preview, persist on release ---
+            Spacer(modifier = Modifier.height(12.dp))
+            var pendingSplit by remember(detailSplit) { mutableFloatStateOf(detailSplit.toFloat()) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_detail_split),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_detail_split_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    stringResource(R.string.settings_detail_split_value, pendingSplit.toInt(), 100 - pendingSplit.toInt()),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Slider(
+                value = pendingSplit,
+                onValueChange = { pendingSplit = it },
+                onValueChangeFinished = {
+                    scope.launch { repository.saveDetailSplit(pendingSplit.toInt()) }
+                },
+                valueRange = FurRepository.DETAIL_SPLIT_MIN.toFloat()..FurRepository.DETAIL_SPLIT_MAX.toFloat(),
+                steps = 4
+            )
 
 
                 Spacer(modifier = Modifier.height(16.dp))
