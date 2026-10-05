@@ -33,11 +33,14 @@ jobs:
           if ./gradlew :app:lintDebug > /tmp/lint.log 2>&1; then
             echo "lintDebug passed"
           else
-            echo "### :x: lintDebug failed - error excerpt" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            grep -E "^e: |FAILED|error: |Unresolved|Caused by" /tmp/lint.log | head -60 >> "$GITHUB_STEP_SUMMARY" || true
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            tail -60 /tmp/lint.log | head -c 5000 >> "$GITHUB_STEP_SUMMARY" || true
+            echo "::error::lintDebug failed, compiler error lines follow"
+            # 每步注解上限 10 条:优先编译器错误行,再补任务级失败行
+            grep -E "^e: " /tmp/lint.log | head -8 | while IFS= read -r line; do
+              echo "::error::${line:0:260}"
+            done
+            grep -E "> Task .*FAILED|What went wrong|Caused by|FAILURE: Build" /tmp/lint.log | head -2 | while IFS= read -r line; do
+              echo "::error::${line:0:260}"
+            done
             exit 1
           fi
 
