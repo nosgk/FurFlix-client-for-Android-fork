@@ -261,10 +261,6 @@ class FurRepository(private val context: Context) {
         com.furflix.app.ui.theme.ThemePreference.fromId(prefs[THEME_ID_KEY] ?: 0)
     }
 
-    val isGridFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[IS_GRID_KEY] ?: true
-    }
-
     /**
      * Gallery view mode with legacy-key migration: until the new key is first
      * written, falls back to `is_grid` (true → GRID, false → LIST; MASONRY had
@@ -461,17 +457,6 @@ class FurRepository(private val context: Context) {
         val prefs = context.dataStore.data.first()
         val raw = prefs[RECENT_SEARCHES_KEY] ?: ""
         return if (raw.isNotEmpty()) raw.split("|||").filter { it.isNotEmpty() } else emptyList()
-    }
-
-    suspend fun saveIsGrid(isGrid: Boolean) {
-        context.dataStore.edit { prefs ->
-            prefs[IS_GRID_KEY] = isGrid
-        }
-    }
-
-    suspend fun loadIsGrid(): Boolean {
-        val prefs = context.dataStore.data.first()
-        return prefs[IS_GRID_KEY] ?: true
     }
 
     // --- Content Filters ---

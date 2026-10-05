@@ -797,7 +797,8 @@ fun HomeScreen(
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
                                     ) {
                                         Text(
-                                            "$searchQuery · ${searchResults.size}",
+                                            // 展示层剥离 @keywords 组语法，与最近搜索的显示规则一致
+                                            "${searchQuery.replace("@keywords ", "#")} · ${searchResults.size}",
                                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.onSurface

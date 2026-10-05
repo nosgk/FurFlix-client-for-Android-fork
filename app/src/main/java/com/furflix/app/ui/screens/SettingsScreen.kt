@@ -26,7 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.res.stringResource
 import com.furflix.app.R
@@ -36,8 +35,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.furflix.app.ui.components.DefaultHazeStyle
 import com.furflix.app.ui.components.HazeTopAppBar
-import kotlinx.coroutines.launch
-import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.theme.*
 import com.furflix.app.viewmodel.MainViewModel
 import dev.chrisbanes.haze.HazeState
@@ -68,15 +65,6 @@ fun SettingsScreen(
     val languageNameMap = mapOf("en" to "English", "ru" to "Русский", "uk" to "Українська", "zh" to "中文")
     val currentLanguageName = currentLanguageCode?.let { languageNameMap[it] }
         ?: stringResource(R.string.settings_language_system)
-
-    val context = LocalContext.current
-    val repository = remember { FurRepository.getInstance(context) }
-    val scope = rememberCoroutineScope()
-    var isGrid by remember { mutableStateOf(true) }
-
-    LaunchedEffect(Unit) {
-        isGrid = repository.loadIsGrid()
-    }
 
     val hazeState = remember { HazeState() }
 
