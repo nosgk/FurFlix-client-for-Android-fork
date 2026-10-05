@@ -181,6 +181,9 @@ class FurRepository(private val context: Context) {
         return filterSubmissions(FurAffinityScraper.search(query, page, filters))
     }
 
+    /** 清空指定用户页的分页缓存（下拉刷新时调用）。 */
+    fun clearUserPagination(username: String) = FurAffinityScraper.clearUserPagination(username)
+
     suspend fun getUserGallery(username: String, page: Int): List<Submission> {
         val nsfwEnabled = nsfwEnabledFlow.first()
         return filterSubmissions(FurAffinityScraper.getUserGallery(username, page, nsfwEnabled))
