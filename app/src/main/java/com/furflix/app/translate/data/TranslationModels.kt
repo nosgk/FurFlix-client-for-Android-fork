@@ -40,6 +40,20 @@ enum class TranslationDisplayMode(val id: String) {
     }
 }
 
+/**
+ * 小说正文翻译的切分粒度：整段（默认，请求数 = 段落数）或整句
+ * （逐句送翻，翻译质量更稳但请求数大增，长文请配合并发与缓存使用）。
+ * 只影响送翻单元的切分，展示仍按"简介"类别的双语/仅译文方式逐段渲染。
+ */
+enum class StoryGranularity(val id: String) {
+    PARAGRAPH("paragraph"),
+    SENTENCE("sentence");
+
+    companion object {
+        fun fromId(id: String): StoryGranularity? = entries.firstOrNull { it.id == id }
+    }
+}
+
 /** 执行器内部错误串（与蓝本一字不差；UI 层做本地化映射）。 */
 object TranslationErrors {
     const val TIMEOUT = "connection timed out"

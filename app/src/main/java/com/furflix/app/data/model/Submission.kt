@@ -30,6 +30,11 @@ data class Submission(
     val fileName: String = "",
     // 小写扩展名，从原图/下载链接截取（解析不出时为空串）；卡片类型徽标数据源之一
     val fileExt: String = "",
+    // Flash 作品的原始画布尺寸（object#flash_embed 的 data-width/height）；0 = 未知
+    val flashWidth: Int = 0,
+    val flashHeight: Int = 0,
+    // 小说(.txt)作品全文：详情加载时直接抓 Download 指向的原文（统计预热不加载）
+    val storyText: String = "",
     val resolution: String = "",
     val fileSize: String = "",
     val fileType: String = "",

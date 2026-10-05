@@ -40,7 +40,8 @@ object CardStatsPrefetcher {
         mutex.withLock {
             for (id in fresh) {
                 try {
-                    val sub = repository.getSubmission(id)
+                    // 统计预热不拉小说全文（省流量），真实到访详情时才加载
+                    val sub = repository.getSubmission(id, loadStoryText = false)
                     if (sub != null) {
                         onResolved(id, sub)
                         cache.put(id, CardStats.of(sub, visited = false))

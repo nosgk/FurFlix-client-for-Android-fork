@@ -16,6 +16,7 @@ private val K_ENABLED = booleanPreferencesKey("translateEnabled")
 private val K_AUTO = booleanPreferencesKey("translateAuto")
 private val K_TAGS_AUTO = booleanPreferencesKey("translateTagsAuto")
 private val K_DISPLAY_MODES = stringPreferencesKey("translateDisplayModes")
+private val K_STORY_GRANULARITY = stringPreferencesKey("translateStoryGranularity")
 private val K_TARGET_LANGUAGE = stringPreferencesKey("translateTargetLanguage")
 private val K_PROVIDER = stringPreferencesKey("translateProvider")
 private val K_AZURE_KEY = stringPreferencesKey("translateAzureKey")
@@ -56,6 +57,8 @@ data class TranslationUiPrefs(
     // 且"启用翻译即标签可译"符合 zh-first 用户预期。用户显式关闭后存键生效。
     val tagsAuto: Boolean = true,
     val displayModes: Map<TranslationCategory, TranslationDisplayMode> = emptyMap(),
+    // 小说正文翻译切分粒度（默认整段）
+    val storyGranularity: StoryGranularity = StoryGranularity.PARAGRAPH,
 ) {
     fun displayMode(category: TranslationCategory): TranslationDisplayMode =
         displayModes[category] ?: TranslationDisplayMode.BILINGUAL
@@ -101,6 +104,8 @@ class TranslationSettings private constructor(private val context: Context) {
             auto = p[K_AUTO] ?: false,
             tagsAuto = p[K_TAGS_AUTO] ?: true, // 默认开，见 TranslationUiPrefs 注释
             displayModes = parseDisplayModes(p[K_DISPLAY_MODES] ?: "{}"),
+            storyGranularity = StoryGranularity.fromId(p[K_STORY_GRANULARITY] ?: "")
+                ?: StoryGranularity.PARAGRAPH,
         )
     }
 
@@ -129,6 +134,8 @@ class TranslationSettings private constructor(private val context: Context) {
     suspend fun saveEnabled(v: Boolean) = edit { it[K_ENABLED] = v }
     suspend fun saveAuto(v: Boolean) = edit { it[K_AUTO] = v }
     suspend fun saveTagsAuto(v: Boolean) = edit { it[K_TAGS_AUTO] = v }
+    suspend fun saveStoryGranularity(v: StoryGranularity) = edit { it[K_STORY_GRANULARITY] = v.id }
+    suspend fun saveConcurrency(v: Int) = edit { it[K_CONCURRENCY] = v.coerceIn(1, 8) }
     suspend fun saveTargetLanguage(v: String) = edit { it[K_TARGET_LANGUAGE] = v }
     suspend fun saveProvider(v: TranslationProvider) = edit { it[K_PROVIDER] = v.id }
     suspend fun saveAzureKey(v: String) = edit { it[K_AZURE_KEY] = v }

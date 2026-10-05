@@ -174,6 +174,27 @@
     <string name="post_description">Description</string>
     <string name="post_meta_info">Meta Info</string>
     <string name="post_comments">Comments</string>
+    <string name="post_story">Story</string>
+    <!-- Story reader & Flash/GIF viewers -->
+    <string name="flash_play">Play Flash</string>
+    <string name="flash_ruffle_hint">Emulated by Ruffle · open in browser if playback fails</string>
+    <string name="gif_load_failed">Failed to load GIF</string>
+    <string name="gif_prev_frame">Previous frame</string>
+    <string name="gif_next_frame">Next frame</string>
+    <string name="gif_play">Play</string>
+    <string name="gif_pause">Pause</string>
+    <string name="gif_screenshot">Save current frame</string>
+    <!-- %1$d = current frame, %2$d = total frames -->
+    <string name="gif_frame_position">%1$d / %2$d</string>
+    <!-- %1$s = saved file name -->
+    <string name="toast_frame_saved">Frame saved: %1$s</string>
+    <!-- %1$s = error detail -->
+    <string name="toast_frame_save_failed">Failed to save frame: %1$s</string>
+    <string name="story_paragraph_count">%1$d paragraphs</string>
+    <string name="story_translate_all">Translate story</string>
+    <!-- %1$d = done count, %2$d = total units -->
+    <string name="story_translating_progress">Translating %1$d/%2$d</string>
+    <string name="story_hide_translations">Hide translations</string>
     <!-- Comment threading -->
     <string name="comments_replies_count">%d replies</string>
     <string name="comments_parents_hidden">%d parent comments hidden</string>
@@ -416,6 +437,14 @@
     <string name="translation_show_original">Show original</string>
     <string name="translation_show_translation">Show translation</string>
     <string name="translation_collapse">Collapse</string>
+    <!-- Translation engine (concurrency / story granularity) -->
+    <string name="translation_engine">Engine</string>
+    <string name="translation_concurrency">Concurrent requests</string>
+    <!-- %1$d = concurrency value (1-8) -->
+    <string name="translation_concurrency_value">%1$d parallel</string>
+    <string name="translation_story_granularity">Story translation granularity</string>
+    <string name="story_granularity_paragraph">Paragraph</string>
+    <string name="story_granularity_sentence">Sentence</string>
     <string name="translation_retry">Retry</string>
     <string name="translation_error_timeout">Connection timed out</string>
     <string name="translation_error_connection">Connection failed</string>

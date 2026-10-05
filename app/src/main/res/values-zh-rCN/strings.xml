@@ -180,6 +180,27 @@
     <string name="post_description">简介</string>
     <string name="post_meta_info">详细信息</string>
     <string name="post_comments">评论</string>
+    <string name="post_story">正文</string>
+    <!-- 小说阅读器与 Flash/GIF 查看器 -->
+    <string name="flash_play">播放 Flash</string>
+    <string name="flash_ruffle_hint">由 Ruffle 模拟运行 · 播放失败可在浏览器打开</string>
+    <string name="gif_load_failed">GIF 加载失败</string>
+    <string name="gif_prev_frame">上一帧</string>
+    <string name="gif_next_frame">下一帧</string>
+    <string name="gif_play">播放</string>
+    <string name="gif_pause">暂停</string>
+    <string name="gif_screenshot">截取当前帧</string>
+    <!-- %1$d = 当前帧, %2$d = 总帧数 -->
+    <string name="gif_frame_position">%1$d / %2$d</string>
+    <!-- %1$s = 保存文件名 -->
+    <string name="toast_frame_saved">帧已保存：%1$s</string>
+    <!-- %1$s = 错误详情 -->
+    <string name="toast_frame_save_failed">帧保存失败：%1$s</string>
+    <string name="story_paragraph_count">%1$d 段</string>
+    <string name="story_translate_all">翻译全文</string>
+    <!-- %1$d = 已完成, %2$d = 总单元数 -->
+    <string name="story_translating_progress">翻译中 %1$d/%2$d</string>
+    <string name="story_hide_translations">隐藏译文</string>
     <!-- 评论楼中楼 -->
     <string name="comments_replies_count">%d 条回复</string>
     <string name="comments_parents_hidden">已隐藏 %d 条父评论</string>
@@ -426,6 +447,14 @@
     <string name="translation_show_original">显示原文</string>
     <string name="translation_show_translation">显示译文</string>
     <string name="translation_collapse">收起</string>
+    <!-- 翻译引擎（并发/小说粒度） -->
+    <string name="translation_engine">引擎</string>
+    <string name="translation_concurrency">并发请求数</string>
+    <!-- %1$d = 并发值 (1-8) -->
+    <string name="translation_concurrency_value">%1$d 并发</string>
+    <string name="translation_story_granularity">小说翻译粒度</string>
+    <string name="story_granularity_paragraph">整段</string>
+    <string name="story_granularity_sentence">整句</string>
     <string name="translation_retry">重试</string>
     <string name="translation_error_timeout">连接超时</string>
     <string name="translation_error_connection">网络连接失败</string>

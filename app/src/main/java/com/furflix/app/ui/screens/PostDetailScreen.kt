@@ -99,6 +99,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.furflix.app.ui.components.ZoomableImageViewer
+import com.furflix.app.ui.components.StoryReader
+import com.furflix.app.ui.components.FlashPlayerViewer
+import com.furflix.app.ui.components.GifFrameViewer
 import com.furflix.app.ui.theme.*
 import com.furflix.app.viewmodel.MainViewModel
 import dev.chrisbanes.haze.HazeState
@@ -325,13 +328,26 @@ fun PostDetailScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
+                            // ── Tabs index plan（小说正文存在时插入为首 tab）──
+                            // 评论恒为末位：统计栏跳评论区用 lastIndex，勿再硬编码下标
+                            val hasStory = sub.storyText.isNotBlank()
+                            val tabs = buildList {
+                                if (hasStory) add(stringResource(R.string.post_story))
+                                add(stringResource(R.string.post_description))
+                                add(stringResource(R.string.post_meta_info))
+                                add("${stringResource(R.string.post_comments)} (${sub.commentList.size})")
+                            }
+                            val tabIndexDescription = if (hasStory) 1 else 0
+                            val tabIndexMeta = if (hasStory) 2 else 1
+                            val tabIndexComments = tabs.lastIndex
+
                             // ── Stats bar ───────────────────────────────────
                             val commentJumpMarginPx = with(LocalDensity.current) { 12.dp.toPx() }
                             StatsRow(
                                 sub = sub,
                                 onToggleFavorite = { viewModel.toggleFavorite(currentPostId) },
                                 onCommentsClick = {
-                                    selectedTab = 2
+                                    selectedTab = tabIndexComments
                                     pagerScope.launch {
                                         if (!tabsAnchorY.isNaN()) {
                                             // Tab 行内容偏移 = (窗口坐标差) + 已滚动距离；留一点余量
@@ -391,13 +407,7 @@ fun PostDetailScreen(
 
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            // ── Tabs: Description / Meta / Comments ─────────
-                            val tabs = listOf(
-                                stringResource(R.string.post_description),
-                                stringResource(R.string.post_meta_info),
-                                "${stringResource(R.string.post_comments)} (${sub.commentList.size})"
-                            )
-
+                            // ── Tabs: [Story] / Description / Meta / Comments ──
                             CustomTabRow(
                                 tabs = tabs,
                                 selectedTab = selectedTab,
@@ -407,14 +417,15 @@ fun PostDetailScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            when (selectedTab) {
-                                0 -> DescriptionContent(
+                            when {
+                                hasStory && selectedTab == 0 -> StoryReader(sub = sub)
+                                selectedTab == tabIndexDescription -> DescriptionContent(
                                     sub = sub,
                                     onAuthorClick = onAuthorClick,
                                     onNavigateToPost = onNavigateToPost
                                 )
-                                1 -> MetaInfoContent(sub)
-                                2 -> CommentsContent(
+                                selectedTab == tabIndexMeta -> MetaInfoContent(sub)
+                                else -> CommentsContent(
                                     comments = sub.commentList,
                                     onAuthorClick = onAuthorClick
                                 )
@@ -560,12 +571,32 @@ fun PostDetailScreen(
                 )
             }
 
-            // Full-screen zoomable artwork viewer
-            if (showZoom && submission?.fullImageUrl?.isNotEmpty() == true) {
-                ZoomableImageViewer(
-                    imageUrl = submission?.fullImageUrl ?: "",
-                    onClose = { showZoom = false }
-                )
+            // Full-screen viewers: Flash → Ruffle WebView；GIF → 逐帧播放器；其余 → 缩放查看器
+            val zoomSubmission = submission
+            if (showZoom && zoomSubmission?.fullImageUrl?.isNotEmpty() == true) {
+                when {
+                    zoomSubmission.fileExt == "swf" || zoomSubmission.fileType.equals("Flash", true) -> {
+                        FlashPlayerViewer(
+                            swfUrl = zoomSubmission.fileUrl.ifEmpty { zoomSubmission.fullImageUrl },
+                            pageUrl = "https://www.furaffinity.net/view/$currentPostId/",
+                            onClose = { showZoom = false }
+                        )
+                    }
+                    zoomSubmission.fileExt == "gif" ||
+                        zoomSubmission.fullImageUrl.endsWith(".gif", ignoreCase = true) -> {
+                        GifFrameViewer(
+                            imageUrl = zoomSubmission.fullImageUrl,
+                            submissionId = currentPostId,
+                            onClose = { showZoom = false }
+                        )
+                    }
+                    else -> {
+                        ZoomableImageViewer(
+                            imageUrl = zoomSubmission.fullImageUrl,
+                            onClose = { showZoom = false }
+                        )
+                    }
+                }
             }
         }
     }
@@ -582,6 +613,17 @@ private fun TwoPaneHeroImage(
     modifier: Modifier = Modifier,
     onImageClick: () -> Unit = {}
 ) {
+    // Flash：海报 + 播放按钮，点击进 Ruffle 全屏层
+    if (sub.fileExt == "swf" || sub.fileType.equals("Flash", true)) {
+        FlashHeroContent(
+            posterUrl = sub.fullImageUrl.ifEmpty { placeholderUrl ?: "" },
+            flashWidth = sub.flashWidth,
+            flashHeight = sub.flashHeight,
+            modifier = modifier,
+            onPlayClick = onImageClick
+        )
+        return
+    }
     Box(modifier = modifier.background(DarkBackground)) {
         if (sub.fullImageUrl.isNotEmpty()) {
             ProgressiveImageContent(
@@ -662,6 +704,17 @@ private fun HeroImage(
     placeholderUrl: String?,
     onImageClick: () -> Unit = {}
 ) {
+    // Flash：海报 + 播放按钮，点击进 Ruffle 全屏层
+    if (sub.fileExt == "swf" || sub.fileType.equals("Flash", true)) {
+        FlashHeroContent(
+            posterUrl = sub.fullImageUrl.ifEmpty { placeholderUrl ?: "" },
+            flashWidth = sub.flashWidth,
+            flashHeight = sub.flashHeight,
+            modifier = Modifier.fillMaxWidth(),
+            onPlayClick = onImageClick
+        )
+        return
+    }
     if (sub.fullImageUrl.isNotEmpty()) {
         Box(modifier = Modifier.fillMaxWidth()) {
             val knownRatio = sub.thumbnailWidthOnHeightRatio > 0f
@@ -749,6 +802,71 @@ private fun HeroImage(
                 )
             }
         }
+    }
+}
+
+// -----------------------------------------------------------------------------------------
+// Flash hero: static poster + play affordance — tapping opens the Ruffle fullscreen layer
+// -----------------------------------------------------------------------------------------
+
+@Composable
+private fun FlashHeroContent(
+    posterUrl: String,
+    flashWidth: Int,
+    flashHeight: Int,
+    modifier: Modifier = Modifier,
+    onPlayClick: () -> Unit
+) {
+    // 画布比例来自 FA object#flash_embed 的 data-width/height；缺省 550×400（SWF 常见）
+    val ratio = if (flashWidth > 0 && flashHeight > 0) {
+        flashWidth.toFloat() / flashHeight.toFloat()
+    } else {
+        550f / 400f
+    }
+    Box(
+        modifier = modifier
+            .aspectRatio(ratio.coerceIn(0.45f, 2.2f))
+            .clickable(onClick = onPlayClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (posterUrl.isNotEmpty()) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(posterUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxSize().background(DarkSurfaceVariant))
+        }
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.55f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.PlayArrow,
+                contentDescription = stringResource(R.string.flash_play),
+                tint = Color.White,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+        Text(
+            // 格式名为内容数据（同卡片徽标），不进 i18n 资源体系
+            text = "Flash" + if (flashWidth > 0 && flashHeight > 0) " · ${flashWidth}×${flashHeight}" else "",
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.8f),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(12.dp)
+        )
     }
 }
 

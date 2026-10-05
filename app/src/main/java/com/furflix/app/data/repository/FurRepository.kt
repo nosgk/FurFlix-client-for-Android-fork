@@ -188,8 +188,8 @@ class FurRepository(private val context: Context) {
 
 
 
-    suspend fun getSubmission(id: String): Submission? {
-        return FurAffinityScraper.getSubmissionDetails(id)
+    suspend fun getSubmission(id: String, loadStoryText: Boolean = true): Submission? {
+        return FurAffinityScraper.getSubmissionDetails(id, loadStoryText)
     }
 
     suspend fun getWatchlist(page: Int = 1): List<Submission> {

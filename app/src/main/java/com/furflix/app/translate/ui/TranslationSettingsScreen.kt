@@ -26,8 +26,10 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GTranslate
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Title
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.VpnKey
@@ -71,6 +73,7 @@ import com.furflix.app.translate.data.TranslationDisplayMode
 import com.furflix.app.translate.data.TranslationProvider
 import com.furflix.app.translate.data.TranslationSettings
 import com.furflix.app.translate.data.TranslationUiPrefs
+import com.furflix.app.translate.data.StoryGranularity
 import com.furflix.app.translate.data.TRANSLATION_LANGUAGES
 import com.furflix.app.ui.components.HazeTopAppBar
 import dev.chrisbanes.haze.HazeState
@@ -94,6 +97,8 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
 
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showProviderDialog by remember { mutableStateOf(false) }
+    var showConcurrencyDialog by remember { mutableStateOf(false) }
+    var showGranularityDialog by remember { mutableStateOf(false) }
     var modeDialogCategory by remember { mutableStateOf<TranslationCategory?>(null) }
 
     val hazeState = remember { HazeState() }
@@ -248,6 +253,29 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
                 }
             }
 
+            SectionTitle(stringResource(R.string.translation_engine))
+            SettingsCard {
+                SelectRow(
+                    icon = Icons.Default.Speed,
+                    title = stringResource(R.string.translation_concurrency),
+                    current = stringResource(R.string.translation_concurrency_value, config.maxConcurrency),
+                    onClick = { showConcurrencyDialog = true }
+                )
+                CardDivider()
+                SelectRow(
+                    icon = Icons.Default.MenuBook,
+                    title = stringResource(R.string.translation_story_granularity),
+                    current = stringResource(
+                        if (prefs.storyGranularity == StoryGranularity.SENTENCE) {
+                            R.string.story_granularity_sentence
+                        } else {
+                            R.string.story_granularity_paragraph
+                        }
+                    ),
+                    onClick = { showGranularityDialog = true }
+                )
+            }
+
             SectionTitle(stringResource(R.string.translation_cache))
             SettingsCard {
                 SelectRow(
@@ -314,6 +342,31 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
             selected = config.provider,
             onSelect = { scope.launch { settings.saveProvider(it) } },
             onDismiss = { showProviderDialog = false }
+        )
+    }
+
+    if (showConcurrencyDialog) {
+        SelectionDialog(
+            title = stringResource(R.string.translation_concurrency),
+            icon = Icons.Default.Speed,
+            options = (1..8).map { DialogOption(it, it.toString()) },
+            selected = config.maxConcurrency,
+            onSelect = { scope.launch { settings.saveConcurrency(it) } },
+            onDismiss = { showConcurrencyDialog = false }
+        )
+    }
+
+    if (showGranularityDialog) {
+        SelectionDialog(
+            title = stringResource(R.string.translation_story_granularity),
+            icon = Icons.Default.MenuBook,
+            options = listOf(
+                DialogOption(StoryGranularity.PARAGRAPH, stringResource(R.string.story_granularity_paragraph)),
+                DialogOption(StoryGranularity.SENTENCE, stringResource(R.string.story_granularity_sentence)),
+            ),
+            selected = prefs.storyGranularity,
+            onSelect = { scope.launch { settings.saveStoryGranularity(it) } },
+            onDismiss = { showGranularityDialog = false }
         )
     }
 

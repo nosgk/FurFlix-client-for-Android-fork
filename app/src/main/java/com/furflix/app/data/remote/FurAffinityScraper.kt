@@ -380,16 +380,61 @@ object FurAffinityScraper {
             }
         }
 
-    suspend fun getSubmissionDetails(submissionId: String): Submission? =
+    suspend fun getSubmissionDetails(submissionId: String, loadStoryText: Boolean = true): Submission? =
         withContext(Dispatchers.IO) {
             try {
                 val doc = fetchDocument("$FA_BASE/view/$submissionId/")
-                parseSubmissionDetail(doc, submissionId)
+                val parsed = parseSubmissionDetail(doc, submissionId)
+                // 小说作品：正文由页面 JS 注入，静态 HTML 里是空的——直接抓 Download
+                // 指向的 .txt 原文。统计预热不加载（省流量），真实到访才拉全文。
+                if (loadStoryText && parsed.fileExt == "txt" && parsed.fileUrl.isNotEmpty()) {
+                    parsed.copy(storyText = fetchText(parsed.fileUrl))
+                } else {
+                    parsed
+                }
             } catch (e: Exception) {
                 Log.e("FurScraper", "getSubmissionDetails error: ${e.message}", e)
                 null
             }
         }
+
+    /** 抓取文本资源（小说 .txt 原文）；失败或超过 2MB 视为空串，阅读器回落占位态。 */
+    suspend fun fetchText(url: String): String = withContext(Dispatchers.IO) {
+        val bytes = fetchBinary(url, maxBytes = 2_000_000) ?: return@withContext ""
+        decodeText(bytes)
+    }
+
+    /** 抓取二进制资源（GIF 逐帧播放需要原始字节）；失败返回 null。 */
+    suspend fun fetchBinary(url: String, maxBytes: Int = 20_000_000): ByteArray? =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", USER_AGENT)
+                    .header("Cookie", getCookiesString())
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@withContext null
+                    val body = response.body ?: return@withContext null
+                    if ((body.contentLength()) > maxBytes) return@withContext null
+                    val bytes = body.bytes()
+                    if (bytes.size > maxBytes) null else bytes
+                }
+            } catch (e: Exception) {
+                Log.e("FurScraper", "fetchBinary error: ${e.message}")
+                null
+            }
+        }
+
+    /** FA 文本多为 UTF-8；老上传可能是 cp1252——先按 UTF-8 严格解码，失败回落单字节。 */
+    private fun decodeText(bytes: ByteArray): String = try {
+        java.nio.charset.Charsets.UTF_8.newDecoder()
+            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+            .decode(java.nio.ByteBuffer.wrap(bytes)).toString()
+    } catch (_: Exception) {
+        String(bytes, java.nio.charset.Charset.forName("windows-1252"))
+    }
 
     suspend fun getWatchlistPage(page: Int = 1): List<Submission> = withContext(Dispatchers.IO) {
         try {
@@ -784,6 +829,17 @@ object FurAffinityScraper {
         var fileSize = ""
         var fileType = ""
 
+        // Flash 作品：object#flash_embed 携带原始画布尺寸（FA 页面用 Ruffle 模拟播放）
+        val flashEmbed = doc.selectFirst(
+            "object#flash_embed, object[type=\"application/x-shockwave-flash\"]"
+        )
+        var flashWidth = 0
+        var flashHeight = 0
+        if (flashEmbed != null) {
+            flashWidth = flashEmbed.attr("data-width").toIntOrNull() ?: 0
+            flashHeight = flashEmbed.attr("data-height").toIntOrNull() ?: 0
+        }
+
         val statsLabels = doc.select("div.submission-content-stats span.highlight span")
         val statsValues = doc.select("div.submission-content-stats > span:not(.highlight) span")
         if (statsLabels.size == statsValues.size) {
@@ -883,6 +939,8 @@ object FurAffinityScraper {
             fileUrl = fileUrl,
             fileName = fileName,
             fileExt = fileExt,
+            flashWidth = flashWidth,
+            flashHeight = flashHeight,
             resolution = resolution,
             fileSize = fileSize,
             fileType = fileType,
