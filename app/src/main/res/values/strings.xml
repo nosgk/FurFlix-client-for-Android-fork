@@ -64,17 +64,19 @@
     <string name="settings_grid_columns_desc">Lane count for grid and masonry views</string>
     <string name="settings_grid_columns_adaptive">Auto</string>
     <string name="settings_thumbnail_quality">Thumbnail Quality</string>
-    <!-- FA CDN serves tiers 200-600; auto negotiates by displayed size -->
-    <string name="settings_thumbnail_quality_desc">Higher tiers are sharper but heavier on data</string>
+    <!-- FA CDN serves pixel tiers 200-600; Auto negotiates by displayed size -->
+    <string name="settings_thumbnail_quality_desc">CDN tier in px; Auto fits the displayed size</string>
     <string name="settings_thumb_quality_auto">Auto</string>
-    <string name="settings_thumb_quality_save">Data saver</string>
-    <string name="settings_thumb_quality_high">High</string>
     <string name="settings_detail_layout">Detail Layout</string>
     <!-- Tablets / landscape can show artwork and info side by side -->
     <string name="settings_detail_layout_desc">Artwork and info side by side on wide screens</string>
     <string name="settings_detail_layout_auto">Auto</string>
     <string name="settings_detail_layout_single">Single</string>
     <string name="settings_detail_layout_dual">Two columns</string>
+    <string name="settings_detail_split">Two-pane Split</string>
+    <string name="settings_detail_split_desc">Share of the artwork pane</string>
+    <!-- %1$d = artwork pane %, %2$d = info pane % -->
+    <string name="settings_detail_split_value">%1$d%% / %2$d%%</string>
     <string name="settings_app_icon">App Icon</string>
 
     <!-- About Developer -->
@@ -98,13 +100,13 @@
     <string name="settings_storage_management">Storage Management</string>
     <string name="settings_storage_management_desc">Cache and local data usage</string>
     <string name="storage_search_history">Search History</string>
-    <string name="storage_browse_data">Viewed Submission Stats</string>
+    <string name="storage_browse_data">Viewing History &amp; Stats</string>
     <string name="storage_tag_database">Tag Database</string>
     <!-- %1$d = entry count -->
     <string name="storage_entries_count">%1$d entries</string>
     <string name="storage_clear_hint">Image and translation caches are safe to clear. The tag database is a bundled read-only lexicon.</string>
     <string name="storage_history_cleared">Search history cleared</string>
-    <string name="storage_browse_data_cleared">Viewed submission stats cleared</string>
+    <string name="storage_browse_data_cleared">Viewing history &amp; stats cleared</string>
     <string name="settings_downloads_folder">Downloads Folder</string>
     <string name="settings_filters_content">Filters &amp; Content</string>
     <string name="settings_filters_desc">Content hiding and blacklists.</string>
@@ -125,6 +127,8 @@
     <!-- Extra missing translations -->
     <string name="profile_favorites">Favorites</string>
     <string name="profile_watchlist">Watchlist</string>
+    <string name="profile_view_history">Viewing History</string>
+    <string name="history_empty">Nothing viewed yet.</string>
     
     <string name="post_view_profile">Profile</string>
     <string name="post_description">Description</string>

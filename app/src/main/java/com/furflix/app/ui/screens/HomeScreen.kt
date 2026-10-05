@@ -979,6 +979,7 @@ fun HomeScreen(
                             viewMode = viewMode,
                             columnsPref = gridColumnsPref,
                             cardStats = cardStats,
+                            onClearHistory = { viewModel.clearCardStats() },
                             onNavigateToUser = onNavigateToUser,
                             onNavigateToPost = onNavigateToPost,
                             onNavigateToFavoritesPost = onNavigateToFavoritesPost,

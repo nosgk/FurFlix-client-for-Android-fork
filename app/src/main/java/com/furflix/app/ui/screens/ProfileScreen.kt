@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -58,6 +59,7 @@ fun ProfileScreen(
     viewMode: GalleryViewMode,
     columnsPref: Int = 2,
     cardStats: Map<String, com.furflix.app.data.model.CardStats> = emptyMap(),
+    onClearHistory: () -> Unit = {},
     onNavigateToUser: (String) -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
@@ -74,7 +76,29 @@ fun ProfileScreen(
     val followingHasMore by viewModel.followingHasMore.collectAsState()
     val followersHasMore by viewModel.followersHasMore.collectAsState()
 
-    val topTabs = listOf(stringResource(R.string.profile_favorites), stringResource(R.string.profile_watchlist))
+    // 浏览历史 = 统计缓存中带展示字段的条目；缓存按最旧在前排序，倒序即最新在前
+    val historyEntries = remember(cardStats) {
+        cardStats.map { (id, stats) ->
+            com.furflix.app.data.model.Submission(
+                id = id,
+                title = stats.title,
+                author = stats.author,
+                authorUsername = stats.authorUsername,
+                thumbnailUrl = stats.thumbnailUrl,
+                rating = stats.rating,
+                views = stats.views,
+                favorites = stats.favorites,
+                comments = stats.comments,
+                isFavorited = stats.favorited
+            )
+        }.filter { it.title.isNotEmpty() }.asReversed()
+    }
+
+    val topTabs = listOf(
+        stringResource(R.string.profile_favorites),
+        stringResource(R.string.profile_watchlist),
+        stringResource(R.string.profile_view_history)
+    )
     val pagerState = rememberPagerState(pageCount = { topTabs.size })
     val coroutineScope = rememberCoroutineScope()
 
@@ -131,6 +155,13 @@ fun ProfileScreen(
                     onSetTab = { viewModel.setTab(it) },
                     onLoadMore = { viewModel.loadMore() },
                     onNavigateToUser = onNavigateToUser,
+                    scrollToTopTrigger = scrollToTopTrigger
+                )
+                2 -> HistoryContent(
+                    entries = historyEntries,
+                    onNavigateToPost = onNavigateToPost,
+                    onNavigateToUser = onNavigateToUser,
+                    onClear = onClearHistory,
                     scrollToTopTrigger = scrollToTopTrigger
                 )
             }
@@ -294,6 +325,61 @@ private fun FavoritesContent(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HistoryContent(
+    entries: List<com.furflix.app.data.model.Submission>,
+    onNavigateToPost: (String) -> Unit,
+    onNavigateToUser: (String) -> Unit,
+    onClear: () -> Unit,
+    scrollToTopTrigger: Int = 0
+) {
+    if (entries.isEmpty()) {
+        EmptyState(message = stringResource(R.string.history_empty), icon = Icons.Default.History)
+        return
+    }
+    val listState = rememberLazyListState()
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+    }
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item(key = "header", contentType = "header") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.storage_entries_count, entries.size),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = SubtleGray
+                )
+                TextButton(onClick = onClear) {
+                    Text(
+                        stringResource(R.string.search_clear_recent),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+            }
+        }
+        items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
+            SubmissionCard(
+                submission = submission,
+                onClick = { onNavigateToPost(submission.id) },
+                forceFavorited = submission.isFavorited,
+                onAuthorClick = { onNavigateToUser(it) }
+            )
         }
     }
 }

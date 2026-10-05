@@ -68,17 +68,19 @@
     <string name="settings_grid_columns_desc">网格与瀑布流视图的列数</string>
     <string name="settings_grid_columns_adaptive">自适应</string>
     <string name="settings_thumbnail_quality">缩略图清晰度</string>
-    <!-- FA CDN 提供 200-600 五档;自动按显示尺寸协商档位 -->
-    <string name="settings_thumbnail_quality_desc">档位越高越清晰,消耗流量也越多</string>
+    <!-- FA CDN 提供 200-600 像素五档;自动按显示尺寸协商档位 -->
+    <string name="settings_thumbnail_quality_desc">档位即像素值;自动按显示尺寸协商</string>
     <string name="settings_thumb_quality_auto">自动</string>
-    <string name="settings_thumb_quality_save">省流量</string>
-    <string name="settings_thumb_quality_high">高清</string>
     <string name="settings_detail_layout">详情页布局</string>
     <!-- 平板/横屏时详情页可作品与信息左右分栏 -->
     <string name="settings_detail_layout_desc">宽屏时作品与信息左右分栏</string>
     <string name="settings_detail_layout_auto">自动</string>
     <string name="settings_detail_layout_single">单栏</string>
     <string name="settings_detail_layout_dual">双栏</string>
+    <string name="settings_detail_split">双栏比例</string>
+    <string name="settings_detail_split_desc">左栏主图占比,拖动即时预览</string>
+    <!-- %1$d = 主图占比, %2$d = 信息栏占比 -->
+    <string name="settings_detail_split_value">%1$d%% / %2$d%%</string>
     <string name="settings_app_icon">应用图标</string>
 
     <!-- About Developer -->
@@ -103,13 +105,13 @@
     <string name="settings_storage_management">存储管理</string>
     <string name="settings_storage_management_desc">缓存与本地数据占用明细</string>
     <string name="storage_search_history">搜索历史</string>
-    <string name="storage_browse_data">浏览统计数据</string>
+    <string name="storage_browse_data">浏览历史与统计</string>
     <string name="storage_tag_database">标签数据库</string>
     <!-- %1$d = 条目数 -->
     <string name="storage_entries_count">%1$d 条</string>
     <string name="storage_clear_hint">图片缓存与翻译缓存可安全清理;标签数据库为内置只读词库。</string>
     <string name="storage_history_cleared">搜索历史已清空</string>
-    <string name="storage_browse_data_cleared">浏览统计数据已清空</string>
+    <string name="storage_browse_data_cleared">浏览历史与统计已清空</string>
     <string name="settings_downloads_folder">下载文件夹</string>
     <string name="settings_filters_content">筛选与内容</string>
     <string name="settings_filters_desc">内容隐藏与黑名单。</string>
@@ -131,6 +133,8 @@
     <!-- Extra missing translations -->
     <string name="profile_favorites">收藏夹</string>
     <string name="profile_watchlist">关注列表</string>
+    <string name="profile_view_history">浏览历史</string>
+    <string name="history_empty">暂无浏览记录。</string>
 
     <string name="post_view_profile">个人主页</string>
     <string name="post_description">简介</string>
