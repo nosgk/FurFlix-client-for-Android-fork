@@ -744,8 +744,27 @@ object FurAffinityScraper {
 
         val commentList = mutableListOf<Comment>()
         for (commentEl in doc.select("div.comment_container")) {
+            // FA encodes reply nesting as a shrinking container width:
+            // style="width:N%" → indentation = 100 - N (iOS FAPageComment).
+            val indentation = Regex("width:(\\d+)%").find(commentEl.attr("style"))
+                ?.groupValues?.get(1)?.toIntOrNull()
+                ?.let { w -> (100 - w).coerceAtLeast(0) } ?: 0
+
+            // Anchor is <a id="cid:N"> — the comment_anchor class is not always
+            // present, so fall back to any cid: anchor in the container.
+            val commentId = (
+                commentEl.selectFirst("a.comment_anchor")?.id()
+                    ?: commentEl.selectFirst("a[id^=\"cid:\"]")?.id()
+                )?.removePrefix("cid:")?.trim().orEmpty()
+
+            if (commentId.isEmpty()) {
+                // Without a cid the row can't be keyed or threaded — drop it
+                // rather than render a duplicate-keyed ghost.
+                Log.w("FurScraper", "Skipping comment container without cid anchor")
+                continue
+            }
+
             try {
-                val commentId = commentEl.selectFirst("a.comment_anchor")?.id()?.removePrefix("cid:") ?: ""
                 val timestamp = commentEl.attr("data-timestamp").toLongOrNull() ?: 0
 
                 val avatarEl = commentEl.selectFirst("img.comment_useravatar")
@@ -775,9 +794,16 @@ object FurAffinityScraper {
                     authorAvatar = commentAvatar,
                     title = commentTitle,
                     text = commentText,
-                    timestamp = timestamp
+                    timestamp = timestamp,
+                    indentation = indentation
                 ))
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                // Hidden-comment degradation (iOS FAPageComment): keep the row
+                // with its cid/indentation instead of dropping it, so the page
+                // never loses a comment and counts stay consistent.
+                Log.w("FurScraper", "Comment $commentId degraded to hidden: ${e.message}")
+                commentList.add(Comment(id = commentId, indentation = indentation))
+            }
         }
 
         return Submission(

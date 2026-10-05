@@ -43,5 +43,8 @@ data class Comment(
     val title: String = "",
     val text: String = "",
     val date: String = "",
-    val timestamp: Long = 0
+    val timestamp: Long = 0,
+    // Reply nesting level from the comment container's width style
+    // (0 = top-level); 0 for rows parsed before this field existed.
+    val indentation: Int = 0
 )
