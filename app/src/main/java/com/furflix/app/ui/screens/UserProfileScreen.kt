@@ -12,6 +12,8 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
@@ -106,6 +108,11 @@ fun UserProfileScreen(
     // 画廊三视图与列数偏好与画廊全局共用（一处设置全局生效）
     val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
+    val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
+    val barsVisibility = rememberBarsVisibility(selectedTab) {
+        listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+    }
+    val barsVisible = !autoHideBars || barsVisibility.visible
     val hazeState = remember { HazeState() }
 
     val tabGallery = stringResource(R.string.user_gallery)
@@ -212,6 +219,11 @@ fun UserProfileScreen(
                 .fillMaxSize()
                 .hazeSource(state = hazeState)
         ) {
+            AnimatedVisibility(
+                visible = barsVisible,
+                enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it },
+                exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it }
+            ) {
             HazeTopAppBar(
                 title = {
                     AnimatedVisibility(
@@ -241,6 +253,7 @@ fun UserProfileScreen(
                     }
                 }
             )
+            }
 
             Crossfade(
                 targetState = viewMode,
@@ -413,9 +426,15 @@ fun UserProfileScreen(
         } // close Column
 
             // Glass bottom bar
+        val bottomBarOffset by androidx.compose.animation.core.animateDpAsState(
+            targetValue = if (barsVisible) 0.dp else 112.dp,
+            animationSpec = tween(250),
+            label = "profileBottomBarOffset"
+        )
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .offset(y = bottomBarOffset)
                 .padding(horizontal = 24.dp, vertical = 24.dp)
                 .fillMaxWidth()
                 .height(64.dp)

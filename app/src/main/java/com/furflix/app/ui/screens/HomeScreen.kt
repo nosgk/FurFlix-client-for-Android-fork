@@ -37,6 +37,8 @@ import androidx.compose.material3.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.*
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -82,6 +84,7 @@ import com.furflix.app.ui.components.EmptyState
 import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.components.GlassmorphicBottomBar
+import com.furflix.app.ui.components.rememberBarsVisibility
 import com.furflix.app.ui.components.GlassBarTab
 import com.furflix.app.ui.components.FurryTabIcons
 import dev.chrisbanes.haze.HazeState
@@ -160,6 +163,9 @@ fun HomeScreen(
     } else gridColumnsPref
     // 乐观覆盖：DataStore 落盘→回流的延迟会让切换晚一拍才重绘；先本地生效，
     // 持久化值回流后对齐（与 Downloads 页 isGrid 开关的本地先行做法一致）
+    val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
+    val barsVisibility = rememberBarsVisibility(selectedTab) { scrollSources[selectedTab]?.invoke() }
+    val barsVisible = !autoHideBars || barsVisibility.visible
     var pendingViewMode by remember { mutableStateOf<GalleryViewMode?>(null) }
     val viewMode = pendingViewMode ?: persistedViewMode
     LaunchedEffect(persistedViewMode) {
@@ -187,6 +193,8 @@ fun HomeScreen(
     // Page index → scroll-to-top action; re-registered by whichever list
     // container (grid or staggered grid) currently owns the page.
     val scrollers = remember { mutableMapOf<Int, suspend () -> Unit>() }
+    // 各 tab 当前列表的滚动位置源，供顶底栏显隐判定
+    val scrollSources = remember { mutableMapOf<Int, () -> Pair<Int, Int>>() }
     var profileScrollToTopTrigger by remember { mutableIntStateOf(0) }
 
     val focusManager = LocalFocusManager.current
@@ -197,6 +205,11 @@ fun HomeScreen(
             })
         },
         topBar = {
+            AnimatedVisibility(
+                visible = barsVisible,
+                enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it },
+                exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it }
+            ) {
             HazeTopAppBar(
                 title = {
                     Text(
@@ -273,6 +286,7 @@ fun HomeScreen(
                     }
                 }
             )
+            }
         }
     ) { padding ->
         Box(
@@ -438,7 +452,10 @@ fun HomeScreen(
                         } else {
                             if (viewMode == GalleryViewMode.MASONRY) {
                                 val staggeredState = rememberLazyStaggeredGridState()
-                                SideEffect { scrollers[page] = { staggeredState.animateScrollToItem(0) } }
+                                SideEffect {
+                    scrollers[page] = { staggeredState.animateScrollToItem(0) }
+                    scrollSources[page] = { { staggeredState.firstVisibleItemIndex to staggeredState.firstVisibleItemScrollOffset } }
+                }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
                                 LazyVerticalStaggeredGrid(
                                     columns = masonryGridCells(gridColumnsPref),
@@ -499,7 +516,10 @@ fun HomeScreen(
                                 )
                             } else {
                                 val gridState = rememberLazyGridState()
-                                SideEffect { scrollers[page] = { gridState.animateScrollToItem(0) } }
+                                SideEffect {
+                                    scrollers[page] = { gridState.animateScrollToItem(0) }
+                                    scrollSources[page] = { { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset } }
+                                }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
                                 LazyVerticalGrid(
                                     modifier = Modifier.fillMaxSize(),
@@ -868,7 +888,10 @@ fun HomeScreen(
                             )
                         } else {
                             if (isMasonry) {
-                                SideEffect { scrollers[2] = { searchStaggeredState.animateScrollToItem(0) } }
+                                SideEffect {
+                                    scrollers[2] = { searchStaggeredState.animateScrollToItem(0) }
+                                    scrollSources[2] = { { searchStaggeredState.firstVisibleItemIndex to searchStaggeredState.firstVisibleItemScrollOffset } }
+                                }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
                                 LazyVerticalStaggeredGrid(
                                     columns = masonryGridCells(gridColumnsPref),
@@ -923,7 +946,10 @@ fun HomeScreen(
                                     laneCount = estimatedMasonryLanes
                                 )
                             } else {
-                                SideEffect { scrollers[2] = { searchGridState.animateScrollToItem(0) } }
+                                SideEffect {
+                                    scrollers[2] = { searchGridState.animateScrollToItem(0) }
+                                    scrollSources[2] = { { searchGridState.firstVisibleItemIndex to searchGridState.firstVisibleItemScrollOffset } }
+                                }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
                                 LazyVerticalGrid(
                                     modifier = Modifier.fillMaxSize(),
@@ -1011,9 +1037,16 @@ fun HomeScreen(
             }
 
             // Floating panel sits on top of the content (true overlay, not a Scaffold slot).
+            // 滚动隐藏只平移浮层，内容底部预留不变，避免重排跳动
+            val bottomBarOffset by androidx.compose.animation.core.animateDpAsState(
+                targetValue = if (barsVisible) 0.dp else 112.dp,
+                animationSpec = tween(250),
+                label = "bottomBarOffset"
+            )
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .offset(y = bottomBarOffset)
                     .padding(horizontal = 24.dp, vertical = 24.dp)
                     .fillMaxWidth()
                     .height(64.dp)

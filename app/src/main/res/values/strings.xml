@@ -74,6 +74,9 @@
     <string name="settings_text_scale_large">Large</string>
     <string name="settings_text_scale_xlarge">XL</string>
     <string name="settings_text_scale_max">XXL</string>
+    <!-- Auto-hide top/bottom bars while scrolling -->
+    <string name="settings_auto_hide_bars">Auto-hide bars while scrolling</string>
+    <string name="settings_auto_hide_bars_desc">Expand more content while browsing</string>
     <string name="settings_thumb_quality_auto">Auto</string>
     <string name="settings_detail_layout">Detail Layout</string>
     <!-- Tablets / landscape can show artwork and info side by side -->

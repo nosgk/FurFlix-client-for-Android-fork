@@ -60,6 +60,7 @@ fun AppearanceSettingsScreen(
     val detailLayoutPref by repository.detailLayoutFlow.collectAsState(initial = FurRepository.DETAIL_LAYOUT_AUTO)
     val detailSplit by repository.detailSplitFlow.collectAsState(initial = FurRepository.DETAIL_SPLIT_DEFAULT)
     val textScale by repository.textScaleFlow.collectAsState(initial = 1f)
+    val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
     // 乐观覆盖：先本地生效，持久化值回流后对齐（与 HomeScreen 顶栏切换同款）
     var pendingViewMode by remember { mutableStateOf<com.furflix.app.data.model.GalleryViewMode?>(null) }
     val viewMode = pendingViewMode ?: persistedViewMode
@@ -499,6 +500,30 @@ fun AppearanceSettingsScreen(
                         Text(name, color = textColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+
+            // --- Auto-hide bars while scrolling ---
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_auto_hide_bars),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_auto_hide_bars_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = autoHideBars,
+                    onCheckedChange = { scope.launch { repository.saveHideBarsOnScroll(it) } }
+                )
             }
 
             // --- Detail layout (auto by width / single / two-pane) ---

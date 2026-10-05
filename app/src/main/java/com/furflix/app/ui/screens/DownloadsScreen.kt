@@ -47,6 +47,7 @@ import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.HazeTopAppBar
 import com.furflix.app.ui.components.RetrySubcomposeAsyncImage
+import com.furflix.app.ui.components.rememberBarsVisibility
 import com.furflix.app.ui.components.rememberRetryImageState
 import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.ui.components.masonryGridCells
@@ -117,6 +118,15 @@ fun DownloadsScreen(
     val gridState = rememberLazyGridState()
     val staggeredState = rememberLazyStaggeredGridState()
 
+    val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
+    val barsVisibility = rememberBarsVisibility(viewMode) {
+        when (viewMode) {
+            GalleryViewMode.GRID -> gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset
+            else -> staggeredState.firstVisibleItemIndex to staggeredState.firstVisibleItemScrollOffset
+        }
+    }
+    val barsVisible = !autoHideBars || barsVisibility.visible
+
     LaunchedEffect(Unit) {
         images = DownloadHelper.getDownloadedImages(context)
         isLoading = false
@@ -129,6 +139,13 @@ fun DownloadsScreen(
 
     Scaffold(
         topBar = {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = barsVisible,
+                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)) +
+                    androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(200)) { -it },
+                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)) +
+                    androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(200)) { -it }
+            ) {
             HazeTopAppBar(
                 title = {
                     Text(
@@ -166,6 +183,7 @@ fun DownloadsScreen(
                     }
                 }
             )
+            }
         },
         containerColor = DarkBackground
     ) { paddingValues ->
