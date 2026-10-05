@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.furflix.app.R
 import com.furflix.app.data.model.GalleryFolder
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.model.UserProfile
@@ -132,13 +133,13 @@ class UserViewModel(
                 val success = repository.toggleWatch(actionUrl)
                 if (!success) {
                     _userProfile.value = profile
-                    _errorMessage.value = "Failed to toggle watch status."
+                    _errorMessage.value = getApplication<Application>().getString(R.string.error_watch_toggle_failed)
                 } else {
                     loadProfileInternal()
                 }
             } catch (e: Exception) {
                 _userProfile.value = profile
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             } finally {
                 _isTogglingWatch.value = false
             }
@@ -156,9 +157,9 @@ class UserViewModel(
             try {
                 val result = repository.getUserGallery(username, currentPage)
                 _submissions.value = result
-                if (result.isEmpty()) _errorMessage.value = "Gallery is empty."
+                if (result.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.empty_gallery)
             } catch (e: Exception) {
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }
             _isLoading.value = false
         }
@@ -175,9 +176,9 @@ class UserViewModel(
             try {
                 val result = repository.getUserFavorites(username, currentPage)
                 _submissions.value = result
-                if (result.isEmpty()) _errorMessage.value = "Favorites are empty."
+                if (result.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.profile_no_favorites)
             } catch (e: Exception) {
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }
             _isLoading.value = false
         }
@@ -196,9 +197,9 @@ class UserViewModel(
                 _watchingList.value = users
                 watchingMore = hasNext
                 _watchingHasMore.value = hasNext
-                if (users.isEmpty()) _errorMessage.value = "Not watching anyone."
+                if (users.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.empty_watching)
             } catch (e: Exception) {
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }
             _isLoading.value = false
         }
@@ -217,9 +218,9 @@ class UserViewModel(
                 _watchersList.value = users
                 watchersMore = hasNext
                 _watchersHasMore.value = hasNext
-                if (users.isEmpty()) _errorMessage.value = "No watchers."
+                if (users.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.empty_watchers)
             } catch (e: Exception) {
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }
             _isLoading.value = false
         }
@@ -248,9 +249,9 @@ class UserViewModel(
             try {
                 val result = repository.getUserGalleryFolder(username, folder, folderPage)
                 _submissions.value = result
-                if (result.isEmpty()) _errorMessage.value = "Folder is empty."
+                if (result.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.empty_folder)
             } catch (e: Exception) {
-                _errorMessage.value = "Error: ${e.message}"
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }
             _isLoading.value = false
         }

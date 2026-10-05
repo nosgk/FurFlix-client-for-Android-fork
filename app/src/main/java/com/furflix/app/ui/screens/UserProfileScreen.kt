@@ -365,7 +365,7 @@ fun UserProfileScreen(
                                 item(key = "error", span = StaggeredGridItemSpan.FullLine) { ErrorState(message = errorMessage ?: "") }
                             }
                             if (submissions.isEmpty() && !isLoading && errorMessage == null) {
-                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = "No submissions.", icon = Icons.Default.PhotoLibrary) }
+                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = stringResource(R.string.empty_gallery), icon = Icons.Default.PhotoLibrary) }
                             }
                             if (submissions.isNotEmpty()) {
                                 if (mode == GalleryViewMode.LIST) {
@@ -404,7 +404,7 @@ fun UserProfileScreen(
                                 item(key = "error", span = StaggeredGridItemSpan.FullLine) { ErrorState(message = errorMessage ?: "") }
                             }
                             if (watchingList.isEmpty() && !isLoading && errorMessage == null) {
-                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = "Not watching anyone.", icon = Icons.Default.Group) }
+                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = stringResource(R.string.empty_watching), icon = Icons.Default.Group) }
                             }
                             if (watchingList.isNotEmpty()) {
                                 if (mode == GalleryViewMode.LIST) {
@@ -432,7 +432,7 @@ fun UserProfileScreen(
                                 item(key = "error", span = StaggeredGridItemSpan.FullLine) { ErrorState(message = errorMessage ?: "") }
                             }
                             if (watchersList.isEmpty() && !isLoading && errorMessage == null) {
-                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = "No watchers.", icon = Icons.Default.Group) }
+                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = stringResource(R.string.empty_watchers), icon = Icons.Default.Group) }
                             }
                             if (watchersList.isNotEmpty()) {
                                 if (mode == GalleryViewMode.LIST) {

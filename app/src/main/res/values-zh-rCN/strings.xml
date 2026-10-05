@@ -292,6 +292,12 @@
     <string name="profile_gallery_folders">画廊文件夹</string>
     <!-- %1$d = 条目数 -->
     <string name="folder_item_count">%1$d 项</string>
+    <!-- 空态 / 用户页错误(硬编码清退) -->
+    <string name="empty_gallery">暂无作品。</string>
+    <string name="empty_watching">没有关注任何人。</string>
+    <string name="empty_watchers">没有粉丝。</string>
+    <string name="empty_folder">文件夹是空的。</string>
+    <string name="error_watch_toggle_failed">关注状态切换失败。</string>
     <string name="user_unfollow">取消关注</string>
     <string name="user_unfollow_confirm">不再关注 %s?</string>
     <string name="toast_download_saved">已保存:%s</string>
