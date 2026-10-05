@@ -406,6 +406,12 @@ object FurAffinityScraper {
         }
     }
 
+    /** 下拉刷新用：清空该用户的画廊/收藏分页缓存，防止刷新后续页错位。 */
+    fun clearUserPagination(username: String) {
+        galleryNextUrls.remove(username)
+        favoritesNextUrls.remove(username)
+    }
+
     suspend fun getUserGallery(username: String, page: Int = 1, forceNsfw: Boolean? = null): List<Submission> = withContext(Dispatchers.IO) {
         try {
             val url = if (page == 1) {

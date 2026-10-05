@@ -138,8 +138,8 @@ class UserViewModel(
         }
     }
 
-    fun loadGallery() {
-        if (_currentTab.value == TAB_GALLERY && _submissions.value.isNotEmpty()) return
+    fun loadGallery(force: Boolean = false) {
+        if (!force && _currentTab.value == TAB_GALLERY && _submissions.value.isNotEmpty()) return
         _currentTab.value = TAB_GALLERY
         currentPage = 1
         contentMore = true
@@ -157,8 +157,8 @@ class UserViewModel(
         }
     }
 
-    fun loadFavorites() {
-        if (_currentTab.value == TAB_FAVORITES && _submissions.value.isNotEmpty()) return
+    fun loadFavorites(force: Boolean = false) {
+        if (!force && _currentTab.value == TAB_FAVORITES && _submissions.value.isNotEmpty()) return
         _currentTab.value = TAB_FAVORITES
         currentPage = 1
         contentMore = true
@@ -176,8 +176,8 @@ class UserViewModel(
         }
     }
 
-    fun loadWatching() {
-        if (_currentTab.value == TAB_WATCHING && _watchingList.value.isNotEmpty()) return
+    fun loadWatching(force: Boolean = false) {
+        if (!force && _currentTab.value == TAB_WATCHING && _watchingList.value.isNotEmpty()) return
         _currentTab.value = TAB_WATCHING
         watchingPage = 1
         watchingMore = true
@@ -197,8 +197,8 @@ class UserViewModel(
         }
     }
 
-    fun loadWatchers() {
-        if (_currentTab.value == TAB_WATCHERS && _watchersList.value.isNotEmpty()) return
+    fun loadWatchers(force: Boolean = false) {
+        if (!force && _currentTab.value == TAB_WATCHERS && _watchersList.value.isNotEmpty()) return
         _currentTab.value = TAB_WATCHERS
         watchersPage = 1
         watchersMore = true
@@ -273,6 +273,21 @@ class UserViewModel(
                 }
             }
             _isLoadingMore.value = false
+        }
+    }
+
+    /**
+     * 下拉刷新：清分页缓存后重载当前 tab 与个人资料。
+     * force 绕过"已有数据即 return"守卫；列表先清空让刷新态可见。
+     */
+    fun refresh() {
+        repository.clearUserPagination(username)
+        loadProfileInternal()
+        when (_currentTab.value) {
+            TAB_GALLERY -> { _submissions.value = emptyList(); loadGallery(force = true) }
+            TAB_FAVORITES -> { _submissions.value = emptyList(); loadFavorites(force = true) }
+            TAB_WATCHING -> { _watchingList.value = emptyList(); loadWatching(force = true) }
+            TAB_WATCHERS -> { _watchersList.value = emptyList(); loadWatchers(force = true) }
         }
     }
 
