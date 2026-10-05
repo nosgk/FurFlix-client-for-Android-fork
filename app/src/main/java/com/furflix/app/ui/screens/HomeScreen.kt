@@ -63,6 +63,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.res.stringResource
@@ -92,6 +93,8 @@ import com.furflix.app.data.FA_ART_TYPES
 import com.furflix.app.data.FA_GENDER_OPTIONS
 import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.data.model.Submission
+import com.furflix.app.data.model.addTagToken
+import com.furflix.app.data.model.toggleTagExclusion
 import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.data.repository.FurRepository
 
@@ -1008,15 +1011,26 @@ fun SearchBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 tags.forEach { tag ->
+                    val excluded = tag.startsWith("!")
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary,
+                        color = if (excluded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            // Tap flips the polarity in place (chip stays put);
+                            // the trailing × removes it entirely.
+                            modifier = Modifier
+                                .clickable { tags = toggleTagExclusion(tags, tag) }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(tag, color = DarkSurface, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = tag.removePrefix("!"),
+                                color = DarkSurface,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                textDecoration = if (excluded) TextDecoration.LineThrough else null
+                            )
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 Icons.Default.Close,
@@ -1046,10 +1060,7 @@ fun SearchBar(
                             val words = newText.removePrefix("\u200B").split(" ")
                             val lastWord = words.dropLast(1).lastOrNull()
                             if (lastWord != null && lastWord.startsWith("#") && lastWord.length > 1) {
-                                val newTag = lastWord.removePrefix("#")
-                                if (newTag !in tags) {
-                                    tags = tags + newTag
-                                }
+                                tags = addTagToken(tags, lastWord.removePrefix("#"))
                                 text = "\u200B" + newText.removePrefix("\u200B").substring(0, newText.removePrefix("\u200B").lastIndexOf(lastWord))
                                 return@BasicTextField
                             }
@@ -1077,19 +1088,19 @@ fun SearchBar(
                             val words = finalText.split(" ")
                             val lastWord = words.lastOrNull()
                             if (lastWord != null && lastWord.startsWith("#") && lastWord.length > 1) {
-                                val newTag = lastWord.removePrefix("#")
-                                if (newTag !in tags) {
-                                    tags = tags + newTag
-                                }
+                                tags = addTagToken(tags, lastWord.removePrefix("#"))
                                 finalText = finalText.substring(0, finalText.lastIndexOf(lastWord)).trim()
                                 text = "\u200B" + finalText
                             }
-                            
+
                             val finalQuery = buildString {
                                 append(finalText)
                                 if (tags.isNotEmpty()) {
                                     if (isNotEmpty()) append(" ")
-                                    append(tags.joinToString(" ") { "@keywords $it" })
+                                    // Single @keywords group so "!tag" exclusions
+                                    // apply within the same set as the includes.
+                                    append("@keywords ")
+                                    append(tags.joinToString(" "))
                                 }
                             }
                             if (finalQuery.isNotBlank()) {
@@ -1131,9 +1142,7 @@ fun SearchBar(
                                 }
                             },
                             onClick = {
-                                if (suggestion !in tags) {
-                                    tags = tags + suggestion
-                                }
+                                tags = addTagToken(tags, suggestion)
                                 val words = text.removePrefix("\u200B").split(" ").toMutableList()
                                 if (words.isNotEmpty()) {
                                     words.removeAt(words.lastIndex)
