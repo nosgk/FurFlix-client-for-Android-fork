@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.furflix.app.ui.components.CustomTabRow
 import com.furflix.app.ui.components.EmptyState
+import com.furflix.app.ui.components.LiveScrollSourceEffect
 import com.furflix.app.ui.components.LoadingMoreFooter
 import com.furflix.app.ui.components.PawPullRefreshBox
 import com.furflix.app.ui.components.SubmissionCard
@@ -75,6 +76,7 @@ fun ProfileScreen(
     onNavigateToPost: (String) -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
     scrollToTopTrigger: Int = 0,
+    onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit = {},
     viewModel: WatchlistViewModel = viewModel()
 ) {
     val followingList by viewModel.followingList.collectAsState()
@@ -97,12 +99,17 @@ fun ProfileScreen(
         initial = FurRepository.WATCHLIST_BANNER_SOURCE_BANNER
     )
     val userNotes by repository.userNotesFlow.collectAsState(initial = emptyMap())
+    // 浏览历史“用户”栏：真实到访的用户页记录（数据层与帖子历史分开，长按可删单条）
+    val userVisitCache = remember { com.furflix.app.data.local.UserVisitCache.getInstance(context) }
+    val userVisits by userVisitCache.flow.collectAsState(initial = emptyList())
     var noteEditingUser by remember { mutableStateOf<WatchlistUser?>(null) }
 
-    // 浏览历史 = 统计缓存中带展示字段的条目；缓存按最旧在前排序，倒序即最新在前。
-    // ratio 必须带回：丢了它瀑布流每块都按 1:1 预设，视觉上退化成等高网格
+    // 浏览历史（作品栏）= 统计缓存中“真实到访”的条目；缓存按最旧在前排序，倒序即最新在前。
+    // ratio 必须带回：丢了它瀑布流每块都按 1:1 预设，视觉上退化成等高网格。
+    // visited 由详情页真实加载写入；统计预热条目不算历史
     val historyEntries = remember(cardStats) {
-        cardStats.map { (id, stats) ->
+        cardStats.mapNotNull { (id, stats) ->
+            if (!stats.visited || stats.title.isEmpty()) return@mapNotNull null
             com.furflix.app.data.model.Submission(
                 id = id,
                 title = stats.title,
@@ -116,8 +123,9 @@ fun ProfileScreen(
                 comments = stats.comments,
                 isFavorited = stats.favorited
             )
-        }.filter { it.title.isNotEmpty() }.asReversed()
+        }.asReversed()
     }
+
 
     val topTabs = listOf(
         stringResource(R.string.profile_favorites),
@@ -165,6 +173,7 @@ fun ProfileScreen(
                     onNavigateToPost = onNavigateToFavoritesPost,
                     onNavigateToUser = onNavigateToUser,
                     onLoadMore = { viewModel.loadMore() },
+                    onRegisterScrollSource = onRegisterScrollSource,
                     scrollToTopTrigger = scrollToTopTrigger
                 )
                 1 -> WatchlistContent(
@@ -187,10 +196,13 @@ fun ProfileScreen(
                     onLoadMore = { viewModel.loadMore() },
                     onNavigateToUser = onNavigateToUser,
                     onEditNote = { noteEditingUser = it },
+                    onRegisterScrollSource = onRegisterScrollSource,
                     scrollToTopTrigger = scrollToTopTrigger
                 )
                 2 -> HistoryContent(
                     entries = historyEntries,
+                    userVisits = userVisits,
+                    userNotes = userNotes,
                     viewMode = viewMode,
                     columnsPref = columnsPref,
                     cardStats = cardStats,
@@ -198,6 +210,9 @@ fun ProfileScreen(
                     onNavigateToPost = onNavigateToPost,
                     onNavigateToUser = onNavigateToUser,
                     onClear = onClearHistory,
+                    onClearUsers = { coroutineScope.launch { userVisitCache.clear() } },
+                    onRemoveVisit = { coroutineScope.launch { userVisitCache.remove(it) } },
+                    onRegisterScrollSource = onRegisterScrollSource,
                     scrollToTopTrigger = scrollToTopTrigger
                 )
             }
@@ -229,6 +244,7 @@ private fun FavoritesContent(
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onLoadMore: () -> Unit = {},
+    onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit = {},
     scrollToTopTrigger: Int = 0
 ) {
     when {
@@ -248,6 +264,9 @@ private fun FavoritesContent(
                 when (mode) {
                     GalleryViewMode.MASONRY -> {
                         val staggeredState = rememberLazyStaggeredGridState()
+                        LiveScrollSourceEffect(register = onRegisterScrollSource) {
+                            staggeredState.firstVisibleItemIndex to staggeredState.firstVisibleItemScrollOffset
+                        }
                         LaunchedEffect(scrollToTopTrigger) {
                             if (scrollToTopTrigger > 0) staggeredState.animateScrollToItem(0)
                         }
@@ -297,6 +316,9 @@ private fun FavoritesContent(
                     }
                     GalleryViewMode.GRID -> {
                     val gridState = rememberLazyGridState()
+                    LiveScrollSourceEffect(register = onRegisterScrollSource) {
+                        gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset
+                    }
                     LaunchedEffect(scrollToTopTrigger) {
                         if (scrollToTopTrigger > 0) gridState.animateScrollToItem(0)
                     }
@@ -337,6 +359,9 @@ private fun FavoritesContent(
                     }
                     GalleryViewMode.LIST -> {
                     val listState = rememberLazyListState()
+                    LiveScrollSourceEffect(register = onRegisterScrollSource) {
+                        listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+                    }
                     LaunchedEffect(scrollToTopTrigger) {
                         if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
                     }
@@ -380,6 +405,8 @@ private fun FavoritesContent(
 @Composable
 private fun HistoryContent(
     entries: List<com.furflix.app.data.model.Submission>,
+    userVisits: List<com.furflix.app.data.local.UserVisitRecord>,
+    userNotes: Map<String, String>,
     viewMode: GalleryViewMode,
     columnsPref: Int,
     cardStats: Map<String, com.furflix.app.data.model.CardStats>,
@@ -387,114 +414,226 @@ private fun HistoryContent(
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onClear: () -> Unit,
+    onClearUsers: () -> Unit,
+    onRemoveVisit: (String) -> Unit,
+    onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit = {},
     scrollToTopTrigger: Int = 0
 ) {
-    if (entries.isEmpty()) {
+    if (entries.isEmpty() && userVisits.isEmpty()) {
         EmptyState(message = stringResource(R.string.history_empty), icon = Icons.Default.History)
         return
     }
+    // 小栏目：0 = 作品（沿用全局视图模式），1 = 用户（到访过的用户页，列表呈现）
+    var historyTab by remember { mutableIntStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
     LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
-            // 本地列表本身即时回流；刷新动作顺带把第一屏的统计重新预热，
+            // 本地列表本身即时回流；刷新动作顺带把作品栏第一屏的统计重新预热，
             // 指示器按固定节奏收起，统计在后台就位后浮层自行更新
             onWarmStats(entries.take(24).map { it.id })
             delay(800)
             isRefreshing = false
         }
     }
-    PawPullRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = { isRefreshing = true }
-    ) {
-        Crossfade(targetState = viewMode, animationSpec = tween(300), label = "historyViewMode") { mode ->
-            when (mode) {
-                GalleryViewMode.MASONRY -> {
-                    val staggeredState = rememberLazyStaggeredGridState()
-                    LaunchedEffect(scrollToTopTrigger) {
-                        if (scrollToTopTrigger > 0) staggeredState.animateScrollToItem(0)
-                    }
-                    LazyVerticalStaggeredGrid(
-                        state = staggeredState,
-                        modifier = Modifier.fillMaxSize(),
-                        columns = masonryGridCells(columnsPref),
-                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalItemSpacing = 4.dp
-                    ) {
-                        item(
-                            span = StaggeredGridItemSpan.FullLine,
-                            key = "header",
-                            contentType = "header"
-                        ) { HistoryHeader(entries.size, onClear) }
-                        staggeredItems(
-                            items = entries,
-                            key = { it.id },
-                            contentType = { "submission" }
-                        ) { submission ->
-                            SubmissionCard(
-                                submission = submission,
-                                onClick = { onNavigateToPost(submission.id) },
-                                showTitle = true,
-                                compact = true,
-                                ratio = submission.thumbnailWidthOnHeightRatio,
-                                stats = cardStats[submission.id],
-                                forceFavorited = submission.isFavorited,
-                                onAuthorClick = { onNavigateToUser(it) }
-                            )
-                        }
-                    }
-                }
-                GalleryViewMode.GRID -> {
-                    val gridState = rememberLazyGridState()
-                    LaunchedEffect(scrollToTopTrigger) {
-                        if (scrollToTopTrigger > 0) gridState.animateScrollToItem(0)
-                    }
-                    LazyVerticalGrid(
-                        state = gridState,
-                        modifier = Modifier.fillMaxSize(),
-                        columns = galleryGridCells(columnsPref, isList = false),
-                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
-                        items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
-                            SubmissionCard(
-                                submission = submission,
-                                onClick = { onNavigateToPost(submission.id) },
-                                showTitle = true,
-                                compact = true,
-                                stats = cardStats[submission.id],
-                                forceFavorited = submission.isFavorited,
-                                onAuthorClick = { onNavigateToUser(it) }
-                            )
-                        }
-                    }
-                }
-                GalleryViewMode.LIST -> {
-                    val listState = rememberLazyListState()
-                    LaunchedEffect(scrollToTopTrigger) {
-                        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
-                    }
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
-                        items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
-                            SubmissionCard(
-                                submission = submission,
-                                onClick = { onNavigateToPost(submission.id) },
-                                forceFavorited = submission.isFavorited,
-                                onAuthorClick = { onNavigateToUser(it) }
-                            )
-                        }
+    Column(modifier = Modifier.fillMaxSize()) {
+        CustomTabRow(
+            tabs = listOf(
+                stringResource(R.string.history_tab_submissions),
+                stringResource(R.string.history_tab_users)
+            ),
+            selectedTab = historyTab,
+            onTabSelected = { historyTab = it },
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+        PawPullRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { isRefreshing = true }
+        ) {
+            Crossfade(targetState = historyTab, animationSpec = tween(300), label = "historySubTab") { tab ->
+                when (tab) {
+                    1 -> HistoryUsersContent(
+                        visits = userVisits,
+                        notes = userNotes,
+                        onNavigateToUser = onNavigateToUser,
+                        onClearUsers = onClearUsers,
+                        onRemoveVisit = onRemoveVisit,
+                        onRegisterScrollSource = onRegisterScrollSource,
+                        scrollToTopTrigger = scrollToTopTrigger
+                    )
+                    else -> if (entries.isEmpty()) {
+                        EmptyState(message = stringResource(R.string.history_empty), icon = Icons.Default.History)
+                    } else {
+                        HistorySubmissionsContent(
+                            entries = entries,
+                            viewMode = viewMode,
+                            columnsPref = columnsPref,
+                            cardStats = cardStats,
+                            onNavigateToPost = onNavigateToPost,
+                            onNavigateToUser = onNavigateToUser,
+                            onClear = onClear,
+                            onRegisterScrollSource = onRegisterScrollSource,
+                            scrollToTopTrigger = scrollToTopTrigger
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+/** 浏览历史·作品：沿用全局网格/瀑布流/列表三视图，与画廊各页共用同一套卡片。 */
+@Composable
+private fun HistorySubmissionsContent(
+    entries: List<com.furflix.app.data.model.Submission>,
+    viewMode: GalleryViewMode,
+    columnsPref: Int,
+    cardStats: Map<String, com.furflix.app.data.model.CardStats>,
+    onNavigateToPost: (String) -> Unit,
+    onNavigateToUser: (String) -> Unit,
+    onClear: () -> Unit,
+    onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit,
+    scrollToTopTrigger: Int = 0
+) {
+    Crossfade(targetState = viewMode, animationSpec = tween(300), label = "historyViewMode") { mode ->
+        when (mode) {
+            GalleryViewMode.MASONRY -> {
+                val staggeredState = rememberLazyStaggeredGridState()
+                LiveScrollSourceEffect(register = onRegisterScrollSource) {
+                    staggeredState.firstVisibleItemIndex to staggeredState.firstVisibleItemScrollOffset
+                }
+                LaunchedEffect(scrollToTopTrigger) {
+                    if (scrollToTopTrigger > 0) staggeredState.animateScrollToItem(0)
+                }
+                LazyVerticalStaggeredGrid(
+                    state = staggeredState,
+                    modifier = Modifier.fillMaxSize(),
+                    columns = masonryGridCells(columnsPref),
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalItemSpacing = 4.dp
+                ) {
+                    item(
+                        span = StaggeredGridItemSpan.FullLine,
+                        key = "header",
+                        contentType = "header"
+                    ) { HistoryHeader(entries.size, onClear) }
+                    staggeredItems(
+                        items = entries,
+                        key = { it.id },
+                        contentType = { "submission" }
+                    ) { submission ->
+                        SubmissionCard(
+                            submission = submission,
+                            onClick = { onNavigateToPost(submission.id) },
+                            showTitle = true,
+                            compact = true,
+                            ratio = submission.thumbnailWidthOnHeightRatio,
+                            stats = cardStats[submission.id],
+                            forceFavorited = submission.isFavorited,
+                            onAuthorClick = { onNavigateToUser(it) }
+                        )
+                    }
+                }
+            }
+            GalleryViewMode.GRID -> {
+                val gridState = rememberLazyGridState()
+                LiveScrollSourceEffect(register = onRegisterScrollSource) {
+                    gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset
+                }
+                LaunchedEffect(scrollToTopTrigger) {
+                    if (scrollToTopTrigger > 0) gridState.animateScrollToItem(0)
+                }
+                LazyVerticalGrid(
+                    state = gridState,
+                    modifier = Modifier.fillMaxSize(),
+                    columns = galleryGridCells(columnsPref, isList = false),
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
+                    items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
+                        SubmissionCard(
+                            submission = submission,
+                            onClick = { onNavigateToPost(submission.id) },
+                            showTitle = true,
+                            compact = true,
+                            stats = cardStats[submission.id],
+                            forceFavorited = submission.isFavorited,
+                            onAuthorClick = { onNavigateToUser(it) }
+                        )
+                    }
+                }
+            }
+            GalleryViewMode.LIST -> {
+                val listState = rememberLazyListState()
+                LiveScrollSourceEffect(register = onRegisterScrollSource) {
+                    listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+                }
+                LaunchedEffect(scrollToTopTrigger) {
+                    if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+                }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
+                    items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
+                        SubmissionCard(
+                            submission = submission,
+                            onClick = { onNavigateToPost(submission.id) },
+                            forceFavorited = submission.isFavorited,
+                            onAuthorClick = { onNavigateToUser(it) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 浏览历史·用户：到访过的用户页，复用关注列表的行卡片（头像 + 名字 + 备注）；长按删除该条。 */
+@Composable
+private fun HistoryUsersContent(
+    visits: List<com.furflix.app.data.local.UserVisitRecord>,
+    notes: Map<String, String>,
+    onNavigateToUser: (String) -> Unit,
+    onClearUsers: () -> Unit,
+    onRemoveVisit: (String) -> Unit,
+    onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit,
+    scrollToTopTrigger: Int = 0
+) {
+    val listState = rememberLazyListState()
+    LiveScrollSourceEffect(register = onRegisterScrollSource) {
+        listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+    }
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+    }
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item(key = "header", contentType = "header") { HistoryHeader(visits.size, onClearUsers) }
+        items(
+            visits,
+            key = { it.username.lowercase() },
+            contentType = { "user_visit" }
+        ) { visit ->
+            WatchlistItem(
+                user = com.furflix.app.data.model.WatchlistUser(
+                    username = visit.username,
+                    displayName = visit.displayName.ifEmpty { visit.username },
+                    avatarUrl = visit.avatarUrl
+                ),
+                note = notes[visit.username.lowercase()],
+                onClick = { onNavigateToUser(visit.username) },
+                onLongClick = { onRemoveVisit(visit.username) }
+            )
         }
     }
 }
@@ -544,6 +683,7 @@ private fun WatchlistContent(
     onLoadMore: () -> Unit,
     onNavigateToUser: (String) -> Unit,
     onEditNote: (WatchlistUser) -> Unit,
+    onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit = {},
     scrollToTopTrigger: Int = 0
 ) {
     val currentData = if (currentTab == WatchlistViewModel.TAB_FOLLOWING) followingList else followersList
@@ -720,6 +860,9 @@ private fun WatchlistContent(
                 } else {
                 Crossfade(targetState = isGrid, animationSpec = tween(300), label = "watchlistGridList") { grid ->
                     if (grid) {
+                        LiveScrollSourceEffect(register = onRegisterScrollSource) {
+                            gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset
+                        }
                         LazyVerticalGrid(
                             state = gridState,
                             modifier = Modifier.fillMaxSize(),
@@ -743,6 +886,9 @@ private fun WatchlistContent(
                             }
                         }
                     } else {
+                        LiveScrollSourceEffect(register = onRegisterScrollSource) {
+                            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+                        }
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),

@@ -86,6 +86,7 @@ import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.components.GlassmorphicBottomBar
 import com.furflix.app.ui.components.rememberBarsVisibility
+import com.furflix.app.ui.components.LiveScrollSourceEffect
 import com.furflix.app.data.selection.SelectionStore
 import com.furflix.app.data.download.DownloadManager
 import com.furflix.app.ui.components.GlassBarTab
@@ -193,8 +194,13 @@ fun HomeScreen(
     // Page index → scroll-to-top action; re-registered by whichever list
     // container (grid or staggered grid) currently owns the page.
     val scrollers = remember { mutableMapOf<Int, suspend () -> Unit>() }
-    // 各 tab 当前列表的滚动位置源，供顶底栏显隐判定
-    val scrollSources = remember { mutableMapOf<Int, () -> Pair<Int, Int>>() }
+    // 各 tab 当前列表的滚动位置源，供顶底栏显隐判定；值可为 null = 当前 tab 无存活列表
+    val scrollSources = remember { mutableMapOf<Int, (() -> Pair<Int, Int>?)?>() }
+
+        fun registerScrollSource(tab: Int, source: (() -> Pair<Int, Int>?)?) {
+            if (source == null) scrollSources.remove(tab) else scrollSources[tab] = source
+        }
+
     val autoHideBars by repository.hideBarsOnScrollFlow.collectAsState(initial = true)
     val barsVisibility = rememberBarsVisibility(selectedTab) { scrollSources[selectedTab]?.invoke() }
     val barsVisible = !autoHideBars || barsVisibility.visible
@@ -500,8 +506,10 @@ fun HomeScreen(
                                 val staggeredState = rememberLazyStaggeredGridState()
                                 SideEffect {
                     scrollers[page] = { staggeredState.animateScrollToItem(0) }
-                    scrollSources[page] = { staggeredState.firstVisibleItemIndex to staggeredState.firstVisibleItemScrollOffset }
                 }
+                                LiveScrollSourceEffect(register = { source -> registerScrollSource(page, source) }) {
+                                    staggeredState.firstVisibleItemIndex to staggeredState.firstVisibleItemScrollOffset
+                                }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
                                 LazyVerticalStaggeredGrid(
                                     columns = masonryGridCells(gridColumnsPref),
@@ -574,7 +582,9 @@ fun HomeScreen(
                                 val gridState = rememberLazyGridState()
                                 SideEffect {
                                     scrollers[page] = { gridState.animateScrollToItem(0) }
-                                    scrollSources[page] = { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
+                                }
+                                LiveScrollSourceEffect(register = { source -> registerScrollSource(page, source) }) {
+                                    gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
                                 LazyVerticalGrid(
@@ -742,52 +752,53 @@ fun HomeScreen(
                                 
                                 InlineFiltersRow(
                                     filters = draftFilters,
-                                    onFilterChange = { newFilters -> 
+                                    onFilterChange = { newFilters ->
                                         draftFilters = newFilters
                                         viewModel.updateSearchFilters(newFilters)
                                     }
                                 )
+                            }
+                        }
 
-                                if (keywordCounts.isNotEmpty() && hasSearched) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .horizontalScroll(rememberScrollState())
-                                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        // 分词计数条常驻（不随搜索栏收起）：搜索后始终可见
+                        if (keywordCounts.isNotEmpty() && hasSearched) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                keywordCounts.forEach { (word, count) ->
+                                    val label = when {
+                                        count == -1 -> "$word · …"
+                                        count == -2 -> "$word · ?"
+                                        else -> "$word · $count"
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                        onClick = { viewModel.loadSearch(word) }
                                     ) {
-                                        keywordCounts.forEach { (word, count) ->
-                                            val label = when {
-                                                count == -1 -> "$word · …"
-                                                count == -2 -> "$word · ?"
-                                                else -> "$word · $count"
-                                            }
-                                            Surface(
-                                                shape = RoundedCornerShape(16.dp),
-                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                                onClick = { viewModel.loadSearch(word) }
-                                            ) {
-                                                Text(
-                                                    label,
-                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                            }
-                                        }
-                                        if (keywordCounts.size > 1) {
-                                            Surface(
-                                                shape = RoundedCornerShape(16.dp),
-                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                            ) {
-                                                Text(
-                                                    "$searchQuery · ${searchResults.size}",
-                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                            }
-                                        }
+                                        Text(
+                                            label,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                                if (keywordCounts.size > 1) {
+                                    Surface(
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                    ) {
+                                        Text(
+                                            "$searchQuery · ${searchResults.size}",
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
                                     }
                                 }
                             }
@@ -1002,7 +1013,9 @@ fun HomeScreen(
                             if (isMasonry) {
                                 SideEffect {
                                     scrollers[2] = { searchStaggeredState.animateScrollToItem(0) }
-                                    scrollSources[2] = { searchStaggeredState.firstVisibleItemIndex to searchStaggeredState.firstVisibleItemScrollOffset }
+                                }
+                                LiveScrollSourceEffect(register = { source -> registerScrollSource(2, source) }) {
+                                    searchStaggeredState.firstVisibleItemIndex to searchStaggeredState.firstVisibleItemScrollOffset
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
                                 LazyVerticalStaggeredGrid(
@@ -1070,7 +1083,9 @@ fun HomeScreen(
                             } else {
                                 SideEffect {
                                     scrollers[2] = { searchGridState.animateScrollToItem(0) }
-                                    scrollSources[2] = { searchGridState.firstVisibleItemIndex to searchGridState.firstVisibleItemScrollOffset }
+                                }
+                                LiveScrollSourceEffect(register = { source -> registerScrollSource(2, source) }) {
+                                    searchGridState.firstVisibleItemIndex to searchGridState.firstVisibleItemScrollOffset
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
                                 LazyVerticalGrid(
@@ -1143,6 +1158,7 @@ fun HomeScreen(
                             onNavigateToPost = onNavigateToPost,
                             onNavigateToFavoritesPost = onNavigateToFavoritesPost,
                             scrollToTopTrigger = profileScrollToTopTrigger,
+                            onRegisterScrollSource = { source -> registerScrollSource(3, source) },
                             viewModel = watchlistViewModel
                         )
                     }

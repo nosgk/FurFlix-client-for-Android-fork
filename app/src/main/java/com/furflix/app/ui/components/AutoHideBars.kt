@@ -1,7 +1,9 @@
 package com.furflix.app.ui.components
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,4 +95,26 @@ fun rememberBarsVisibility(
             }
     }
     return bars
+}
+
+/**
+ * 分支级滚动源注册（自动隐藏栏的数据源）：组合期间把“当前列表的 (index, offset)”
+ * 发布给 [register]；离开组合后自动上报 null。
+ *
+ * 不做显式注销：后来者覆盖注册位，被覆盖/已销毁的源自报 null（活性探测），
+ * 两个分支短暂并存（如 Crossfade 过渡）或旧分支晚于新分支注销都不会误清注册。
+ * 嵌套列表（“我的”页各子栏目、用户页等）用它向上注册，消灭“部分页面顶底栏
+ * 不自动隐藏”的横向不一致。
+ */
+@Composable
+fun LiveScrollSourceEffect(
+    register: (((() -> Pair<Int, Int>?)?)) -> Unit,
+    source: () -> Pair<Int, Int>
+) {
+    val alive = remember { mutableStateOf(true) }
+    val hooked = remember { { if (alive.value) source() else null } }
+    SideEffect { register(hooked) }
+    DisposableEffect(Unit) {
+        onDispose { alive.value = false }
+    }
 }
