@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Consistency sweep**: long-press multi-select (with batch favorite and
+  batch download) now also works on the user page galleries and the tag
+  search results, on the same SelectionStore as the home tabs — the tag
+  search page previously had no selection at all; tag search also joins
+  the shared grid/masonry/list view modes (it was stuck on a legacy
+  grid/list toggle), honoring the global column preference.
 - **Feedback batch**: viewing history now splits into artworks/users
   sub-tabs — artworks keep the global grid/masonry/list modes and only
   entries the user actually opened (stats warmed by author-gallery
@@ -188,6 +194,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   branches left stale scroll sources and the My-page tab never
   registered one at all. Sources are now registered per branch with
   liveness, and every nested list on the My-page tab registers itself.
+- The My-page favorites tab had no pull-to-refresh while its sibling
+  tabs did; it now uses the same paw refresh container and refresh
+  channel.
+- Last hardcoded user-visible strings localized: the My-page
+  login/empty/error states and the user page info chips (trades,
+  commissions, open/closed, views, journals) with zh-CN mirrors.
 
 ### Changed
 - **SEO / website**: meta description, Open Graph and JSON-LD structured data,

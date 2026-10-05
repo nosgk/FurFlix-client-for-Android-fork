@@ -173,6 +173,7 @@ fun ProfileScreen(
                     onNavigateToPost = onNavigateToFavoritesPost,
                     onNavigateToUser = onNavigateToUser,
                     onLoadMore = { viewModel.loadMore() },
+                    onRefresh = { viewModel.refresh() },
                     onRegisterScrollSource = onRegisterScrollSource,
                     scrollToTopTrigger = scrollToTopTrigger
                 )
@@ -244,9 +245,11 @@ private fun FavoritesContent(
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onLoadMore: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit = {},
     scrollToTopTrigger: Int = 0
 ) {
+    PawPullRefreshBox(isRefreshing = isLoading, onRefresh = onRefresh) {
     when {
         isLoading && submissions.isEmpty() -> {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -399,6 +402,7 @@ private fun FavoritesContent(
                 }
             }
         }
+    }
     }
 }
 
