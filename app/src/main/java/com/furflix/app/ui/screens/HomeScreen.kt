@@ -673,7 +673,7 @@ fun HomeScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 20.dp, top = 12.dp)
+                                        .padding(start = 20.dp, end = 20.dp, top = 12.dp)
                                 ) {
                                     Text(
                                         text = stringResource(R.string.search_presets),
