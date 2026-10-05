@@ -41,6 +41,7 @@ fun SubmissionCard(
     modifier: Modifier = Modifier,
     showTitle: Boolean = true,
     compact: Boolean = false,
+    ratio: Float = 0f,
     onAuthorClick: ((String) -> Unit)? = null
 ) {
     Card(
@@ -60,10 +61,18 @@ fun SubmissionCard(
                 RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
             var imageLoaded by remember { mutableStateOf(false) }
 
+            // Masonry passes the parsed thumbnail ratio so the card pre-sizes to
+            // the real image shape (zero jump on load); clamped so extreme
+            // artwork can't unbalance the lanes. Grid/list keep fixed ratios.
+            val displayRatio = when {
+                ratio > 0f -> ratio.coerceIn(0.45f, 2.2f)
+                compact -> 1f
+                else -> 4f / 3f
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(if (compact) 1f else 4f / 3f)
+                    .aspectRatio(displayRatio)
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)

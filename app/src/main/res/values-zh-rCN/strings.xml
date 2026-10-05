@@ -218,6 +218,7 @@
     <string name="cd_downloaded_image">已下载的图片</string>
     <string name="cd_copy">复制</string>
     <string name="cd_toggle_titles">显示/隐藏标题</string>
+    <string name="cd_toggle_view_mode">切换画廊布局</string>
     <string name="cd_settings">设置</string>
     <string name="cd_filters">筛选</string>
     <string name="cd_logout">退出登录</string>

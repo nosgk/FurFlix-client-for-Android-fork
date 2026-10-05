@@ -209,6 +209,7 @@
     <string name="cd_downloaded_image">Downloaded image</string>
     <string name="cd_copy">Copy</string>
     <string name="cd_toggle_titles">Toggle titles</string>
+    <string name="cd_toggle_view_mode">Cycle gallery layout</string>
     <string name="cd_settings">Settings</string>
     <string name="cd_filters">Filters</string>
     <string name="cd_logout">Logout</string>

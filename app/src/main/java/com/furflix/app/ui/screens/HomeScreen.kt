@@ -22,6 +22,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.Icons
@@ -49,6 +55,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -59,10 +66,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.request.ImageRequest
 import com.furflix.app.R
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.furflix.app.ui.components.SubmissionCard
+import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.ui.components.GlassmorphicBottomBar
 import com.furflix.app.ui.components.GlassBarTab
 import com.furflix.app.ui.components.FurryTabIcons
@@ -77,6 +88,9 @@ import com.furflix.app.viewmodel.MainViewModel
 import com.furflix.app.data.FA_CATEGORIES
 import com.furflix.app.data.FA_ART_TYPES
 import com.furflix.app.data.FA_GENDER_OPTIONS
+import com.furflix.app.data.model.GalleryViewMode
+import com.furflix.app.data.model.Submission
+import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.data.repository.FurRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,7 +139,7 @@ fun HomeScreen(
     // View options
     val context = LocalContext.current
     val repository = remember { FurRepository.getInstance(context) }
-    val isGrid by repository.isGridFlow.collectAsState(initial = true)
+    val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     
     var showTitles by rememberSaveable { mutableStateOf(true) }
 
@@ -145,7 +159,9 @@ fun HomeScreen(
         }
     }
 
-    val gridStates = remember { mutableMapOf<Int, LazyGridState>() }
+    // Page index → scroll-to-top action; re-registered by whichever list
+    // container (grid or staggered grid) currently owns the page.
+    val scrollers = remember { mutableMapOf<Int, suspend () -> Unit>() }
     var profileScrollToTopTrigger by remember { mutableIntStateOf(0) }
 
     val focusManager = LocalFocusManager.current
@@ -174,16 +190,42 @@ fun HomeScreen(
                     NsfwTogglePill(
                         nsfwEnabled = nsfwEnabled,
                         onToggle = { 
-                            viewModel.toggleNsfw() 
+                            viewModel.toggleNsfw()
                             coroutineScope.launch {
                                 try {
-                                    val gs = gridStates[selectedTab]
-                                    gs?.animateScrollToItem(0)
+                                    scrollers[selectedTab]?.invoke()
                                 } catch (_: Exception) {}
                             }
                         },
                         modifier = Modifier.padding(end = 8.dp)
                     )
+
+                    // Gallery layout: grid → masonry → list
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                repository.saveViewMode(
+                                    when (viewMode) {
+                                        GalleryViewMode.GRID -> GalleryViewMode.MASONRY
+                                        GalleryViewMode.MASONRY -> GalleryViewMode.LIST
+                                        GalleryViewMode.LIST -> GalleryViewMode.GRID
+                                    }
+                                )
+                            }
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = when (viewMode) {
+                                GalleryViewMode.GRID -> Icons.Default.GridView
+                                GalleryViewMode.MASONRY -> Icons.Default.Dashboard
+                                GalleryViewMode.LIST -> Icons.Default.ViewList
+                            },
+                            contentDescription = stringResource(R.string.cd_toggle_view_mode),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
 
                     // Show titles toggle
                     IconButton(onClick = { showTitles = !showTitles }, modifier = Modifier.size(36.dp)) {
@@ -308,13 +350,11 @@ fun HomeScreen(
             ) { page ->
                 when (page) {
                     0, 1 -> {
-                        val gridPadding = if (isGrid) 6.dp else 12.dp
-                        val itemSpacing = if (isGrid) 4.dp else 12.dp
-                        val compact = isGrid
+                        val isList = viewMode == GalleryViewMode.LIST
+                        val gridPadding = if (isList) 12.dp else 6.dp
+                        val itemSpacing = if (isList) 12.dp else 4.dp
+                        val compact = !isList
                         val bottomBarClearance = 120.dp
-                        val gridState = rememberLazyGridState()
-                        SideEffect { gridStates[page] = gridState }
-                        DisposableEffect(Unit) { onDispose { gridStates.keys.remove(page) } }
                         val submissions = if (page == 0) browseSubmissions else latestSubmissions
 
                         if (page == 1 && !isLoggedIn) {
@@ -371,57 +411,141 @@ fun HomeScreen(
                                 }
                             }
                         } else {
-                            LazyVerticalGrid(
-                                modifier = Modifier.fillMaxSize(),
-                                columns = GridCells.Fixed(if (isGrid) 2 else 1),
-                                state = gridState,
-                                contentPadding = PaddingValues(
-                                    start = gridPadding,
-                                    end = gridPadding,
-                                    top = gridPadding,
-                                    bottom = gridPadding + bottomBarClearance
-                                ),
-                                horizontalArrangement = Arrangement.spacedBy(itemSpacing),
-                                verticalArrangement = Arrangement.spacedBy(itemSpacing)
-                            ) {
-                                items(
-                                    items = submissions,
-                                    key = { it.id }
-                                ) { submission ->
-                                    SubmissionCard(
-                                        submission = submission,
-                                        onClick = { onNavigateToPost(submission.id) },
-                                        showTitle = showTitles,
-                                        compact = compact,
-                                        onAuthorClick = { onNavigateToUser(it) }
-                                    )
-                                }
+                            if (viewMode == GalleryViewMode.MASONRY) {
+                                val staggeredState = rememberLazyStaggeredGridState()
+                                SideEffect { scrollers[page] = { staggeredState.animateScrollToItem(0) } }
+                                DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
+                                LazyVerticalStaggeredGrid(
+                                    columns = StaggeredGridCells.Fixed(2),
+                                    state = staggeredState,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(
+                                        start = gridPadding,
+                                        end = gridPadding,
+                                        top = gridPadding,
+                                        bottom = gridPadding + bottomBarClearance
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                                    verticalArrangement = Arrangement.spacedBy(itemSpacing)
+                                ) {
+                                    staggeredItems(
+                                        items = submissions,
+                                        key = { it.id }
+                                    ) { submission ->
+                                        SubmissionCard(
+                                            submission = submission,
+                                            onClick = { onNavigateToPost(submission.id) },
+                                            showTitle = showTitles,
+                                            compact = compact,
+                                            ratio = submission.thumbnailWidthOnHeightRatio,
+                                            onAuthorClick = { onNavigateToUser(it) }
+                                        )
+                                    }
 
-                                if (isLoadingMore) {
-                                    item {
-                                        LoadingMoreFooter()
+                                    if (isLoadingMore) {
+                                        item(span = StaggeredGridItemSpan.FullLine) {
+                                            LoadingMoreFooter()
+                                        }
                                     }
                                 }
-                            }
 
-                            LaunchedEffect(gridState) {
-                                snapshotFlow {
-                                    val lastVisibleItem = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                                    val totalItems = gridState.layoutInfo.totalItemsCount
-                                    lastVisibleItem >= totalItems - (if (isGrid) 6 else 3)
-                                }.collect { shouldLoadMore ->
-                                    if (shouldLoadMore && !isLoadingMore && submissions.isNotEmpty()) {
-                                        viewModel.loadMore()
+                                LaunchedEffect(staggeredState) {
+                                    snapshotFlow {
+                                        val lastVisibleItem = staggeredState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
+                                        val totalItems = staggeredState.layoutInfo.totalItemsCount
+                                        lastVisibleItem >= totalItems - (if (compact) 6 else 3)
+                                    }.collect { shouldLoadMore ->
+                                        if (shouldLoadMore && !isLoadingMore && submissions.isNotEmpty()) {
+                                            viewModel.loadMore()
+                                        }
+                                    }
+                                }
+
+                                MasonryPrefetchEffect(
+                                    submissions = submissions,
+                                    active = selectedTab == page
+                                )
+                            } else {
+                                val gridState = rememberLazyGridState()
+                                SideEffect { scrollers[page] = { gridState.animateScrollToItem(0) } }
+                                DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
+                                LazyVerticalGrid(
+                                    modifier = Modifier.fillMaxSize(),
+                                    columns = GridCells.Fixed(if (isList) 1 else 2),
+                                    state = gridState,
+                                    contentPadding = PaddingValues(
+                                        start = gridPadding,
+                                        end = gridPadding,
+                                        top = gridPadding,
+                                        bottom = gridPadding + bottomBarClearance
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                                    verticalArrangement = Arrangement.spacedBy(itemSpacing)
+                                ) {
+                                    items(
+                                        items = submissions,
+                                        key = { it.id }
+                                    ) { submission ->
+                                        SubmissionCard(
+                                            submission = submission,
+                                            onClick = { onNavigateToPost(submission.id) },
+                                            showTitle = showTitles,
+                                            compact = compact,
+                                            onAuthorClick = { onNavigateToUser(it) }
+                                        )
+                                    }
+
+                                    if (isLoadingMore) {
+                                        item {
+                                            LoadingMoreFooter()
+                                        }
+                                    }
+                                }
+
+                                LaunchedEffect(gridState) {
+                                    snapshotFlow {
+                                        val lastVisibleItem = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                        val totalItems = gridState.layoutInfo.totalItemsCount
+                                        lastVisibleItem >= totalItems - (if (compact) 6 else 3)
+                                    }.collect { shouldLoadMore ->
+                                        if (shouldLoadMore && !isLoadingMore && submissions.isNotEmpty()) {
+                                            viewModel.loadMore()
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                     2 -> {
+                        val isList = viewMode == GalleryViewMode.LIST
+                        val isMasonry = viewMode == GalleryViewMode.MASONRY
+                        val gridPadding = if (isList) 12.dp else 6.dp
+                        val itemSpacing = if (isList) 12.dp else 4.dp
                         val searchGridState = rememberLazyGridState()
+                        val searchStaggeredState = rememberLazyStaggeredGridState()
                         var isHeaderVisible by remember { mutableStateOf(true) }
-                        
-                        LaunchedEffect(searchGridState) {
+
+                        // Header visibility tracks whichever list owns the scroll.
+                        LaunchedEffect(searchStaggeredState, viewMode) {
+                            if (!isMasonry) return@LaunchedEffect
+                            var prevOffset = searchStaggeredState.firstVisibleItemScrollOffset
+                            var prevIndex = searchStaggeredState.firstVisibleItemIndex
+                            snapshotFlow { searchStaggeredState.firstVisibleItemScrollOffset to searchStaggeredState.firstVisibleItemIndex }
+                                .collect { (offset, index) ->
+                                    if (index == 0 && offset < 50) {
+                                        isHeaderVisible = true
+                                    } else {
+                                        val dy = if (index == prevIndex) offset - prevOffset else if (index > prevIndex) 100 else -100
+                                        if (dy > 15) isHeaderVisible = false
+                                        else if (dy < -15) isHeaderVisible = true
+                                    }
+                                    prevOffset = offset
+                                    prevIndex = index
+                                }
+                        }
+
+                        LaunchedEffect(searchGridState, viewMode) {
+                            if (isMasonry) return@LaunchedEffect
                             var prevOffset = searchGridState.firstVisibleItemScrollOffset
                             var prevIndex = searchGridState.firstVisibleItemIndex
                             snapshotFlow { searchGridState.firstVisibleItemScrollOffset to searchGridState.firstVisibleItemIndex }
@@ -661,45 +785,95 @@ fun HomeScreen(
                                 }
                             }
                         } else {
-                            SideEffect { gridStates[2] = searchGridState }
-                            DisposableEffect(Unit) { onDispose { gridStates.keys.remove(2) } }
-                            LazyVerticalGrid(
-                                modifier = Modifier.fillMaxSize(),
-                                columns = GridCells.Fixed(if (isGrid) 2 else 1),
-                                state = searchGridState,
-                                contentPadding = PaddingValues(
-                                    start = if (isGrid) 6.dp else 12.dp,
-                                    end = if (isGrid) 6.dp else 12.dp,
-                                    top = if (isGrid) 6.dp else 12.dp,
-                                    bottom = (if (isGrid) 6.dp else 12.dp) + 120.dp
-                                ),
-                                horizontalArrangement = Arrangement.spacedBy(if (isGrid) 4.dp else 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(if (isGrid) 4.dp else 12.dp)
-                            ) {
-                                items(
-                                    items = searchSubmissions,
-                                    key = { it.id }
-                                ) { submission ->
-                                    SubmissionCard(
-                                        submission = submission,
-                                        onClick = { onNavigateToPost(submission.id) },
-                                        showTitle = showTitles,
-                                        compact = isGrid,
-                                        onAuthorClick = { onNavigateToUser(it) }
-                                    )
+                            if (isMasonry) {
+                                SideEffect { scrollers[2] = { searchStaggeredState.animateScrollToItem(0) } }
+                                DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
+                                LazyVerticalStaggeredGrid(
+                                    columns = StaggeredGridCells.Fixed(2),
+                                    state = searchStaggeredState,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(
+                                        start = gridPadding,
+                                        end = gridPadding,
+                                        top = gridPadding,
+                                        bottom = gridPadding + 120.dp
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                                    verticalArrangement = Arrangement.spacedBy(itemSpacing)
+                                ) {
+                                    staggeredItems(
+                                        items = searchSubmissions,
+                                        key = { it.id }
+                                    ) { submission ->
+                                        SubmissionCard(
+                                            submission = submission,
+                                            onClick = { onNavigateToPost(submission.id) },
+                                            showTitle = showTitles,
+                                            compact = true,
+                                            ratio = submission.thumbnailWidthOnHeightRatio,
+                                            onAuthorClick = { onNavigateToUser(it) }
+                                        )
+                                    }
+                                    if (isLoadingMore) {
+                                        item(span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
+                                    }
                                 }
-                                if (isLoadingMore) {
-                                    item { LoadingMoreFooter() }
+                                LaunchedEffect(searchStaggeredState) {
+                                    snapshotFlow {
+                                        val lastVisibleItem = searchStaggeredState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
+                                        val totalItems = searchStaggeredState.layoutInfo.totalItemsCount
+                                        lastVisibleItem >= totalItems - (if (isList) 3 else 6)
+                                    }.collect { shouldLoadMore ->
+                                        if (shouldLoadMore && !isLoadingMore && searchSubmissions.isNotEmpty()) {
+                                            viewModel.loadMore()
+                                        }
+                                    }
                                 }
-                            }
-                            LaunchedEffect(searchGridState) {
-                                snapshotFlow {
-                                    val lastVisibleItem = searchGridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                                    val totalItems = searchGridState.layoutInfo.totalItemsCount
-                                    lastVisibleItem >= totalItems - (if (isGrid) 6 else 3)
-                                }.collect { shouldLoadMore ->
-                                    if (shouldLoadMore && !isLoadingMore && searchSubmissions.isNotEmpty()) {
-                                        viewModel.loadMore()
+                                MasonryPrefetchEffect(
+                                    submissions = searchSubmissions,
+                                    active = selectedTab == 2
+                                )
+                            } else {
+                                SideEffect { scrollers[2] = { searchGridState.animateScrollToItem(0) } }
+                                DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
+                                LazyVerticalGrid(
+                                    modifier = Modifier.fillMaxSize(),
+                                    columns = GridCells.Fixed(if (isList) 1 else 2),
+                                    state = searchGridState,
+                                    contentPadding = PaddingValues(
+                                        start = gridPadding,
+                                        end = gridPadding,
+                                        top = gridPadding,
+                                        bottom = gridPadding + 120.dp
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                                    verticalArrangement = Arrangement.spacedBy(itemSpacing)
+                                ) {
+                                    items(
+                                        items = searchSubmissions,
+                                        key = { it.id }
+                                    ) { submission ->
+                                        SubmissionCard(
+                                            submission = submission,
+                                            onClick = { onNavigateToPost(submission.id) },
+                                            showTitle = showTitles,
+                                            compact = !isList,
+                                            onAuthorClick = { onNavigateToUser(it) }
+                                        )
+                                    }
+                                    if (isLoadingMore) {
+                                        item { LoadingMoreFooter() }
+                                    }
+                                }
+                                LaunchedEffect(searchGridState) {
+                                    snapshotFlow {
+                                        val lastVisibleItem = searchGridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                        val totalItems = searchGridState.layoutInfo.totalItemsCount
+                                        lastVisibleItem >= totalItems - (if (isList) 3 else 6)
+                                    }.collect { shouldLoadMore ->
+                                        if (shouldLoadMore && !isLoadingMore && searchSubmissions.isNotEmpty()) {
+                                            viewModel.loadMore()
+                                        }
                                     }
                                 }
                             }
@@ -711,7 +885,7 @@ fun HomeScreen(
                             watchlistViewModel.refreshIfNeeded()
                         }
                         ProfileScreen(
-                            isGrid = isGrid,
+                            isGrid = viewMode != GalleryViewMode.LIST,
                             onNavigateToUser = onNavigateToUser,
                             onNavigateToPost = onNavigateToPost,
                             onNavigateToFavoritesPost = onNavigateToFavoritesPost,
@@ -755,19 +929,11 @@ fun HomeScreen(
                     hazeState = hazeState,
                     onTabSelected = { index ->
                         if (selectedTab == index) {
-                            when (index) {
-                                2 -> {
-                                    coroutineScope.launch {
-                                        val gs: LazyGridState? = gridStates[2]
-                                        gs?.animateScrollToItem(0)
-                                    }
-                                }
-                                3 -> profileScrollToTopTrigger++
-                                else -> {
-                                    coroutineScope.launch {
-                                        val gs: LazyGridState? = gridStates[index]
-                                        gs?.animateScrollToItem(0)
-                                    }
+                            if (index == 3) {
+                                profileScrollToTopTrigger++
+                            } else {
+                                coroutineScope.launch {
+                                    try { scrollers[index]?.invoke() } catch (_: Exception) {}
                                 }
                             }
                         } else {
@@ -1471,3 +1637,41 @@ fun NsfwTogglePill(
     }
 }
 
+
+/**
+ * Warms Coil's caches for the first screenful of masonry cards. Masonry is the
+ * only mode whose image URLs differ from what the cards request themselves
+ * (tier-negotiated thumbnails), so prefetching elsewhere would just duplicate
+ * in-flight requests. Runs only for the selected tab: the HorizontalPager
+ * pre-composes the adjacent page, which would otherwise double the traffic.
+ * Coil 3 dropped the request-priority API, so "first screen first" is
+ * expressed by executing the first three requests before enqueueing the rest.
+ */
+@Composable
+private fun MasonryPrefetchEffect(
+    submissions: List<Submission>,
+    active: Boolean
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    LaunchedEffect(submissions, active) {
+        if (!active || submissions.isEmpty()) return@LaunchedEffect
+        val dm = context.resources.displayMetrics
+        val laneWidthPx = ((dm.widthPixels - with(density) { 16.dp.toPx() }) / 2f).coerceAtLeast(200f)
+        val loader = ImageLoaderFactory.getInstance(context)
+        val requests = submissions.take(24).mapNotNull { sub ->
+            val ratio = sub.thumbnailWidthOnHeightRatio
+            if (ratio <= 0f || sub.thumbnailUrl.isEmpty()) return@mapNotNull null
+            val heightPx = laneWidthPx / ratio
+            val negotiated = DynamicThumbnail(sub.thumbnailUrl).bestThumbnailUrl(laneWidthPx, heightPx)
+            ImageRequest.Builder(context)
+                .data(negotiated)
+                .size(laneWidthPx.toInt(), heightPx.toInt())
+                .build()
+        }
+        coroutineScope {
+            requests.take(3).map { request -> launch { runCatching { loader.execute(request) } } }.joinAll()
+            requests.drop(3).forEach { request -> launch { runCatching { loader.execute(request) } } }
+        }
+    }
+}
