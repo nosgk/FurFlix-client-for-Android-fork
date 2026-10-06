@@ -63,10 +63,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
+import android.content.ClipData
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -1321,7 +1322,8 @@ private fun TagsSection(
             val entry = entries[index]
             val chipState by entry.state.collectAsStateWithLifecycle()
             val context = LocalContext.current
-            val clipboard = LocalClipboardManager.current
+            val clipboard = LocalClipboard.current
+            val copyScope = rememberCoroutineScope()
             val haptic = LocalHapticFeedback.current
             val copiedToast = stringResource(R.string.toast_tag_copied)
             val savedToast = stringResource(R.string.toast_preset_saved)
@@ -1399,7 +1401,9 @@ private fun TagsSection(
                         text = { Text(stringResource(R.string.tag_action_copy)) },
                         onClick = {
                             menuOpen = false
-                            clipboard.setText(AnnotatedString(tag))
+                            copyScope.launch {
+                                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("furflix_tag", tag)))
+                            }
                             Toast.makeText(context, copiedToast, Toast.LENGTH_SHORT).show()
                         }
                     )

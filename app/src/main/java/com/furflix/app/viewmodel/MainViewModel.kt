@@ -789,6 +789,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    @OptIn(coil3.annotation.DelicateCoilApi::class)
     fun clearImageCache() {
         viewModelScope.launch(Dispatchers.IO) {
             _isClearingCache.value = true

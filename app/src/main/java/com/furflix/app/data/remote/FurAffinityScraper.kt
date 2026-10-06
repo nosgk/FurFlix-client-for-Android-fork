@@ -162,7 +162,7 @@ object FurAffinityScraper {
             }
 
             val response = httpClient.newCall(reqBuilder.build()).execute()
-            val html = response.body?.string() ?: ""
+            val html = response.body.string()
             val finalUrl = response.request.url.toString()
 
             Log.d("FurScraper", "POST Status=${response.code}, finalUrl=$finalUrl, len=${html.length}")
@@ -190,7 +190,7 @@ object FurAffinityScraper {
             }
 
             val response = httpClient.newCall(reqBuilder.build()).execute()
-            val html = response.body?.string() ?: ""
+            val html = response.body.string()
             val finalUrl = response.request.url.toString()
 
             Log.d("FurScraper", "Status=${response.code}, finalUrl=$finalUrl, len=${html.length}")
@@ -264,8 +264,8 @@ object FurAffinityScraper {
             val getResp = loginClient.newCall(
                 Request.Builder().url("$FA_BASE/login/").header("User-Agent", USER_AGENT).build()
             ).execute()
-            val html = getResp.body?.string()
-                ?: return@withContext Result.failure(Exception("Empty response"))
+            val html = getResp.body.string()
+            if (html.isEmpty()) return@withContext Result.failure(Exception("Empty response"))
 
             val doc = Jsoup.parse(html)
             val csrfToken = doc.selectFirst("input[name=\"csrf_token\"]")?.attr("value") ?: ""
@@ -291,7 +291,7 @@ object FurAffinityScraper {
                     .build()
             ).execute()
 
-            val respHtml = postResp.body?.string() ?: ""
+            val respHtml = postResp.body.string()
             val respUrl = postResp.request.url.toString()
 
             if (respUrl.contains("login") &&
@@ -1201,7 +1201,7 @@ object FurAffinityScraper {
             .build()
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) throw Exception("Failed to load profile: ${response.code}")
-        val html = response.body?.string() ?: ""
+        val html = response.body.string()
         val doc = org.jsoup.Jsoup.parse(html)
 
         // iOS approach: look for the watch/unwatch button in userpage-nav-interface-buttons
@@ -1416,7 +1416,7 @@ object FurAffinityScraper {
         val finalUrl = response.request.url.toString()
         Log.d("FurScraper", "getWatchlistBy: status=${response.code}, finalUrl=$finalUrl")
         if (!response.isSuccessful) throw Exception("Failed to load watchlist/by: ${response.code}")
-        val html = response.body?.string() ?: ""
+        val html = response.body.string()
         Log.d("FurScraper", "getWatchlistBy: htmlLen=${html.length}")
         if (finalUrl.contains("/login")) {
             Log.w("FurScraper", "getWatchlistBy: redirected to login page, session likely expired")
@@ -1451,7 +1451,7 @@ object FurAffinityScraper {
         val finalUrl = response.request.url.toString()
         Log.d("FurScraper", "getWatchlistTo: status=${response.code}, finalUrl=$finalUrl")
         if (!response.isSuccessful) throw Exception("Failed to load watchlist/to: ${response.code}")
-        val html = response.body?.string() ?: ""
+        val html = response.body.string()
         Log.d("FurScraper", "getWatchlistTo: htmlLen=${html.length}")
         if (finalUrl.contains("/login")) {
             Log.w("FurScraper", "getWatchlistTo: redirected to login page, session likely expired")

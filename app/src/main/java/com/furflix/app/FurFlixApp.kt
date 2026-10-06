@@ -6,6 +6,7 @@ import com.furflix.app.data.remote.FurAffinityScraper
 import com.furflix.app.ui.components.ImageLoaderFactory
 
 class FurFlixApp : Application() {
+    @OptIn(coil3.annotation.DelicateCoilApi::class)
     override fun onCreate() {
         super.onCreate()
         instance = this

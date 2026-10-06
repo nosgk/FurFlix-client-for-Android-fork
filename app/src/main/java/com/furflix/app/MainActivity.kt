@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     /** 外部 VIEW intent 与剪贴板弹窗共用的链接事件通道（NavGraph 消费后置回 null） */
     private val deepLinkUri = MutableStateFlow<Uri?>(null)
 
+    @OptIn(coil3.annotation.DelicateCoilApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)

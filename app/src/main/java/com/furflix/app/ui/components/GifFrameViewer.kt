@@ -1,3 +1,7 @@
+// android.graphics.Movie 自 API 28 起标记弃用,但仍是框架内唯一支持按帧 setTime 的
+// GIF 解码器;自研逐帧播放器(逐帧步进/暂停)有意依赖,整文件压制弃用告警。
+@file:Suppress("DEPRECATION")
+
 package com.furflix.app.ui.components
 
 import android.content.ContentValues

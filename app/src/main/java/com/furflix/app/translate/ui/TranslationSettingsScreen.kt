@@ -26,7 +26,7 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GTranslate
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Speed
@@ -263,7 +263,7 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
                 )
                 CardDivider()
                 SelectRow(
-                    icon = Icons.Default.MenuBook,
+                    icon = Icons.AutoMirrored.Filled.MenuBook,
                     title = stringResource(R.string.translation_story_granularity),
                     current = stringResource(
                         if (prefs.storyGranularity == StoryGranularity.SENTENCE) {
@@ -359,7 +359,7 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
     if (showGranularityDialog) {
         SelectionDialog(
             title = stringResource(R.string.translation_story_granularity),
-            icon = Icons.Default.MenuBook,
+            icon = Icons.AutoMirrored.Filled.MenuBook,
             options = listOf(
                 DialogOption(StoryGranularity.PARAGRAPH, stringResource(R.string.story_granularity_paragraph)),
                 DialogOption(StoryGranularity.SENTENCE, stringResource(R.string.story_granularity_sentence)),
@@ -407,7 +407,7 @@ private val TranslationCategory.icon: ImageVector
         TranslationCategory.TAG -> Icons.Default.Pets
         TranslationCategory.COMMENT -> Icons.Default.GTranslate
         TranslationCategory.USER_PROFILE -> Icons.Default.Public
-        TranslationCategory.JOURNAL -> Icons.Default.MenuBook
+        TranslationCategory.JOURNAL -> Icons.AutoMirrored.Filled.MenuBook
     }
 
 @Composable

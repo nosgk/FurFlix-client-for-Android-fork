@@ -324,7 +324,7 @@ class TranslationService private constructor(private val context: Context) {
             withContext(Dispatchers.IO) {
                 clientFor(config.timeoutSeconds).newCall(builder.build()).execute().use { resp ->
                     val status = resp.code
-                    val respBody = resp.body?.string().orEmpty()
+                    val respBody = resp.body.string()
                     val respHeaders = resp.headers.names().map { it to resp.header(it).orEmpty() }
                     val base = TranslationProbeResult(
                         ok = false,
