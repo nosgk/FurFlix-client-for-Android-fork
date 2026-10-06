@@ -423,9 +423,12 @@ private fun MyFavoritesContent(
     PawPullRefreshBox(isRefreshing = isLoading, onRefresh = onRefresh) {
     when {
         isLoading && submissions.isEmpty() -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
+            // 首屏骨架：与目标视图同构占位
+            com.furflix.app.ui.components.GallerySkeletonPlaceholder(
+                viewMode = viewMode,
+                gridColumnsPref = columnsPref,
+                modifier = Modifier.fillMaxSize()
+            )
         }
         errorMessage != null && submissions.isEmpty() -> {
             EmptyState(message = errorMessage, icon = Icons.Default.ErrorOutline)
@@ -480,7 +483,7 @@ private fun MyFavoritesContent(
                                     showTitle = showTitles,
                                     compact = true,
                                     ratio = submission.thumbnailWidthOnHeightRatio,
-                                    stats = cardStats[submission.id],
+                                    stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                                     forceFavorited = true,
                                     selectionActive = selectionActive,
                                     isSelected = selectionActive && selectedIds.contains(submission.id),
@@ -536,7 +539,7 @@ private fun MyFavoritesContent(
                                 },
                                 showTitle = showTitles,
                                 compact = true,
-                                stats = cardStats[submission.id],
+                                stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                                 forceFavorited = true,
                                 selectionActive = selectionActive,
                                 isSelected = selectionActive && selectedIds.contains(submission.id),
@@ -585,7 +588,7 @@ private fun MyFavoritesContent(
                                     }
                                 },
                                 showTitle = showTitles,
-                                stats = cardStats[submission.id],
+                                stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                                 forceFavorited = true,
                                 selectionActive = selectionActive,
                                 isSelected = selectionActive && selectedIds.contains(submission.id),
@@ -801,7 +804,7 @@ private fun HistorySubmissionsContent(
                             showTitle = showTitles,
                             compact = true,
                             ratio = submission.thumbnailWidthOnHeightRatio,
-                            stats = cardStats[submission.id],
+                            stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                             forceFavorited = submission.isFavorited,
                             selectionActive = selectionActive,
                             isSelected = selectionActive && selectedIds.contains(submission.id),
@@ -840,7 +843,7 @@ private fun HistorySubmissionsContent(
                             },
                             showTitle = showTitles,
                             compact = true,
-                            stats = cardStats[submission.id],
+                            stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                             forceFavorited = submission.isFavorited,
                             selectionActive = selectionActive,
                             isSelected = selectionActive && selectedIds.contains(submission.id),
@@ -876,7 +879,7 @@ private fun HistorySubmissionsContent(
                                 }
                             },
                             showTitle = showTitles,
-                            stats = cardStats[submission.id],
+                            stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                             forceFavorited = submission.isFavorited,
                             selectionActive = selectionActive,
                             isSelected = selectionActive && selectedIds.contains(submission.id),

@@ -168,8 +168,15 @@ fun SubmissionCard(
                     DynamicThumbnail(submission.thumbnailUrl)
                         .bestThumbnailUrl(boxWidthPx, boxWidthPx / displayRatio, quality)
                 }
-                // 统计浮层只对本地已知的帖子显示（详情页回填）；收藏 tab 整页实心心形
-                val showStats = stats != null || forceFavorited
+                // 统计浮层：类型徽标即时显示（列表页 figure 的 t-* class 直填
+                // submission.fileType，零请求），收藏/浏览/评论计数由统计预热
+                // 回填后点亮；收藏 tab 整页实心心形
+                val instantTypeLabel = when (submission.fileType) {
+                    "Image" -> "IMG"
+                    "" -> ""
+                    else -> submission.fileType.uppercase().take(6)
+                }
+                val showStats = stats != null || forceFavorited || instantTypeLabel.isNotEmpty()
                 // 失败自动重试 3 次；耗尽后小浮层显示错误码与重试
                 val retryState = rememberRetryImageState(displayUrl)
                 AsyncImage(
@@ -332,21 +339,22 @@ fun SubmissionCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val favorited = forceFavorited || (stats?.favorited ?: false)
-                        // 文件类型徽标：扩展名优先（JPG/GIF/SWF/TXT/MP3…），无后缀回落 FA Type 文本
-                        stats?.let { s ->
-                            val typeLabel = s.fileExt.ifEmpty { s.fileType }.uppercase().take(6)
-                            if (typeLabel.isNotEmpty()) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color.Black.copy(alpha = 0.45f)
-                                ) {
-                                    Text(
-                                        text = typeLabel,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White.copy(alpha = 0.85f)
-                                    )
-                                }
+                        // 文件类型徽标：统计回填后扩展名优先（JPG/GIF/SWF/TXT/MP3…），
+                        // 回填前用列表页即时类型占位，两段式点亮无突兀跳变
+                        val typeLabel = stats?.let { s ->
+                            s.fileExt.ifEmpty { s.fileType }.uppercase().take(6)
+                        } ?: instantTypeLabel
+                        if (typeLabel.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color.Black.copy(alpha = 0.45f)
+                            ) {
+                                Text(
+                                    text = typeLabel,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.85f)
+                                )
                             }
                         }
                         Icon(
@@ -503,4 +511,17 @@ private fun StatChip(
             color = color
         )
     }
+}
+
+/**
+ * 卡片统计查找的重组去重：cardStats 整表热流每次批量回填都换新 map 实例，
+ * 直接在 Lazy 网格 item 里读 map 会让所有可见卡片跟着整表重组——滚动预热
+ * 期间的成片重组正是"后续项加载迟缓"的主观感受来源之一。这里按 id 用
+ * derivedStateOf 提取，仅当该卡自己的统计真正变化时才触发下游重组。
+ * 所有画廊列表页的 stats = cardStats[id] 取数必须走本函数。
+ */
+@Composable
+fun rememberCardStats(statsMap: Map<String, CardStats>, id: String): CardStats? {
+    val latest by androidx.compose.runtime.rememberUpdatedState(statsMap)
+    return remember(id) { androidx.compose.runtime.derivedStateOf { latest[id] } }.value
 }

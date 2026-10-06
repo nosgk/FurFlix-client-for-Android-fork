@@ -121,4 +121,32 @@ class SearchFormBuilderTest {
         val map = SearchFilters(genders = listOf("male", "female")).toBrowseQueryMap()
         assertEquals("male", map["gender"])
     }
+
+    @Test
+    fun `fa search url mirrors the canonical GET form`() {
+        val url = SearchFilters().toFaSearchUrl("cat")
+        assertTrue(url.startsWith("https://www.furaffinity.net/search/?"))
+        val keys = url.substringAfter("?").split("&").map { it.substringBefore("=") }
+        assertEquals(
+            listOf(
+                "q", "page", "perpage", "order-by", "order-direction",
+                "rating-general", "rating-mature", "rating-adult",
+                "type-art", "type-flash", "type-photo", "type-music", "type-story", "type-poetry",
+                "range", "mode"
+            ),
+            keys
+        )
+        assertTrue(url.contains("perpage=72"))
+        assertTrue(url.contains("q=cat"))
+    }
+
+    @Test
+    fun `fa search url encodes keywords group and gender terms`() {
+        // URLEncoder：空格 → "+"，"@" → "%40"
+        val url = SearchFilters(genders = listOf("male")).toFaSearchUrl("cat")
+        assertTrue(url.contains("q=cat+%40keywords+male"))
+        // perpage 越界钳制同步生效
+        val clamped = SearchFilters(perpage = 999).toFaSearchUrl("")
+        assertTrue(clamped.contains("perpage=72"))
+    }
 }

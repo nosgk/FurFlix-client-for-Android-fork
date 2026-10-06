@@ -482,20 +482,22 @@ fun HomeScreen(
                                 viewModel = viewModel
                             )
                         } else if (isLoading && submissions.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                                    if (!isLoggedIn) {
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        Text(
-                                            text = stringResource(R.string.home_not_logged_in),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                            // 首屏骨架：与目标网格同构占位，加载完成零跳动
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                com.furflix.app.ui.components.GallerySkeletonPlaceholder(
+                                    viewMode = viewMode,
+                                    gridColumnsPref = gridColumnsPref,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                if (!isLoggedIn) {
+                                    Text(
+                                        text = stringResource(R.string.home_not_logged_in),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .padding(bottom = 24.dp)
+                                    )
                                 }
                             }
                         } else if (errorMessage != null && submissions.isEmpty()) {
@@ -520,10 +522,13 @@ fun HomeScreen(
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Button(
-                                        onClick = { viewModel.clearError() },
+                                        onClick = {
+                                            viewModel.clearError()
+                                            if (page == 0) viewModel.loadBrowse() else viewModel.loadLatest()
+                                        },
                                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
-                                        Text(stringResource(R.string.action_ok))
+                                        Text(stringResource(R.string.action_retry))
                                     }
                                 }
                             }
@@ -571,7 +576,7 @@ fun HomeScreen(
                                             showTitle = showTitles,
                                             compact = compact,
                                             ratio = submission.thumbnailWidthOnHeightRatio,
-                                            stats = cardStats[submission.id],
+                                            stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                                             onAuthorClick = { onNavigateToUser(it) }
                                         )
                                     }
@@ -646,7 +651,7 @@ fun HomeScreen(
                 onLongClick = { SelectionStore.toggle(pageSource, submission.id) },
                                             showTitle = showTitles,
                                             compact = compact,
-                                            stats = cardStats[submission.id],
+                                            stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                                             onAuthorClick = { onNavigateToUser(it) }
                                         )
                                     }
@@ -768,7 +773,7 @@ fun HomeScreen(
                                     tagSuggestions = tagSuggestions,
                                     onTypingWordChanged = { viewModel.fetchTagSuggestions(it) },
                                     onSearch = { query ->
-                                        // 粘贴 FA 链接直达：作品/用户页，不进搜索
+                                        // 粘贴 FA 链接直达：作品/用户/搜索页，搜索链不进普通搜索
                                         when (val link = com.furflix.app.data.remote.parseFaLink(query)) {
                                             is com.furflix.app.data.remote.FaLink.Submission -> {
                                                 focusManager.clearFocus()
@@ -777,6 +782,11 @@ fun HomeScreen(
                                             is com.furflix.app.data.remote.FaLink.User -> {
                                                 focusManager.clearFocus()
                                                 onNavigateToUser(link.username)
+                                            }
+                                            is com.furflix.app.data.remote.FaLink.Search -> {
+                                                focusManager.clearFocus()
+                                                viewModel.loadSearch(link.query, link.filters)
+                                                showFilters = false
                                             }
                                             null -> {
                                                 viewModel.updateSearchFilters(draftFilters)
@@ -1027,14 +1037,12 @@ fun HomeScreen(
                                 }
                             }
                         } else if (isLoading && searchSubmissions.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                                }
-                            }
+                            // 首屏骨架：按搜索结果四视图同构占位
+                            com.furflix.app.ui.components.SearchSkeletonPlaceholder(
+                                view = searchView,
+                                gridColumnsPref = gridColumnsPref,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         } else if (errorMessage != null && searchSubmissions.isEmpty()) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -1057,10 +1065,13 @@ fun HomeScreen(
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Button(
-                                        onClick = { viewModel.clearError() },
+                                        onClick = {
+                                            viewModel.clearError()
+                                            viewModel.loadSearch(searchQuery)
+                                        },
                                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
-                                        Text(stringResource(R.string.action_ok))
+                                        Text(stringResource(R.string.action_retry))
                                     }
                                 }
                             }
@@ -1112,7 +1123,7 @@ fun HomeScreen(
                                             showTitle = searchShowTitles,
                                             compact = true,
                                             ratio = submission.thumbnailWidthOnHeightRatio,
-                                            stats = cardStats[submission.id],
+                                            stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                                             onAuthorClick = { onNavigateToUser(it) }
                                         )
                                     }
@@ -1181,7 +1192,7 @@ fun HomeScreen(
                 onLongClick = { SelectionStore.toggle(pageSource, submission.id) },
                                             showTitle = searchShowTitles,
                                             compact = !isList,
-                                            stats = cardStats[submission.id],
+                                            stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                                             onAuthorClick = { onNavigateToUser(it) }
                                         )
                                     }

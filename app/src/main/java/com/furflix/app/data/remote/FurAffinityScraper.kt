@@ -969,6 +969,18 @@ object FurAffinityScraper {
                 else -> "General"
             }
 
+            // 类型 class 直填（2026-10-07 实测词表：t-image/t-text/t-audio/t-flash），
+            // 卡片浮层的类型徽标零请求即时点亮，统计预热后再被详情侧 fileExt 精化
+            val fileType = when {
+                figClass.contains("t-audio") -> "Music"
+                figClass.contains("t-flash") -> "Flash"
+                figClass.contains("t-story") -> "Story"
+                figClass.contains("t-poetry") -> "Poetry"
+                figClass.contains("t-text") -> "Text"
+                figClass.contains("t-image") -> "Image"
+                else -> ""
+            }
+
             Submission(
                 id = id,
                 title = title,
@@ -979,7 +991,8 @@ object FurAffinityScraper {
                 rating = rating,
                 favorites = 0,
                 comments = 0,
-                views = 0
+                views = 0,
+                fileType = fileType
             )
         } catch (e: Exception) {
             null

@@ -73,13 +73,22 @@ fun FurFlixNavGraph(
     val mainViewModel: MainViewModel = viewModel()
     val watchlistViewModel: com.furflix.app.viewmodel.WatchlistViewModel = viewModel()
 
-    // 外部链接分发：作品/用户页直达（parseFaLink 与剪贴板、搜索框共用）
+    // 外部链接分发：作品/用户页/搜索页直达（parseFaLink 与剪贴板、搜索框共用）
     val pendingDeepLink by deepLinkUri.collectAsState()
     LaunchedEffect(pendingDeepLink) {
         val uri = pendingDeepLink ?: return@LaunchedEffect
         when (val link = parseFaLink(uri.toString())) {
             is FaLink.Submission -> navController.navigate(Routes.postDetail(link.id, "main"))
             is FaLink.User -> navController.navigate(Routes.userProfile(link.username))
+            is FaLink.Search -> {
+                // URL→状态双向同步的一半：深链筛选参数已白名单钳制，
+                // 原子替换 (查询词, 筛选) 并切到搜索 tab 执行
+                if (navController.currentDestination?.route != Routes.HOME) {
+                    navController.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } }
+                }
+                mainViewModel.setSelectedTab(MainViewModel.TAB_SEARCH)
+                mainViewModel.loadSearch(link.query, link.filters)
+            }
             null -> Unit
         }
         deepLinkUri.value = null

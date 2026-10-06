@@ -11,6 +11,7 @@
     <string name="action_cancel">Cancel</string>
     <string name="action_back">Back</string>
     <string name="action_favorite">Favorite</string>
+    <string name="action_retry">Retry</string>
 
     <!-- Content descriptions -->
     <string name="cd_download">Download</string>
@@ -20,6 +21,10 @@
     <string name="cd_search_view_large">Large grid view</string>
     <string name="cd_search_view_list">List view</string>
     <string name="cd_site_banner">Fur Affinity daily banner</string>
+    <string name="cd_copy_search_link">Copy current search as Fur Affinity link</string>
+
+    <!-- Search states -->
+    <string name="toast_search_link_copied">Search link copied</string>
 
     <!-- Search -->
 

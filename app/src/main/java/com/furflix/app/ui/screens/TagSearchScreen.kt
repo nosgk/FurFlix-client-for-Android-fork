@@ -120,10 +120,15 @@ fun TagSearchScreen(
                             tagSuggestions = tagSuggestions,
                             onTypingWordChanged = { viewModel.fetchTagSuggestions(it) },
                             onSearch = { query ->
-                                // 粘贴 FA 链接直达：作品/用户页，不进搜索
+                                // 粘贴 FA 链接直达：作品/用户/搜索页，搜索链不进普通搜索
                                 when (val link = com.furflix.app.data.remote.parseFaLink(query)) {
                                     is com.furflix.app.data.remote.FaLink.Submission -> onNavigateToPost(link.id)
                                     is com.furflix.app.data.remote.FaLink.User -> onNavigateToUser(link.username)
+                                    is com.furflix.app.data.remote.FaLink.Search -> {
+                                        viewModel.updateSearchFilters(draftFilters)
+                                        viewModel.loadSearch(link.query, link.filters)
+                                        showFilters = false
+                                    }
                                     null -> {
                                         viewModel.updateSearchFilters(draftFilters)
                                         viewModel.loadSearch(query)
@@ -217,12 +222,12 @@ fun TagSearchScreen(
                     modifier = Modifier.weight(1f).fillMaxWidth()
                 ) {
             if (isLoading && submissions.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
+                // 首屏骨架：按搜索结果四视图同构占位
+                com.furflix.app.ui.components.SearchSkeletonPlaceholder(
+                    view = effectiveSearchView,
+                    gridColumnsPref = gridColumnsPref,
+                    modifier = Modifier.fillMaxSize()
+                )
             } else if (errorMessage != null && submissions.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -245,10 +250,13 @@ fun TagSearchScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { viewModel.clearError() },
+                            onClick = {
+                                viewModel.clearError()
+                                viewModel.refresh()
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text(stringResource(R.string.action_ok))
+                            Text(stringResource(R.string.action_retry))
                         }
                     }
                 }
@@ -275,7 +283,7 @@ fun TagSearchScreen(
                         ratio = if (effectiveSearchView == com.furflix.app.data.model.SearchResultView.MASONRY) {
                             submission.thumbnailWidthOnHeightRatio
                         } else 0f,
-                        stats = cardStats[submission.id],
+                        stats = com.furflix.app.ui.components.rememberCardStats(cardStats, submission.id),
                         onAuthorClick = { onNavigateToUser(it) }
                     )
                 }

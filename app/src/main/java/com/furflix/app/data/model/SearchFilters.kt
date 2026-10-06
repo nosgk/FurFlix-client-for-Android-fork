@@ -113,6 +113,25 @@ data class SearchFilters(
         toSearchQueryMap().forEach { (key, value) -> add(key to value) }
     }
 
+    /**
+     * 当前筛选快照 → FA 原生搜索 URL（/search/?q=...，2026-10 实测 GET 表单的
+     * 序列化形态）。粘贴到浏览器执行与站内发起同语义，也是搜索状态的分享形态。
+     * 与 FaLinks.parseSearchFilters 互为镜像：布尔组按表单成功控件语义输出
+     * （勾选才发键；全组取消时 URL 缺省=不过滤，属可接受的极限情形）。
+     */
+    fun toFaSearchUrl(query: String): String {
+        val params = buildList {
+            add("q" to buildKeywordQuery(query))
+            add("page" to "1")
+            add("perpage" to perpage.coerceIn(PERPAGE_MIN, PERPAGE_MAX).toString())
+            toSearchQueryMap().forEach { (key, value) -> add(key to value) }
+        }
+        val qs = params.joinToString("&") { (key, value) ->
+            "${java.net.URLEncoder.encode(key, "UTF-8")}=${java.net.URLEncoder.encode(value, "UTF-8")}"
+        }
+        return "https://www.furaffinity.net/search/?$qs"
+    }
+
     val hasBrowseFilters: Boolean
         get() = category != 0 || artType != 0 || species != 0 || genders.isNotEmpty()
 

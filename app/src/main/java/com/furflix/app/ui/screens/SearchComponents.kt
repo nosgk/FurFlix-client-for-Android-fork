@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -779,6 +780,29 @@ fun InlineSearchFilters(
                     fontWeight = FontWeight.Bold
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 复制当前检索为 FA 原生 URL（状态→URL 的分享方向，与深链解析互逆）
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val copiedToast = stringResource(R.string.toast_search_link_copied)
+                    IconButton(
+                        onClick = {
+                            val url = filters.toFaSearchUrl(query)
+                            val clipboard =
+                                context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                    as? android.content.ClipboardManager
+                            clipboard?.setPrimaryClip(
+                                android.content.ClipData.newPlainText("FA search", url)
+                            )
+                            android.widget.Toast.makeText(context, copiedToast, android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Link,
+                            contentDescription = stringResource(R.string.cd_copy_search_link),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     IconButton(onClick = { showSaveDialog = true }, modifier = Modifier.size(28.dp)) {
                         Icon(
                             Icons.Default.BookmarkAdd,

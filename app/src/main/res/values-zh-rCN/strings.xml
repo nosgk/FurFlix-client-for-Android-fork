@@ -15,6 +15,7 @@
     <string name="action_cancel">取消</string>
     <string name="action_back">返回</string>
     <string name="action_favorite">收藏</string>
+    <string name="action_retry">重试</string>
 
     <!-- Content descriptions -->
     <string name="cd_download">下载</string>
@@ -24,6 +25,10 @@
     <string name="cd_search_view_large">大图网格视图</string>
     <string name="cd_search_view_list">列表视图</string>
     <string name="cd_site_banner">Fur Affinity 今日横幅</string>
+    <string name="cd_copy_search_link">复制当前检索为 Fur Affinity 链接</string>
+
+    <!-- Search states -->
+    <string name="toast_search_link_copied">搜索链接已复制</string>
 
     <!-- Search -->
 
