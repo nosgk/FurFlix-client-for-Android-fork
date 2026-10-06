@@ -75,7 +75,7 @@ object DocumentTextExtractor {
         return map
     }
 
-    /** docx：word/document.xml 的 w:p → 段落，w:t → 文本；word/media/* → 内嵌媒体。 */
+    /** docx：word/document.xml 的 w:p → 段落，w:t → 文本；word/media 目录下图片 → 内嵌媒体。 */
     private fun parseDocx(bytes: ByteArray): ParsedDocument {
         val entries = readZipEntries(bytes)
         val xml = entries["word/document.xml"]?.let { String(it, Charsets.UTF_8) }
@@ -88,7 +88,7 @@ object DocumentTextExtractor {
         return ParsedDocument(paragraphs, zipMediaEntries(entries, "word/media/"))
     }
 
-    /** odt：content.xml 的 text:p → 段落；Pictures/* → 内嵌媒体。 */
+    /** odt：content.xml 的 text:p → 段落；Pictures 目录下图片 → 内嵌媒体。 */
     private fun parseOdt(bytes: ByteArray): ParsedDocument {
         val entries = readZipEntries(bytes)
         val xml = entries["content.xml"]?.let { String(it, Charsets.UTF_8) }
