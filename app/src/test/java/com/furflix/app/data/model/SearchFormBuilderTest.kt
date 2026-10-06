@@ -54,4 +54,25 @@ class SearchFormBuilderTest {
         val form = SearchFilters(keywords = listOf("dragon")).buildSearchForm("", 1)
         assertEquals("@keywords dragon", form[0].second)
     }
+
+    @Test
+    fun `species included only when set`() {
+        // species=0 是 App 的"未设置"约定：键整体省略（FA 表单无 0 项）
+        val keys = SearchFilters().buildSearchForm("q", 1).map { it.first }
+        assertFalse("species" in keys)
+        val form = SearchFilters(species = 4000).buildSearchForm("q", 1)
+        assertTrue("species" in form.map { it.first })
+        assertEquals("4000", form.first { it.first == "species" }.second)
+    }
+
+    @Test
+    fun `legacy range values normalize to FA native enums`() {
+        assertEquals("7days", SearchFilters(range = "1week").normalizedRange)
+        assertEquals("30days", SearchFilters(range = "1month").normalizedRange)
+        assertEquals("all", SearchFilters(range = "all").normalizedRange)
+        assertEquals(
+            "7days",
+            SearchFilters(range = "1week").buildSearchForm("q", 1).first { it.first == "range" }.second
+        )
+    }
 }
