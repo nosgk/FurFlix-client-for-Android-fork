@@ -134,18 +134,17 @@ class UserViewModel(
                 com.furflix.app.data.local.UserVisitCache.getInstance(getApplication())
                     .put(profile.username, profile.displayName, profile.avatarUrl)
             }
-            // Gallery Folders：现代主题用户页不含文件夹列表，从 /gallery/ 页解析补取
-            // （画廊 tab 加载过 page 1 时命中解析器缓存，零额外请求）
-            if (profile.folders.isEmpty()) {
-                try {
-                    val folders = repository.getUserGalleryFolders(username)
-                    if (folders.isNotEmpty()) {
+            // Gallery Folders：/gallery/{user}/ 页侧栏的树是权威来源（现代用户页
+            // 不含文件夹列表，profile.folders 仅是经典主题兜底扫描的产物，可能
+            // 只含正文 BBCode 误收的个别链接）。总是向画廊页取数，取不到才回落
+            // profile 自带值；画廊页 page 1 加载过时命中解析器缓存，零额外请求。
+            runCatching { repository.getUserGalleryFolders(username) }.getOrNull()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { folders ->
+                    if (folders != profile.folders) {
                         _userProfile.value = profile.copy(folders = folders)
                     }
-                } catch (e: Exception) {
-                    Log.e("UserVM", "loadFolders failed", e)
                 }
-            }
         } catch (e: Exception) {
             Log.e("UserVM", "loadProfile failed", e)
         }

@@ -746,6 +746,10 @@ object FurAffinityScraper {
         val m = Regex("/gallery/([^/]+)/folder/(\\d+)/([^/?#]+)").find(hrefAttr) ?: return null
         val id = m.groupValues[2]
         val slug = m.groupValues[3]
+        // href 一律取正则命中的站内路径：正文 BBCode 里常见绝对链接
+        // （https://www.furaffinity.net/gallery/...），此前非"/"开头一律补"/"会把
+        // 绝对链接拼成 "/https://..."，点进去拉到垃圾页 → 文件夹显示为空
+        val href = m.value
         // view 页结构：<strong>分组</strong> - <span>名</span>；画廊侧栏无 strong/span，名即链接文本。
         // 文本缺失或本身就是链接形态（URL/路径）时回落 slug 解码，杜绝把链接当名字展示
         val group = a.selectFirst("strong")?.text()?.trim()
@@ -766,7 +770,7 @@ object FurAffinityScraper {
         return GalleryFolder(
             id = id,
             name = name,
-            href = if (hrefAttr.startsWith("/")) hrefAttr else "/$hrefAttr",
+            href = href,
             thumbUrl = a.selectFirst("img")?.attr("src") ?: "",
             count = count,
             group = group
@@ -1499,8 +1503,13 @@ object FurAffinityScraper {
 
         // Gallery folders：现代主题的用户页已不含文件夹列表（只在 /gallery/ 页侧栏，
         // 由 ViewModel 经 getUserGalleryFolders 从画廊页解析补取）；此处仅兜底扫描
-        // 经典主题仍内嵌的 /folder/ 链接，区块缺失时自然得到空列表（容错，不抛错）。
-        val folders = doc.select("a[href*=/folder/]")
+        // 经典主题仍内嵌的文件夹列表区块。范围必须限定在 folder 类容器内——正文
+        // BBCode 里用户手贴的 /folder/ 链接（如 HungryDevilGoat 用户页）不算文件夹
+        // 列表，误收会让 ViewModel 误判"已有文件夹"而跳过画廊页的真实树。
+        val folders = doc.select(
+            "[class*=folder-list] a[href*=/folder/], [class*=user-folders] a[href*=/folder/], " +
+                "[class*=folder-controls] a[href*=/folder/], [id*=folder] a[href*=/folder/]"
+        )
             .mapNotNull { parseFolderAnchor(it, "") }
             .distinctBy { it.id }
 
