@@ -1,6 +1,5 @@
 package com.furflix.app.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -312,8 +311,10 @@ fun SubmissionCard(
                 // the submission is locally known to be favorited. A file-type
                 // badge (ext, falling back to FA's type label) leads the row.
                 // 条件放外层由 AnimatedVisibility 驱动：预热并发化后统计整批点亮，
-                // 入场走轻量淡入+下滑，避免数字突兀地砸出来
-                AnimatedVisibility(
+                // 入场走轻量淡入+下滑，避免数字突兀地砸出来。
+                // 全限定调用：此处处于 Card 的 ColumnScope 内，非限定名会解析到
+                // ColumnScope.AnimatedVisibility 扩展重载而非顶层函数
+                androidx.compose.animation.AnimatedVisibility(
                     visible = showStats,
                     enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 4 },
                     modifier = Modifier.align(Alignment.BottomEnd)
