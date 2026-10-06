@@ -29,8 +29,16 @@ class CloudflareChallengeTest {
     """.trimIndent()
 
     private val errorDetailsHtml = """
-        <html><head><title>Error 1020</title></head>
-        <body><div class="cf-error-details">Access denied</div></body></html>
+        <html><head><title>Error 1020 | Fur Affinity [dot] net</title></head>
+        <body>
+        <div class="cf-error-details">
+            <h1>Error 1020 — Access denied (Ray ID: 8f3a1b2c9d4e5f60)</h1>
+            <p>This website is using a security service to protect itself from online attacks.
+            The action you just performed triggered the security solution. There are several
+            actions that could trigger this block including submitting a certain word or phrase,
+            a SQL command or malformed data.</p>
+        </div>
+        </body></html>
     """.trimIndent()
 
     @Test
