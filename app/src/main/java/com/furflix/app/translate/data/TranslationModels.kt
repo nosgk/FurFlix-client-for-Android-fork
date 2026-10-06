@@ -17,13 +17,14 @@ enum class TranslationProvider(val id: String, val shortLabel: String) {
     }
 }
 
-/** 可翻译内容类别（蓝本 7 类裁至本项目存在的 5 类）。 */
+/** 可翻译内容类别（蓝本 7 类裁至本项目存在的类别；JOURNAL = 用户日志）。 */
 enum class TranslationCategory(val id: String) {
     DESCRIPTION("description"),
     TITLE("title"),
     TAG("tag"),
     COMMENT("comment"),
-    USER_PROFILE("userProfile");
+    USER_PROFILE("userProfile"),
+    JOURNAL("journal");
 
     companion object {
         fun fromId(id: String): TranslationCategory? = entries.firstOrNull { it.id == id }

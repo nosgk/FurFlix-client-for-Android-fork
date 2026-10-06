@@ -225,6 +225,26 @@ class FurRepository(private val context: Context) {
         return filterSubmissions(FurAffinityScraper.getUserFavorites(username, page, nsfwEnabled))
     }
 
+    /** 用户画廊文件夹（画廊页侧栏解析；缓存命中零请求）。 */
+    suspend fun getUserGalleryFolders(username: String): List<com.furflix.app.data.model.GalleryFolder> =
+        FurAffinityScraper.getUserGalleryFolders(username)
+
+    /** 用户日志列表：与作品列表同一套 NSFW + 屏蔽词过滤（rating 判定）。 */
+    suspend fun getUserJournals(username: String, page: Int): List<com.furflix.app.data.model.Journal> {
+        val prefs = context.dataStore.data.first()
+        val mutedWordsRaw = prefs[MUTED_WORDS_KEY] ?: ""
+        val nsfwEnabled = prefs[NSFW_ENABLED_KEY] ?: true
+        val mutedWords = if (mutedWordsRaw.isNotEmpty()) mutedWordsRaw.split("|||").map { it.lowercase() } else emptyList()
+        return FurAffinityScraper.getUserJournals(username, page).filter { journal ->
+            val titleLower = journal.title.lowercase()
+            !mutedWords.any { titleLower.contains(it) } &&
+                (nsfwEnabled || (journal.rating != "Adult" && journal.rating != "Mature"))
+        }
+    }
+
+    suspend fun getJournal(journalId: String): com.furflix.app.data.model.Journal? =
+        FurAffinityScraper.getJournalDetails(journalId)
+
     suspend fun saveRecentSearches(searches: List<String>) {
         context.dataStore.edit { prefs ->
             prefs[RECENT_SEARCHES_KEY] = searches.joinToString("|||")

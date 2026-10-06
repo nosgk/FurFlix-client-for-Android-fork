@@ -69,6 +69,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okio.buffer
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -88,12 +89,31 @@ fun GifFrameViewer(
     var bytes by remember { mutableStateOf<ByteArray?>(null) }
     var failed by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
 
     LaunchedEffect(imageUrl, attempt) {
         failed = false
         withContext(Dispatchers.IO) {
-            val raw = FurAffinityScraper.fetchBinary(imageUrl)
-            if (raw == null) failed = true else bytes = raw
+            // 详情页主图（同 URL）已由 Coil 拉过：优先复用其磁盘缓存字节，
+            // 命中则零网络请求直接进逐帧播放器；未命中（被清缓存/直开）再下载
+            val cached = runCatching {
+                ImageLoaderFactory.getInstance(context).diskCache?.openSnapshot(imageUrl)
+            }.getOrNull()?.let { snapshot ->
+                try {
+                    okio.FileSystem.SYSTEM.source(snapshot.data).buffer()
+                        .use { src -> src.readByteArray() }
+                } catch (_: Exception) {
+                    null
+                } finally {
+                    runCatching { snapshot.close() }
+                }
+            }
+            if (!cached.isNullOrEmpty()) {
+                bytes = cached
+            } else {
+                val raw = FurAffinityScraper.fetchBinary(imageUrl)
+                if (raw == null) failed = true else bytes = raw
+            }
         }
     }
 

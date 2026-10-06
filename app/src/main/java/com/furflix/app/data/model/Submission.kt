@@ -38,6 +38,8 @@ data class Submission(
     val resolution: String = "",
     val fileSize: String = "",
     val fileType: String = "",
+    // 作品所属画廊文件夹（view 页 sidebar-lower 的 Folders 区块；空=无/未解析出）
+    val folders: List<GalleryFolder> = emptyList(),
     val commentList: List<Comment> = emptyList()
 )
 

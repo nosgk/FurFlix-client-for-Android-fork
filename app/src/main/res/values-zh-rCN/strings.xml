@@ -187,6 +187,7 @@
     <string name="post_meta_info">详细信息</string>
     <string name="post_comments">评论</string>
     <string name="post_story">正文</string>
+    <string name="post_folders">文件夹</string>
     <!-- 小说阅读器与 Flash/GIF 查看器 -->
     <string name="flash_play">播放 Flash</string>
     <string name="flash_ruffle_hint">由 Ruffle 模拟运行 · 播放失败可在浏览器打开</string>
@@ -212,11 +213,14 @@
     <string name="comments_parents_hidden">已隐藏 %d 条父评论</string>
     <string name="comments_show_all">显示全部评论</string>
     <string name="comments_hidden_author">（已隐藏）</string>
+    <!-- 日志 -->
+    <string name="empty_journals">还没有日志。</string>
 
     <string name="user_watching">正在关注</string>
     <string name="user_watch">关注</string>
     <string name="user_gallery">图库</string>
     <string name="user_watchers">关注者</string>
+    <string name="user_journals">日志</string>
 
     <!-- Search Filters -->
     <string name="search_filters">筛选</string>
@@ -295,6 +299,7 @@
     <string name="meta_resolution">分辨率</string>
     <string name="meta_file_size">文件大小</string>
     <string name="meta_file_type">文件类型</string>
+    <string name="meta_file_format">文件格式</string>
     <string name="meta_date">日期</string>
 
     <string name="settings_not_logged_in">未登录</string>
@@ -444,6 +449,7 @@
     <string name="translation_content_tags">标签</string>
     <string name="translation_content_comments">评论</string>
     <string name="translation_content_profile">用户简介</string>
+    <string name="translation_content_journals">日志</string>
     <string name="translation_cache">翻译缓存</string>
     <!-- %1$d = 条目数, %2$s = 格式化大小 -->
     <string name="translation_cache_stats">%1$d 条 · %2$s</string>

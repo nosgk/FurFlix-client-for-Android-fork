@@ -96,7 +96,8 @@ fun UserProfileScreen(
     mainViewModel: MainViewModel,
     onBack: () -> Unit,
     onNavigateToPost: (String) -> Unit,
-    onNavigateToUser: (String) -> Unit
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToJournal: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -108,6 +109,7 @@ fun UserProfileScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val watchingList by viewModel.watchingList.collectAsState()
     val watchersList by viewModel.watchersList.collectAsState()
+    val journals by viewModel.journals.collectAsState()
 
     // 多选批量（与首页画廊同一 SelectionStore/组件；source 与详情页导航的 user_ 前缀对齐）
     val selection by com.furflix.app.data.selection.SelectionStore.state.collectAsState()
@@ -157,13 +159,15 @@ fun UserProfileScreen(
     val tabFavorites = stringResource(R.string.profile_favorites)
     val tabWatching = stringResource(R.string.user_watching)
     val tabWatchers = stringResource(R.string.user_watchers)
+    val tabJournals = stringResource(R.string.user_journals)
 
-    val bottomBarItems = remember(tabGallery, tabFavorites, tabWatching, tabWatchers) {
+    val bottomBarItems = remember(tabGallery, tabFavorites, tabWatching, tabWatchers, tabJournals) {
         listOf(
             GlassBarTab(tabGallery, Icons.Default.PhotoLibrary, Color(0xFF00E5FF)),
             GlassBarTab(tabFavorites, Icons.Default.Favorite, Color(0xFFFF007F)),
             GlassBarTab(tabWatching, Icons.Default.Group, Color(0xFF00FF7F)),
-            GlassBarTab(tabWatchers, Icons.Default.Group, Color(0xFFFFD700))
+            GlassBarTab(tabWatchers, Icons.Default.Group, Color(0xFFFFD700)),
+            GlassBarTab(tabJournals, Icons.AutoMirrored.Filled.MenuBook, Color(0xFFB388FF))
         )
     }
 
@@ -196,6 +200,7 @@ fun UserProfileScreen(
                 UserViewModel.TAB_FAVORITES -> viewModel.loadFavorites()
                 UserViewModel.TAB_WATCHING -> viewModel.loadWatching()
                 UserViewModel.TAB_WATCHERS -> viewModel.loadWatchers()
+                UserViewModel.TAB_JOURNALS -> viewModel.loadJournals()
             }
         }
         scrollTarget = when {
@@ -224,7 +229,8 @@ fun UserProfileScreen(
         when (selectedTab) {
             UserViewModel.TAB_GALLERY, UserViewModel.TAB_FAVORITES -> submissions.isNotEmpty()
             UserViewModel.TAB_WATCHING -> watchingList.isNotEmpty()
-            else -> watchersList.isNotEmpty()
+            UserViewModel.TAB_WATCHERS -> watchersList.isNotEmpty()
+            else -> journals.isNotEmpty()
         }
     )
 
@@ -266,7 +272,7 @@ fun UserProfileScreen(
                         if (accumulatedDrag > 60f) {
                             selectTab((selectedTab - 1).coerceAtLeast(0), fromBottom = false)
                         } else if (accumulatedDrag < -60f) {
-                            selectTab((selectedTab + 1).coerceAtMost(3), fromBottom = false)
+                            selectTab((selectedTab + 1).coerceAtMost(4), fromBottom = false)
                         }
                         accumulatedDrag = 0f
                     },
@@ -407,7 +413,11 @@ fun UserProfileScreen(
                                 profile.views > 0 || profile.journalsCount > 0
                         if (hasChips) {
                             item(key = "chips", span = StaggeredGridItemSpan.FullLine) {
-                                InfoChips(profile = profile, modifier = Modifier.padding(horizontal = 16.dp))
+                                InfoChips(
+                                    profile = profile,
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    onJournalsClick = { selectTab(UserViewModel.TAB_JOURNALS, fromBottom = false) }
+                                )
                             }
                         }
                         if (profile.contactLinks.isNotEmpty()) {
@@ -585,6 +595,31 @@ fun UserProfileScreen(
                                 item(key = "footer", span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
                             }
                         }
+                        UserViewModel.TAB_JOURNALS -> {
+                            if (errorMessage != null && journals.isEmpty()) {
+                                item(key = "error", span = StaggeredGridItemSpan.FullLine) { ErrorState(message = errorMessage ?: "") }
+                            }
+                            if (journals.isEmpty() && !isLoading && errorMessage == null) {
+                                item(key = "empty", span = StaggeredGridItemSpan.FullLine) { EmptyState(message = stringResource(R.string.empty_journals), icon = Icons.AutoMirrored.Filled.MenuBook) }
+                            }
+                            if (journals.isNotEmpty()) {
+                                items(
+                                    items = journals,
+                                    key = { it.id },
+                                    span = { StaggeredGridItemSpan.FullLine }
+                                ) { journal ->
+                                    Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                        JournalCard(
+                                            journal = journal,
+                                            onClick = { onNavigateToJournal(journal.id) }
+                                        )
+                                    }
+                                }
+                            }
+                            if (isLoadingMore) {
+                                item(key = "footer", span = StaggeredGridItemSpan.FullLine) { LoadingMoreFooter() }
+                            }
+                        }
                     }
                 }
                 }
@@ -628,7 +663,8 @@ fun UserProfileScreen(
 }
 
 // -----------------------------------------------------------------------------------------
-// Gallery folders strip (horizontal), opens the folder view in place
+// Gallery folders strip (horizontal), opens the folder view in place.
+// 按站点分组（h4 标题，如 Characters）分节展示，无分组（default-group）不设节头
 // -----------------------------------------------------------------------------------------
 
 @Composable
@@ -637,6 +673,14 @@ private fun FoldersRow(
     modifier: Modifier = Modifier,
     onOpen: (GalleryFolder) -> Unit
 ) {
+    // 分组归并，保持站点出现顺序；组名是用户自建内容，不翻译
+    val grouped = remember(folders) {
+        val ordered = LinkedHashMap<String, MutableList<GalleryFolder>>()
+        folders.forEach { folder ->
+            ordered.getOrPut(folder.group) { mutableListOf() }.add(folder)
+        }
+        ordered
+    }
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             stringResource(R.string.profile_gallery_folders),
@@ -645,58 +689,74 @@ private fun FoldersRow(
             color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(8.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(folders, key = { it.id }) { folder ->
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    onClick = { onOpen(folder) },
-                    modifier = Modifier.width(120.dp)
+        grouped.forEach { (group, groupFolders) ->
+            if (group.isNotEmpty()) {
+                Text(
+                    text = group,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = SubtleGray,
+                    modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 4.dp)
+                )
+            }
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(groupFolders, key = { it.id }) { folder ->
+                    FolderCard(folder = folder, onOpen = onOpen)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FolderCard(folder: GalleryFolder, onOpen: (GalleryFolder) -> Unit) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        onClick = { onOpen(folder) },
+        modifier = Modifier.width(120.dp)
+    ) {
+        Column {
+            if (folder.thumbUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = folder.thumbUrl,
+                    contentDescription = folder.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp)
+                        .background(DarkSurfaceVariant),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column {
-                        if (folder.thumbUrl.isNotEmpty()) {
-                            AsyncImage(
-                                model = folder.thumbUrl,
-                                contentDescription = folder.name,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(72.dp)
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(72.dp)
-                                    .background(DarkSurfaceVariant),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Folder,
-                                    contentDescription = null,
-                                    tint = SubtleGray,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Text(
-                                folder.name,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (folder.count > 0) {
-                                Text(
-                                    stringResource(R.string.folder_item_count, folder.count),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = SubtleGray
-                                )
-                            }
-                        }
-                    }
+                    Icon(
+                        Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = SubtleGray,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            Column(modifier = Modifier.padding(8.dp)) {
+                Text(
+                    folder.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (folder.count > 0) {
+                    Text(
+                        stringResource(R.string.folder_item_count, folder.count),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SubtleGray
+                    )
                 }
             }
         }
@@ -1251,7 +1311,11 @@ private fun BioCard(text: String, modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun InfoChips(profile: UserProfile, modifier: Modifier = Modifier) {
+private fun InfoChips(
+    profile: UserProfile,
+    modifier: Modifier = Modifier,
+    onJournalsClick: (() -> Unit)? = null
+) {
     FlowRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1270,19 +1334,24 @@ private fun InfoChips(profile: UserProfile, modifier: Modifier = Modifier) {
             InfoChip(icon = Icons.Default.Visibility, text = stringResource(R.string.profile_views_count, formatCount(profile.views)))
         }
         if (profile.journalsCount > 0) {
-            InfoChip(icon = Icons.AutoMirrored.Filled.MenuBook, text = stringResource(R.string.profile_journals_count, formatCount(profile.journalsCount)))
+            InfoChip(
+                icon = Icons.AutoMirrored.Filled.MenuBook,
+                text = stringResource(R.string.profile_journals_count, formatCount(profile.journalsCount)),
+                onClick = onJournalsClick
+            )
         }
     }
 }
 
 @Composable
-private fun InfoChip(icon: ImageVector, text: String) {
+private fun InfoChip(icon: ImageVector, text: String, onClick: (() -> Unit)? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
             .background(ChipBackground)
             .border(1.dp, ChipBorder, RoundedCornerShape(20.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 7.dp)
     ) {
         Icon(
@@ -1459,6 +1528,115 @@ private fun HeaderSkeleton() {
                 .clip(RoundedCornerShape(23.dp))
                 .background(DarkSurfaceVariant.copy(alpha = alpha))
         )
+    }
+}
+
+// -----------------------------------------------------------------------------------------
+// Journal card (user journals tab) — title bilingual-translatable, tap opens journal detail
+// -----------------------------------------------------------------------------------------
+
+@Composable
+private fun JournalCard(
+    journal: com.furflix.app.data.model.Journal,
+    onClick: () -> Unit
+) {
+    val prefs = rememberTranslationPrefs()
+    val entry = rememberTranslationEntry(
+        key = journal.id,
+        text = journal.title,
+        category = TranslationCategory.TITLE
+    )
+    // 与卡片标题同款防抖：快速滑动时不打翻译服务，停稳 500ms 才送翻
+    LaunchedEffect(entry, prefs.enabled, prefs.auto) {
+        if (prefs.enabled && prefs.auto) {
+            kotlinx.coroutines.delay(500)
+            val s = entry.state.value
+            if (s is com.furflix.app.translate.ui.TranslationUiState.Idle && !s.autoAttempted) {
+                entry.translateAuto()
+            }
+        }
+    }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                TranslatableText(
+                    entry = entry,
+                    prefs = prefs,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (prefs.enabled) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TranslationIconButton(entry = entry, enabled = true)
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (journal.rating.isNotEmpty()) {
+                    Text(
+                        text = journal.rating,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = when {
+                            journal.rating.contains("General", true) -> Rating_General
+                            journal.rating.contains("Mature", true) -> Rating_Mature
+                            journal.rating.contains("Adult", true) -> Rating_Adult
+                            else -> SubtleGray
+                        }
+                    )
+                }
+                if (journal.date.isNotEmpty()) {
+                    Text(
+                        text = journal.date,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SubtleGray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (journal.commentCount > 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.ChatBubbleOutline,
+                            contentDescription = null,
+                            tint = SubtleGray,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = formatCount(journal.commentCount),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SubtleGray
+                        )
+                    }
+                }
+            }
+            if (journal.excerpt.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = journal.excerpt,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SubtleGray,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 

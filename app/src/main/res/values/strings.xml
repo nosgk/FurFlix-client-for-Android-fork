@@ -181,6 +181,7 @@
     <string name="post_meta_info">Meta Info</string>
     <string name="post_comments">Comments</string>
     <string name="post_story">Story</string>
+    <string name="post_folders">Folders</string>
     <!-- Story reader & Flash/GIF viewers -->
     <string name="flash_play">Play Flash</string>
     <string name="flash_ruffle_hint">Emulated by Ruffle · open in browser if playback fails</string>
@@ -206,11 +207,14 @@
     <string name="comments_parents_hidden">%d parent comments hidden</string>
     <string name="comments_show_all">Show all comments</string>
     <string name="comments_hidden_author">(hidden)</string>
-    
+    <!-- Journals -->
+    <string name="empty_journals">No journals yet.</string>
+
     <string name="user_watching">Watching</string>
     <string name="user_watch">Watch</string>
     <string name="user_gallery">Gallery</string>
     <string name="user_watchers">Watchers</string>
+    <string name="user_journals">Journals</string>
     
     <!-- Search Filters -->
     <string name="search_filters">Filters</string>
@@ -286,6 +290,7 @@
     <string name="meta_resolution">Resolution</string>
     <string name="meta_file_size">File Size</string>
     <string name="meta_file_type">File Type</string>
+    <string name="meta_file_format">Format</string>
     <string name="meta_date">Date</string>
     
     <string name="settings_not_logged_in">Not logged in</string>
@@ -434,6 +439,7 @@
     <string name="translation_content_tags">Tags</string>
     <string name="translation_content_comments">Comments</string>
     <string name="translation_content_profile">User profile</string>
+    <string name="translation_content_journals">Journals</string>
     <string name="translation_cache">Translation cache</string>
     <!-- %1$d = entry count, %2$s = formatted size -->
     <string name="translation_cache_stats">%1$d entries · %2$s</string>

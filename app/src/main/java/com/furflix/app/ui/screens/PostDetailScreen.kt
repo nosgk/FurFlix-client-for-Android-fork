@@ -5,7 +5,6 @@ import androidx.compose.ui.res.stringResource
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import com.furflix.app.data.download.DownloadManager
 import com.furflix.app.data.download.DownloadStatus
@@ -26,6 +25,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -69,22 +70,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.text.HtmlCompat
-import androidx.core.graphics.toColorInt
-import android.text.method.LinkMovementMethod
-import android.widget.TextView
 import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.furflix.app.R
 import com.furflix.app.data.model.Comment
+import com.furflix.app.data.model.GalleryFolder
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.ui.components.CustomTabRow
 import com.furflix.app.ui.components.CommentsSection
 import com.furflix.app.ui.components.DefaultHazeStyle
+import com.furflix.app.ui.components.HtmlTextView
 import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.screens.GlassActionBar
 import com.furflix.app.ui.screens.GlassActionItem
@@ -140,6 +138,7 @@ fun PostDetailScreen(
     onNavigateToPost: (String) -> Unit = {},
     onTagClick: (String) -> Unit = {},
     onTagAppend: (String) -> Unit = {},
+    onOpenFolder: (GalleryFolder) -> Unit = {},
     viewModel: MainViewModel
 ) {
     val submissionDetailsMap by viewModel.submissionDetails.collectAsState()
@@ -222,7 +221,17 @@ fun PostDetailScreen(
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
+        // 点空白处切换底栏显隐：tap 不被子级 clickable 消费时冒泡到这里
+        // （图片/按钮/卡片等可点元素不受影响），沉浸式看图再点一下唤回
+        var bottomBarVisible by remember { mutableStateOf(true) }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .pointerInput(Unit) {
+                    detectTapGestures { bottomBarVisible = !bottomBarVisible }
+                }
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -325,6 +334,12 @@ fun PostDetailScreen(
 
                             // ── Info chips ──────────────────────────────────
                             InfoChipsRow(sub)
+
+                            // ── Folders（作品所属画廊文件夹，可直达文件夹浏览）──
+                            if (sub.folders.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                FoldersSection(folders = sub.folders, onOpenFolder = onOpenFolder)
+                            }
 
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -530,45 +545,51 @@ fun PostDetailScreen(
                 )
             )
 
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 24.dp, vertical = 24.dp)
-                    .fillMaxWidth()
-                    .height(64.dp)
+            AnimatedVisibility(
+                visible = bottomBarVisible,
+                enter = fadeIn(tween(200)) + slideInVertically(tween(220)) { it },
+                exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
+                modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                GlassActionBar(
-                    items = bottomBarItems,
-                    hazeState = hazeState,
-                    onItemClick = { index ->
-                        val sub = submission ?: return@GlassActionBar
-                        when (index) {
-                            0 -> onBack()
-                            1 -> {
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, "https://www.furaffinity.net/view/${currentPostId}/")
-                                    putExtra(Intent.EXTRA_SUBJECT, sub.title)
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp, vertical = 24.dp)
+                        .fillMaxWidth()
+                        .height(64.dp)
+                ) {
+                    GlassActionBar(
+                        items = bottomBarItems,
+                        hazeState = hazeState,
+                        onItemClick = { index ->
+                            val sub = submission ?: return@GlassActionBar
+                            when (index) {
+                                0 -> onBack()
+                                1 -> {
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, "https://www.furaffinity.net/view/${currentPostId}/")
+                                        putExtra(Intent.EXTRA_SUBJECT, sub.title)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, shareViaText))
                                 }
-                                context.startActivity(Intent.createChooser(shareIntent, shareViaText))
-                            }
-                            2 -> {
-                                viewModel.toggleFavorite(currentPostId)
-                            }
-                            3 -> {
-                                if (sub.fullImageUrl.isNotEmpty()) {
-                                    val failed = myDownloadTask?.takeIf { it.status == DownloadStatus.FAILED }
-                                    when {
-                                        failed != null && failed.url == sub.fullImageUrl ->
-                                            DownloadManager.retry(failed.id)
-                                        !downloadBusy -> viewModel.downloadImage(sub)
-                                        else -> Unit
+                                2 -> {
+                                    viewModel.toggleFavorite(currentPostId)
+                                }
+                                3 -> {
+                                    if (sub.fullImageUrl.isNotEmpty()) {
+                                        val failed = myDownloadTask?.takeIf { it.status == DownloadStatus.FAILED }
+                                        when {
+                                            failed != null && failed.url == sub.fullImageUrl ->
+                                                DownloadManager.retry(failed.id)
+                                            !downloadBusy -> viewModel.downloadImage(sub)
+                                            else -> Unit
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                )
+                    )
+                }
             }
 
             // Full-screen viewers: Flash → Ruffle WebView；GIF → 逐帧播放器；其余 → 缩放查看器
@@ -1062,6 +1083,78 @@ private fun InfoChipCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------------------
+// Folders section（作品所属画廊文件夹）：FA sidebar-lower 同构呈现，点击直达文件夹浏览
+// -----------------------------------------------------------------------------------------
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FoldersSection(
+    folders: List<GalleryFolder>,
+    onOpenFolder: (GalleryFolder) -> Unit
+) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Default.Folder,
+                contentDescription = null,
+                tint = Cyan,
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.post_folders),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            folders.forEach { folder ->
+                val label = if (folder.group.isEmpty()) folder.name
+                else "${folder.group} - ${folder.name}"
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(ChipBackground)
+                        .border(1.dp, ChipBorder, RoundedCornerShape(14.dp))
+                        .clickable { onOpenFolder(folder) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = Cyan,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = label,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (folder.count > 0) {
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = formatCount(folder.count),
+                            fontSize = 11.sp,
+                            color = SubtleGray
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -1682,55 +1775,7 @@ private fun DescriptionContent(
     }
 }
 
-// HTML 渲染（原文与译文共用；URLSpan 重写为站内导航）
-@Composable
-private fun HtmlTextView(
-    html: String,
-    onAuthorClick: (String) -> Unit,
-    onNavigateToPost: (String) -> Unit
-) {
-    val context = LocalContext.current
-    val textColor = "#E0E0E0".toColorInt()
-    val linkColor = LinkColor.hashCode()
-    AndroidView(
-        factory = { ctx ->
-            TextView(ctx).apply {
-                setTextColor(textColor)
-                setLinkTextColor(linkColor)
-                textSize = 15f
-                movementMethod = LinkMovementMethod.getInstance()
-            }
-        },
-        update = { textView ->
-            val htmlSpannable = android.text.SpannableStringBuilder(
-                HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_COMPACT)
-            )
-            val spans = htmlSpannable.getSpans(0, htmlSpannable.length, android.text.style.URLSpan::class.java)
-            for (span in spans) {
-                val start = htmlSpannable.getSpanStart(span)
-                val end = htmlSpannable.getSpanEnd(span)
-                val flags = htmlSpannable.getSpanFlags(span)
-                val url = span.url
-                htmlSpannable.removeSpan(span)
-                htmlSpannable.setSpan(object : android.text.style.ClickableSpan() {
-                    override fun onClick(widget: android.view.View) {
-                        if (url.contains("/user/")) {
-                            val username = url.substringAfter("/user/").substringBefore("/")
-                            if (username.isNotEmpty()) onAuthorClick(username)
-                        } else if (url.contains("/view/")) {
-                            val id = url.substringAfter("/view/").substringBefore("/")
-                            if (id.isNotEmpty()) onNavigateToPost(id)
-                        } else {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                            context.startActivity(intent)
-                        }
-                    }
-                }, start, end, flags)
-            }
-            textView.text = htmlSpannable
-        }
-    )
-}
+// HTML 渲染已抽至 ui/components/HtmlTextView.kt（详情页描述与日志正文共用）
 
 // -----------------------------------------------------------------------------------------
 // Tab content: Meta Info
@@ -1746,6 +1791,8 @@ private fun MetaInfoContent(sub: Submission) {
         MetaInfoCard(stringResource(R.string.meta_resolution), sub.resolution)
         MetaInfoCard(stringResource(R.string.meta_file_size), sub.fileSize)
         MetaInfoCard(stringResource(R.string.meta_file_type), sub.fileType)
+        // 文件实际后缀名（如 PNG/GIF/SWF），从下载链接/原图 URL 截取
+        MetaInfoCard(stringResource(R.string.meta_file_format), sub.fileExt.uppercase())
         MetaInfoCard(stringResource(R.string.meta_date), sub.date)
     }
 }

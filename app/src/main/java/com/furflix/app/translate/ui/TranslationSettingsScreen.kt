@@ -397,6 +397,7 @@ private fun TranslationCategory.titleRes(): Int = when (this) {
     TranslationCategory.TAG -> R.string.translation_content_tags
     TranslationCategory.COMMENT -> R.string.translation_content_comments
     TranslationCategory.USER_PROFILE -> R.string.translation_content_profile
+    TranslationCategory.JOURNAL -> R.string.translation_content_journals
 }
 
 private val TranslationCategory.icon: ImageVector
@@ -406,6 +407,7 @@ private val TranslationCategory.icon: ImageVector
         TranslationCategory.TAG -> Icons.Default.Pets
         TranslationCategory.COMMENT -> Icons.Default.GTranslate
         TranslationCategory.USER_PROFILE -> Icons.Default.Public
+        TranslationCategory.JOURNAL -> Icons.Default.MenuBook
     }
 
 @Composable

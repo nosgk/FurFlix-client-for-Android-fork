@@ -54,6 +54,11 @@ class UserViewModel(
     private val _watchersHasMore = MutableStateFlow(false)
     val watchersHasMore: StateFlow<Boolean> = _watchersHasMore.asStateFlow()
 
+    private val _journals = MutableStateFlow<List<com.furflix.app.data.model.Journal>>(emptyList())
+    val journals: StateFlow<List<com.furflix.app.data.model.Journal>> = _journals.asStateFlow()
+    private var journalsPage = 1
+    private var journalsMore = true
+
     private var currentPage = 1
     private var watchingPage = 1
     private var watchersPage = 1
@@ -75,6 +80,7 @@ class UserViewModel(
         const val TAB_FAVORITES = 1
         const val TAB_WATCHING = 2
         const val TAB_WATCHERS = 3
+        const val TAB_JOURNALS = 4
     }
 
     private var _lastNsfwEnabled: Boolean? = null
@@ -112,6 +118,18 @@ class UserViewModel(
             ) {
                 com.furflix.app.data.local.UserVisitCache.getInstance(getApplication())
                     .put(profile.username, profile.displayName, profile.avatarUrl)
+            }
+            // Gallery Folders：现代主题用户页不含文件夹列表，从 /gallery/ 页解析补取
+            // （画廊 tab 加载过 page 1 时命中解析器缓存，零额外请求）
+            if (profile.folders.isEmpty()) {
+                try {
+                    val folders = repository.getUserGalleryFolders(username)
+                    if (folders.isNotEmpty()) {
+                        _userProfile.value = profile.copy(folders = folders)
+                    }
+                } catch (e: Exception) {
+                    Log.e("UserVM", "loadFolders failed", e)
+                }
             }
         } catch (e: Exception) {
             Log.e("UserVM", "loadProfile failed", e)
@@ -233,6 +251,25 @@ class UserViewModel(
         }
     }
 
+    fun loadJournals(force: Boolean = false) {
+        if (!force && _currentTab.value == TAB_JOURNALS && _journals.value.isNotEmpty()) return
+        _currentTab.value = TAB_JOURNALS
+        journalsPage = 1
+        journalsMore = true
+        viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+            try {
+                val result = repository.getUserJournals(username, journalsPage)
+                _journals.value = result
+                if (result.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.empty_journals)
+            } catch (e: Exception) {
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
+            }
+            _isLoading.value = false
+        }
+    }
+
     fun openFolder(folder: GalleryFolder) {
         _activeFolder.value = folder
         _submissions.value = emptyList()
@@ -321,12 +358,22 @@ class UserViewModel(
                                 .distinctBy { it.username.lowercase() }
                         } else watchersPage--
                     }
+                    TAB_JOURNALS -> {
+                        if (!journalsMore) { _isLoadingMore.value = false; return@launch }
+                        journalsPage++
+                        val more = repository.getUserJournals(username, journalsPage)
+                        val uniqueMore = more.filter { newJournal -> _journals.value.none { it.id == newJournal.id } }
+                        journalsMore = uniqueMore.isNotEmpty()
+                        if (uniqueMore.isEmpty()) journalsPage--
+                        else _journals.value = _journals.value + uniqueMore
+                    }
                 }
             } catch (e: Exception) {
                 when (_currentTab.value) {
                     TAB_GALLERY, TAB_FAVORITES -> currentPage--
                     TAB_WATCHING -> watchingPage--
                     TAB_WATCHERS -> watchersPage--
+                    TAB_JOURNALS -> journalsPage--
                 }
             }
             _isLoadingMore.value = false
@@ -356,6 +403,7 @@ class UserViewModel(
             TAB_FAVORITES -> { _submissions.value = emptyList(); loadFavorites(force = true) }
             TAB_WATCHING -> { _watchingList.value = emptyList(); loadWatching(force = true) }
             TAB_WATCHERS -> { _watchersList.value = emptyList(); loadWatchers(force = true) }
+            TAB_JOURNALS -> { _journals.value = emptyList(); loadJournals(force = true) }
         }
     }
 

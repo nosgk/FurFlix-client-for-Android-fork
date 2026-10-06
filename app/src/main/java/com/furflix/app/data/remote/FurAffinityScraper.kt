@@ -6,6 +6,8 @@ import android.util.Log
 import android.webkit.CookieManager
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.model.Comment
+import com.furflix.app.data.model.GalleryFolder
+import com.furflix.app.data.model.Journal
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
@@ -37,6 +39,10 @@ object FurAffinityScraper {
     
     private val galleryNextUrls = mutableMapOf<String, String>()
     private val favoritesNextUrls = mutableMapOf<String, String>()
+
+    /** 用户画廊文件夹缓存（/gallery/{user}/ 侧栏区块；键 = username） */
+    private val userFoldersCache = mutableMapOf<String, List<GalleryFolder>>()
+    private val journalsNextUrls = mutableMapOf<String, String>()
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -501,7 +507,13 @@ object FurAffinityScraper {
                 galleryNextUrls[username] ?: return@withContext emptyList()
             }
             val doc = fetchDocument(url, forceNsfw)
-            
+
+            // Gallery Folders 区块就在画廊页侧栏：page 1 顺手解析并缓存，
+            // 用户页的文件夹栏目零额外请求取用
+            if (page == 1) {
+                userFoldersCache[username.lowercase()] = parseGalleryFolders(doc)
+            }
+
             val nextA = doc.select("a").firstOrNull { it.text().contains("Next", ignoreCase = true) && it.attr("href").contains("/gallery/", ignoreCase = true) }
             if (nextA != null) {
                 galleryNextUrls[username] = "$FA_BASE${nextA.attr("href")}"
@@ -520,6 +532,205 @@ object FurAffinityScraper {
         } catch (e: Exception) {
             Log.e("FurScraper", "getUserGallery error: ${e.message}", e)
             emptyList()
+        }
+    }
+
+    /** 取该用户全部画廊文件夹：优先用画廊页已解析的缓存，未命中才补一次 /gallery/{user}/ 请求。 */
+    suspend fun getUserGalleryFolders(username: String): List<GalleryFolder> = withContext(Dispatchers.IO) {
+        userFoldersCache[username.lowercase()]?.let { return@withContext it }
+        try {
+            val doc = fetchDocument("$FA_BASE/gallery/$username/")
+            val folders = parseGalleryFolders(doc)
+            userFoldersCache[username.lowercase()] = folders
+            folders
+        } catch (e: Exception) {
+            Log.e("FurScraper", "getUserGalleryFolders error: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * 解析 /gallery/{user}/ 的 Gallery Folders 区块（现代用户页已不再内嵌该列表）。
+     * DOM 形态：.user-folders 直接子节点里 h4 分组标题与 <ul> 交替出现；
+     * 第一个 h4 是区块自身标题（"Gallery Folders"），不算分组；
+     * ul.default-group 的文件夹无分组。计数在链接 title="N submissions" 属性里。
+     */
+    private fun parseGalleryFolders(doc: org.jsoup.nodes.Document): List<GalleryFolder> {
+        val container = doc.selectFirst(".folder-list .user-folders")
+            ?: doc.selectFirst(".user-folders")
+            ?: doc.selectFirst(".folder-list")
+            ?: return emptyList()
+
+        val folders = mutableListOf<GalleryFolder>()
+        var group = ""
+        var sawAny = false
+        for (child in container.children()) {
+            val h4 = child.selectFirst("h4")
+            if (h4 != null && child.selectFirst("a[href*=/folder/]") == null) {
+                val heading = h4.text().trim()
+                if (!heading.equals("Gallery Folders", ignoreCase = true)) group = heading
+                continue
+            }
+            // ul.default-group 是站点的“默认分组”（无组头），不应继承上一个 h4
+            val effectiveGroup = if (child.hasClass("default-group")) "" else group
+            for (a in child.select("a[href*=/folder/]")) {
+                val folder = parseFolderAnchor(a, effectiveGroup) ?: continue
+                if (folders.any { it.id == folder.id }) continue
+                folders.add(folder)
+                sawAny = true
+            }
+        }
+        if (!sawAny) {
+            // 未知主题形态：整页兜底扫一遍 /folder/ 链接（退化为无分组平铺）
+            for (a in doc.select("a[href*=/folder/]")) {
+                val folder = parseFolderAnchor(a, "") ?: continue
+                if (folders.any { it.id == folder.id }) continue
+                folders.add(folder)
+            }
+        }
+        return folders
+    }
+
+    /** 单个文件夹链接：href/名称/计数（title 属性优先），[fallbackGroup] 为当前分组上下文。 */
+    private fun parseFolderAnchor(a: org.jsoup.nodes.Element, fallbackGroup: String): GalleryFolder? {
+        val hrefAttr = a.attr("href")
+        val m = Regex("/gallery/([^/]+)/folder/(\\d+)/([^/?#]+)").find(hrefAttr) ?: return null
+        val id = m.groupValues[2]
+        val slug = m.groupValues[3]
+        // view 页结构：<strong>分组</strong> - <span>名</span>；画廊侧栏无 strong/span，名即链接文本
+        val group = a.selectFirst("strong")?.text()?.trim()
+            ?.takeIf { it.isNotEmpty() } ?: fallbackGroup
+        val name = a.selectFirst("span")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+            ?: a.text().trim().ifBlank {
+                runCatching {
+                    java.net.URLDecoder.decode(slug.replace('-', ' ').replace('_', ' '), "UTF-8")
+                }.getOrDefault(slug)
+            }.ifBlank { slug }
+        val titleAttr = a.attr("title")
+        val count = Regex("([\\d,]+)\\s*submissions", RegexOption.IGNORE_CASE).find(titleAttr)
+            ?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+            ?: Regex("[(\\[]\\s*([\\d,]+)").find(a.text())
+                ?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+            ?: 0
+        return GalleryFolder(
+            id = id,
+            name = name,
+            href = if (hrefAttr.startsWith("/")) hrefAttr else "/$hrefAttr",
+            thumbUrl = a.selectFirst("img")?.attr("src") ?: "",
+            count = count,
+            group = group
+        )
+    }
+
+    /**
+     * 用户日志列表（/journals/{user}/）。
+     * 条目 = div.content section[id^="jid:"]：h2 标题 + popup_date 日期 +
+     * journal-body 全文（作摘要）+ section-footer 的评论数链接；
+     * 分页是 form[action=/journals/{user}/{n}/] 的 "Older" 按钮（"Newer" 表单同时存在，须区分）。
+     */
+    suspend fun getUserJournals(username: String, page: Int = 1, forceNsfw: Boolean? = null): List<Journal> = withContext(Dispatchers.IO) {
+        try {
+            val url = if (page == 1) {
+                "$FA_BASE/journals/$username/"
+            } else {
+                journalsNextUrls[username] ?: return@withContext emptyList()
+            }
+            val doc = fetchDocument(url, forceNsfw)
+
+            val olderForm = doc.select("form[action*=\"/journals/\"]").firstOrNull { form ->
+                (form.selectFirst("button")?.text() ?: form.selectFirst("input")?.attr("value") ?: "")
+                    .contains("Older", ignoreCase = true)
+            }
+            val action = olderForm?.attr("action")
+            if (!action.isNullOrEmpty()) {
+                journalsNextUrls[username] = if (action.startsWith("http")) action else "$FA_BASE$action"
+            } else {
+                journalsNextUrls.remove(username)
+            }
+
+            val journals = mutableListOf<Journal>()
+            for (section in doc.select("div.content section")) {
+                if (!section.id().startsWith("jid:")) continue
+                val id = section.id().removePrefix("jid:").trim()
+                if (id.isEmpty()) continue
+                val title = section.selectFirst(".section-header h2")?.text()?.trim() ?: continue
+                val dateEl = section.selectFirst("span.popup_date")
+                val date = dateEl?.attr("title")?.trim() ?: ""
+                val timestamp = dateEl?.attr("data-time")?.toLongOrNull() ?: 0
+                val rating = section.selectFirst("span[class*=c-contentRating]")?.text()?.trim() ?: ""
+                val excerpt = section.selectFirst(".journal-body")?.text()?.trim()
+                    ?.replace(Regex("\\s+"), " ")?.take(240) ?: ""
+                val commentCount = section.selectFirst(".section-footer a span.font-large")?.text()
+                    ?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 0
+                journals.add(Journal(
+                    id = id,
+                    title = title,
+                    date = date,
+                    timestamp = timestamp,
+                    rating = rating,
+                    excerpt = excerpt,
+                    commentCount = commentCount
+                ))
+            }
+            journals
+        } catch (e: Exception) {
+            Log.e("FurScraper", "getUserJournals error: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    /** 日志详情（/journal/{id}/）：正文 + 页脚 + 评论（结构与作品评论一致，共用解析）。 */
+    suspend fun getJournalDetails(journalId: String): Journal? = withContext(Dispatchers.IO) {
+        try {
+            val doc = fetchDocument("$FA_BASE/journal/$journalId/")
+            val content = doc.selectFirst("#columnpage div.content") ?: doc
+
+            val title = content.selectFirst("#c-journalTitleTop__subject h3")?.text()?.trim()
+                ?: content.selectFirst(".section-header h3")?.text()?.trim()
+                ?: content.selectFirst(".section-header h2")?.text()?.trim()
+                ?: "Untitled"
+            val dateEl = content.selectFirst("span.popup_date")
+            val rating = content.selectFirst("span[class*=c-contentRating]")?.text()?.trim() ?: ""
+            val bodyEl = content.selectFirst(".journal-content") ?: content.selectFirst(".journal-body")
+            bodyEl?.select("a[href^=\"/\"]")?.forEach {
+                it.attr("href", "$FA_BASE${it.attr("href")}")
+            }
+            val body = bodyEl?.html()?.trim() ?: ""
+            val footer = content.selectFirst(".journal-footer")?.text()?.trim() ?: ""
+            val commentCount = content.selectFirst(".section-footer span.font-large")?.text()
+                ?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 0
+
+            // 作者信息在导航栏用户块
+            val authorEl = doc.selectFirst(".username-in-nav-bar a.c-usernameBlock__displayName")
+                ?: doc.selectFirst(".username-in-nav-bar a[href*=\"/user/\"]")
+            val author = authorEl?.text()?.trim() ?: ""
+            val authorUrl = authorEl?.attr("href") ?: ""
+            val authorUsername = if (authorUrl.contains("/user/")) {
+                authorUrl.substringAfter("/user/").substringBefore("/")
+            } else ""
+            var authorAvatar = doc.selectFirst("userpage-nav-avatar img")?.attr("src") ?: ""
+            if (authorAvatar.isNotEmpty() && !authorAvatar.startsWith("http")) authorAvatar = "https:$authorAvatar"
+            if (authorAvatar.isEmpty() && authorUsername.isNotEmpty()) {
+                authorAvatar = "https://a.furaffinity.net/$authorUsername.gif"
+            }
+
+            Journal(
+                id = journalId,
+                title = title,
+                date = dateEl?.attr("title")?.trim() ?: "",
+                timestamp = dateEl?.attr("data-time")?.toLongOrNull() ?: 0,
+                rating = rating,
+                commentCount = commentCount,
+                author = author,
+                authorUsername = authorUsername,
+                authorAvatar = authorAvatar,
+                body = body,
+                footer = footer,
+                commentList = parseCommentsList(content)
+            )
+        } catch (e: Exception) {
+            Log.e("FurScraper", "getJournalDetails error: ${e.message}", e)
+            null
         }
     }
 
@@ -744,12 +955,9 @@ object FurAffinityScraper {
             }
         }
         if (fullImageUrl.isEmpty() || fullImageUrl.startsWith("data:")) {
-            val dl = doc.selectFirst("a[href*=\"/download/\"], a.download")
+            val dl = doc.selectFirst("a[href*=\"/download/\"], a.download, a.button[href*=\"d.furaffinity.net\"]")
             if (dl != null) {
-                fullImageUrl = dl.attr("href")
-                if (fullImageUrl.isNotEmpty() && !fullImageUrl.startsWith("http")) {
-                    fullImageUrl = "$FA_BASE$fullImageUrl"
-                }
+                fullImageUrl = absoluteFaUrl(dl.attr("href"))
             }
         }
 
@@ -804,10 +1012,10 @@ object FurAffinityScraper {
             .filter { it.isNotEmpty() && it.length < 50 }
 
         var fileUrl = ""
-        val dlLink = doc.selectFirst("a[href*=\"/download/\"], a.download")
+        val dlLink = doc.selectFirst("a[href*=\"/download/\"], a.download, a.button[href*=\"d.furaffinity.net\"]")
         if (dlLink != null) {
-            fileUrl = dlLink.attr("href")
-            if (fileUrl.isNotEmpty() && !fileUrl.startsWith("http")) fileUrl = "$FA_BASE$fileUrl"
+            // 匿名态页面的 Download 按钮直接指向 d.furaffinity.net 的协议相对链接
+            fileUrl = absoluteFaUrl(dlLink.attr("href"))
         }
 
         // 文件类型徽标数据：扩展名从下载链接/原图 URL 截取（仅接受 1-5 位小写字母数字，
@@ -854,10 +1062,74 @@ object FurAffinityScraper {
             }
         }
 
-        val commentList = mutableListOf<Comment>()
-        for (commentEl in doc.select("div.comment_container")) {
-            // FA encodes reply nesting as a shrinking container width:
-            // style="width:N%" → indentation = 100 - N (iOS FAPageComment).
+        val commentList = parseCommentsList(doc)
+
+        // 作品所属画廊文件夹（sidebar-lower 的 Folders 区块）
+        val folders = parseSubmissionFolders(doc)
+
+        return Submission(
+            id = submissionId,
+            title = title,
+            author = author,
+            authorUsername = authorUsername,
+            authorAvatar = authorAvatar,
+            thumbnailUrl = fullImageUrl.ifEmpty { authorAvatar },
+            fullImageUrl = fullImageUrl,
+            description = description,
+            rating = rating,
+            category = category,
+            species = species,
+            gender = gender,
+            views = views,
+            favorites = favorites,
+            comments = commentList.size,
+            date = date,
+            tags = tags,
+            fileUrl = fileUrl,
+            fileName = fileName,
+            fileExt = fileExt,
+            flashWidth = flashWidth,
+            flashHeight = flashHeight,
+            resolution = resolution,
+            fileSize = fileSize,
+            fileType = fileType,
+            folders = folders,
+            commentList = commentList,
+            isFavorited = isFavorited,
+            favUrl = favUrl
+        )
+    }
+
+    /** 站内相对/协议相对链接 → 绝对 https 链接（FA 静态资源常用 //d.furaffinity.net 形态）。 */
+    private fun absoluteFaUrl(url: String): String = when {
+        url.isEmpty() -> url
+        url.startsWith("//") -> "https:$url"
+        url.startsWith("http") -> url
+        url.startsWith("/") -> "$FA_BASE$url"
+        else -> "$FA_BASE/$url"
+    }
+
+    /** view 页侧栏的 Folders 区块（#submission-sidebar-lower .submission-folder a）。 */
+    private fun parseSubmissionFolders(doc: org.jsoup.nodes.Document): List<GalleryFolder> {
+        val anchors = doc.select("#submission-sidebar-lower .submission-folder a")
+            .ifEmpty { doc.select(".folder-list-container .submission-folder a") }
+        val folders = mutableListOf<GalleryFolder>()
+        for (a in anchors) {
+            val folder = parseFolderAnchor(a, "") ?: continue
+            if (folders.any { it.id == folder.id }) continue
+            folders.add(folder)
+        }
+        return folders
+    }
+
+    /**
+     * 评论解析（view 页与 journal 页同构，共用）。
+     * FA encodes reply nesting as a shrinking container width:
+     * style="width:N%" → indentation = 100 - N (iOS FAPageComment).
+     */
+    private fun parseCommentsList(scope: org.jsoup.nodes.Element): List<Comment> {
+        val comments = mutableListOf<Comment>()
+        for (commentEl in scope.select("div.comment_container")) {
             val indentation = Regex("width:(\\d+)%").find(commentEl.attr("style"))
                 ?.groupValues?.get(1)?.toIntOrNull()
                 ?.let { w -> (100 - w).coerceAtLeast(0) } ?: 0
@@ -899,7 +1171,7 @@ object FurAffinityScraper {
                 }
                 val commentText = commentTextEl?.text()?.trim() ?: ""
 
-                commentList.add(Comment(
+                comments.add(Comment(
                     id = commentId,
                     author = commentAuthor,
                     authorUsername = commentUsername,
@@ -914,40 +1186,10 @@ object FurAffinityScraper {
                 // with its cid/indentation instead of dropping it, so the page
                 // never loses a comment and counts stay consistent.
                 Log.w("FurScraper", "Comment $commentId degraded to hidden: ${e.message}")
-                commentList.add(Comment(id = commentId, indentation = indentation))
+                comments.add(Comment(id = commentId, indentation = indentation))
             }
         }
-
-        return Submission(
-            id = submissionId,
-            title = title,
-            author = author,
-            authorUsername = authorUsername,
-            authorAvatar = authorAvatar,
-            thumbnailUrl = fullImageUrl.ifEmpty { authorAvatar },
-            fullImageUrl = fullImageUrl,
-            description = description,
-            rating = rating,
-            category = category,
-            species = species,
-            gender = gender,
-            views = views,
-            favorites = favorites,
-            comments = commentList.size,
-            date = date,
-            tags = tags,
-            fileUrl = fileUrl,
-            fileName = fileName,
-            fileExt = fileExt,
-            flashWidth = flashWidth,
-            flashHeight = flashHeight,
-            resolution = resolution,
-            fileSize = fileSize,
-            fileType = fileType,
-            commentList = commentList,
-            isFavorited = isFavorited,
-            favUrl = favUrl
-        )
+        return comments
     }
 
     suspend fun getUserProfile(username: String): com.furflix.app.data.model.UserProfile = withContext(Dispatchers.IO) {
@@ -1091,32 +1333,12 @@ object FurAffinityScraper {
             com.furflix.app.data.model.ContactLink(type = type, label = label, url = linkUrl)
         }
 
-        // Gallery folders: 任何指向 /gallery/{user}/folder/{id}/{slug} 的链接都算一条；
-        // 区块不可见/为空时自然得到空列表（容错，不抛错）。计数取链接文本里的 (N)。
-        val folders = mutableListOf<com.furflix.app.data.model.GalleryFolder>()
-        val folderHrefRegex = Regex("/gallery/([^/]+)/folder/(\\d+)/([^/?#]+)")
-        for (a in doc.select("a[href*=/folder/]")) {
-            val hrefAttr = a.attr("href")
-            val m = folderHrefRegex.find(hrefAttr) ?: continue
-            val id = m.groupValues[2]
-            if (folders.any { it.id == id }) continue
-            val slug = m.groupValues[3]
-            val name = runCatching {
-                java.net.URLDecoder.decode(slug.replace('_', ' '), "UTF-8")
-            }.getOrDefault(slug).ifBlank { slug }
-            val thumb = a.selectFirst("img")?.attr("src") ?: ""
-            val count = Regex("[(\\[]\\s*([\\d,]+)").find(a.text())
-                ?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
-            folders.add(
-                com.furflix.app.data.model.GalleryFolder(
-                    id = id,
-                    name = name,
-                    href = if (hrefAttr.startsWith("/")) hrefAttr else "/$hrefAttr",
-                    thumbUrl = thumb,
-                    count = count
-                )
-            )
-        }
+        // Gallery folders：现代主题的用户页已不含文件夹列表（只在 /gallery/ 页侧栏，
+        // 由 ViewModel 经 getUserGalleryFolders 从画廊页解析补取）；此处仅兜底扫描
+        // 经典主题仍内嵌的 /folder/ 链接，区块缺失时自然得到空列表（容错，不抛错）。
+        val folders = doc.select("a[href*=/folder/]")
+            .mapNotNull { parseFolderAnchor(it, "") }
+            .distinctBy { it.id }
 
         com.furflix.app.data.model.UserProfile(
             username = username,

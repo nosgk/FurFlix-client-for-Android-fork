@@ -32,13 +32,28 @@ object Routes {
     const val FILTERS_SETTINGS = "filters_settings"
     const val TRANSLATION_SETTINGS = "translation_settings"
     const val LOGIN = "login"
-    const val USER_PROFILE = "user/{username}"
+    // 可选 folder* 参数：作品详情页 Folders 区块直达“用户页内文件夹浏览”
+    const val USER_PROFILE =
+        "user/{username}?folderId={folderId}&folderName={folderName}&folderGroup={folderGroup}&folderHref={folderHref}&folderCount={folderCount}"
     const val TAG_SEARCH = "tag_search/{tag}"
+    const val JOURNAL = "journal/{journalId}"
     const val ABOUT_DEVELOPER = "about_developer"
 
     fun postDetail(postId: String, source: String = "main") = "post/$postId/$source"
-    fun userProfile(username: String) = "user/$username"
+    fun userProfile(username: String, folder: com.furflix.app.data.model.GalleryFolder? = null): String {
+        val base = "user/$username"
+        if (folder == null) return base
+        val count = folder.count.toString()
+        return base + listOf(
+            "folderId=" + android.net.Uri.encode(folder.id),
+            "folderName=" + android.net.Uri.encode(folder.name),
+            "folderGroup=" + android.net.Uri.encode(folder.group),
+            "folderHref=" + android.net.Uri.encode(folder.href),
+            "folderCount=" + android.net.Uri.encode(count)
+        ).joinToString("&", "?")
+    }
     fun tagSearch(tag: String) = "tag_search/${tag.replace("#", "%23")}"
+    fun journal(journalId: String) = "journal/$journalId"
 }
 
 @Composable
@@ -165,6 +180,14 @@ fun FurFlixNavGraph(
                 onBack = { navController.popBackStack() },
                 onAuthorClick = { username -> navController.navigate(Routes.userProfile(username)) },
                 onNavigateToPost = { id -> navController.navigate(Routes.postDetail(id, source)) },
+                onOpenFolder = { folder ->
+                    // 文件夹链接自带所属用户：/gallery/{user}/folder/{id}/{slug}
+                    val folderUsername = folder.href.substringAfter("/gallery/").substringBefore("/")
+                        .ifEmpty { submissions.firstOrNull { it.id == postId }?.authorUsername.orEmpty() }
+                    if (folderUsername.isNotEmpty()) {
+                        navController.navigate(Routes.userProfile(folderUsername, folder))
+                    }
+                },
                 onTagClick = { tag ->
                     navController.navigate(Routes.tagSearch("@keywords $tag"))
                 },
@@ -250,7 +273,14 @@ fun FurFlixNavGraph(
 
         composable(
             route = Routes.USER_PROFILE,
-            arguments = listOf(navArgument("username") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("username") { type = NavType.StringType },
+                navArgument("folderId") { type = NavType.StringType; defaultValue = "" },
+                navArgument("folderName") { type = NavType.StringType; defaultValue = "" },
+                navArgument("folderGroup") { type = NavType.StringType; defaultValue = "" },
+                navArgument("folderHref") { type = NavType.StringType; defaultValue = "" },
+                navArgument("folderCount") { type = NavType.StringType; defaultValue = "0" }
+            )
         ) { backStackEntry ->
             val username = backStackEntry.arguments?.getString("username") ?: return@composable
             val userViewModel: com.furflix.app.viewmodel.UserViewModel = viewModel(
@@ -260,13 +290,50 @@ fun FurFlixNavGraph(
                     username
                 )
             )
+            // 详情页 Folders 直达：带参进入时直接在该用户的文件夹内浏览
+            val folderId = backStackEntry.arguments?.getString("folderId") ?: ""
+            if (folderId.isNotEmpty()) {
+                val initialFolder = remember(folderId, backStackEntry) {
+                    com.furflix.app.data.model.GalleryFolder(
+                        id = folderId,
+                        name = backStackEntry.arguments?.getString("folderName").orEmpty(),
+                        group = backStackEntry.arguments?.getString("folderGroup").orEmpty(),
+                        href = backStackEntry.arguments?.getString("folderHref").orEmpty(),
+                        count = backStackEntry.arguments?.getString("folderCount")?.toIntOrNull() ?: 0
+                    )
+                }
+                androidx.compose.runtime.LaunchedEffect(initialFolder) {
+                    userViewModel.openFolder(initialFolder)
+                }
+            }
             UserProfileScreen(
                 username = username,
                 viewModel = userViewModel,
                 mainViewModel = mainViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToPost = { postId -> navController.navigate(Routes.postDetail(postId, "user_$username")) },
-                onNavigateToUser = { user -> navController.navigate(Routes.userProfile(user)) }
+                onNavigateToUser = { user -> navController.navigate(Routes.userProfile(user)) },
+                onNavigateToJournal = { id -> navController.navigate(Routes.journal(id)) }
+            )
+        }
+
+        composable(
+            route = Routes.JOURNAL,
+            arguments = listOf(navArgument("journalId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val journalId = backStackEntry.arguments?.getString("journalId") ?: return@composable
+            val journalViewModel: com.furflix.app.viewmodel.JournalDetailViewModel = viewModel(
+                viewModelStoreOwner = backStackEntry,
+                factory = com.furflix.app.viewmodel.JournalDetailViewModel.Factory(
+                    androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application,
+                    journalId
+                )
+            )
+            JournalDetailScreen(
+                journalId = journalId,
+                viewModel = journalViewModel,
+                onBack = { navController.popBackStack() },
+                onAuthorClick = { username -> navController.navigate(Routes.userProfile(username)) }
             )
         }
 

@@ -48,7 +48,32 @@ import com.furflix.app.R
 import com.furflix.app.data.model.CardStats
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.remote.DynamicThumbnail
+import com.furflix.app.translate.data.TranslationCategory
+import com.furflix.app.translate.data.TranslationUiPrefs
+import com.furflix.app.translate.ui.TranslatableText
+import com.furflix.app.translate.ui.TranslationEntry
+import com.furflix.app.translate.ui.TranslationUiState
+import com.furflix.app.translate.ui.rememberTranslationEntry
+import com.furflix.app.translate.ui.rememberTranslationPrefs
 import com.furflix.app.ui.theme.*
+
+/**
+ * 卡片标题自动翻译：延迟 500ms 再送翻，快速滑动时卡片离开组合即取消
+ * （未发出的不补发），避免长列表刷屏式打翻译服务；缓存与中文跳过由
+ * TranslationEntry.translateAuto 统一处理。
+ */
+@Composable
+private fun CardTitleAutoEffect(entry: TranslationEntry, prefs: TranslationUiPrefs) {
+    LaunchedEffect(entry, prefs.enabled, prefs.auto) {
+        if (prefs.enabled && prefs.auto) {
+            kotlinx.coroutines.delay(500)
+            val state = entry.state.value
+            if (state is TranslationUiState.Idle && !state.autoAttempted) {
+                entry.translateAuto()
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -380,12 +405,22 @@ fun SubmissionCard(
             if (!compact) {
                 if (showTitle) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
+                        // 标题双语翻译：全局翻译开启时自动送翻（防抖），双语/仅译文随类别设置
+                        val translationPrefs = rememberTranslationPrefs()
+                        val titleEntry = rememberTranslationEntry(
+                            key = submission.id,
                             text = submission.title,
-                            style = MaterialTheme.typography.titleMedium,
+                            category = TranslationCategory.TITLE
+                        )
+                        CardTitleAutoEffect(titleEntry, translationPrefs)
+                        TranslatableText(
+                            entry = titleEntry,
+                            prefs = translationPrefs,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
                             maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurface
+                            overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
@@ -412,13 +447,22 @@ fun SubmissionCard(
             } else {
                 // Compact mode: show title below image as small text if showTitle=true
                 if (showTitle) {
-                    Text(
+                    val translationPrefs = rememberTranslationPrefs()
+                    val titleEntry = rememberTranslationEntry(
+                        key = submission.id,
                         text = submission.title,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
+                        category = TranslationCategory.TITLE
+                    )
+                    CardTitleAutoEffect(titleEntry, translationPrefs)
+                    TranslatableText(
+                        entry = titleEntry,
+                        prefs = translationPrefs,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                     )
                 }
             }
