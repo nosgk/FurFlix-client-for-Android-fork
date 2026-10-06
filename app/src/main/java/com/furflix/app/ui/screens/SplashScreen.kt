@@ -10,12 +10,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +42,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -68,10 +72,18 @@ fun SplashScreen(
     var showLandingBurst by remember { mutableStateOf(false) }
     val landingBurstProgress = remember { Animatable(0f) }
 
-    // 今日站点横幅：先查当日缓存（秒回），未命中再抓首页解析；
+    // 今日站点横幅：先查当日缓存（秒回），未命中按展示策略取数；
     // 动画照常进行，横幅在展示窗口内到达则淡入并小幅延长启动页
     var bannerUrl by remember { mutableStateOf<String?>(null) }
     var bannerFetchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    // 横幅展示策略（设置→外观）：联网刷新开关 + 横屏上/下 + 竖屏左/右
+    val bannerRefresh by (repository?.splashBannerRefreshFlow
+        ?: kotlinx.coroutines.flow.flowOf(true)).collectAsState(initial = true)
+    val bannerLandscapeTop by (repository?.splashBannerLandscapeTopFlow
+        ?: kotlinx.coroutines.flow.flowOf(true)).collectAsState(initial = true)
+    val bannerPortraitRight by (repository?.splashBannerPortraitRightFlow
+        ?: kotlinx.coroutines.flow.flowOf(false)).collectAsState(initial = false)
 
     val density = LocalDensity.current
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -93,7 +105,10 @@ fun SplashScreen(
     LaunchedEffect(Unit) {
         if (repository != null) {
             bannerFetchJob = launch {
-                val url = repository.loadSiteBanner() ?: repository.refreshSiteBanner()
+                // 当日缓存未命中时：开=联网刷新；关=只用本地缓存（可为隔日旧图，零流量）
+                val url = repository.loadSiteBanner()
+                    ?: if (bannerRefresh) repository.refreshSiteBanner()
+                    else repository.loadSiteBannerCached()
                 if (!url.isNullOrEmpty()) bannerUrl = url
             }
         }
@@ -123,7 +138,7 @@ fun SplashScreen(
         onSplashFinished()
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
@@ -178,24 +193,53 @@ fun SplashScreen(
             )
         }
 
-        // 今日站点横幅（FA site-banner，1850x300）：底部圆角卡淡入
+        // 今日站点横幅（FA site-banner，1850x300）：完整显示不裁切；
+        // 横屏置顶/底部条带，竖屏旋转 90° 沿左/右缘整条展示（设置→外观可调）
         bannerUrl?.let { url ->
-            val bannerAlpha by animateFloatAsState(
-                targetValue = if (bannerUrl != null) 1f else 0f,
-                label = "bannerAlpha"
-            )
-            coil3.compose.AsyncImage(
-                model = url,
-                contentDescription = stringResource(R.string.cd_site_banner),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(start = 16.dp, end = 16.dp, bottom = 24.dp)
-                    .fillMaxWidth()
-                    .height(72.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .alpha(bannerAlpha),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-            )
+            val bannerAlpha by animateFloatAsState(targetValue = 1f, label = "bannerAlpha")
+            val isLandscape = LocalConfiguration.current.orientation ==
+                android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            val bannerAspect = 1850f / 300f
+            if (isLandscape) {
+                // 横屏：全宽条带，高度按原始比例推算 → 整图完整可见
+                val stripHeight = (maxWidth - 32.dp) / bannerAspect
+                coil3.compose.AsyncImage(
+                    model = url,
+                    contentDescription = stringResource(R.string.cd_site_banner),
+                    modifier = Modifier
+                        .align(if (bannerLandscapeTop) Alignment.TopCenter else Alignment.BottomCenter)
+                        .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 24.dp)
+                        .fillMaxWidth()
+                        .height(stripHeight)
+                        .clip(RoundedCornerShape(14.dp))
+                        .alpha(bannerAlpha),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+            } else {
+                // 竖屏：长轴旋转为纵向贴边展示；requiredSize 允许超出父约束布局，
+                // 旋转后视觉条带完整落在屏幕内，translationX 平移到左/右缘
+                val stripLen = maxHeight - 48.dp
+                val stripThick = stripLen / bannerAspect
+                val targetCenterX = if (bannerPortraitRight) {
+                    maxWidth - 8.dp - stripThick / 2
+                } else {
+                    8.dp + stripThick / 2
+                }
+                coil3.compose.AsyncImage(
+                    model = url,
+                    contentDescription = stringResource(R.string.cd_site_banner),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .requiredSize(width = stripLen, height = stripThick)
+                        .graphicsLayer {
+                            rotationZ = if (bannerPortraitRight) 90f else 270f
+                            translationX = (targetCenterX - maxWidth / 2).toPx()
+                        }
+                        .clip(RoundedCornerShape(10.dp))
+                        .alpha(bannerAlpha),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+            }
         }
     }
 }

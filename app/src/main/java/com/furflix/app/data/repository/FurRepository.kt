@@ -94,6 +94,9 @@ class FurRepository(private val context: Context) {
     private val SITE_BANNER_URL_KEY = stringPreferencesKey("site_banner_url")
     private val SITE_BANNER_DATE_KEY = stringPreferencesKey("site_banner_date")
     private val IMAGE_CACHE_LIMIT_KEY = longPreferencesKey("image_cache_limit_bytes")
+    private val SPLASH_BANNER_REFRESH_KEY = booleanPreferencesKey("splash_banner_refresh")
+    private val SPLASH_BANNER_LANDSCAPE_TOP_KEY = booleanPreferencesKey("splash_banner_landscape_top")
+    private val SPLASH_BANNER_PORTRAIT_RIGHT_KEY = booleanPreferencesKey("splash_banner_portrait_right")
 
         @Volatile
         private var INSTANCE: FurRepository? = null
@@ -696,6 +699,39 @@ class FurRepository(private val context: Context) {
         val url = FurAffinityScraper.fetchSiteBannerUrl() ?: return null
         saveSiteBanner(url)
         return url
+    }
+
+    /** 无视当日时效返回最近一次缓存的横幅 URL（关闭联网刷新时的离线展示）。 */
+    suspend fun loadSiteBannerCached(): String? =
+        context.dataStore.data.first()[SITE_BANNER_URL_KEY]?.takeIf { it.isNotBlank() }
+
+    // --- 启动页横幅展示策略（外观设置；横幅本身完整显示不裁切） ---
+
+    /** 启动页是否联网刷新今日横幅；关闭则仅用本地缓存（可为隔日旧图），零流量 */
+    val splashBannerRefreshFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SPLASH_BANNER_REFRESH_KEY] ?: true
+    }
+
+    /** 横屏时横幅位置：true = 顶部 / false = 底部 */
+    val splashBannerLandscapeTopFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SPLASH_BANNER_LANDSCAPE_TOP_KEY] ?: true
+    }
+
+    /** 竖屏时横幅旋转 90° 贴边：true = 右缘 / false = 左缘 */
+    val splashBannerPortraitRightFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SPLASH_BANNER_PORTRAIT_RIGHT_KEY] ?: false
+    }
+
+    suspend fun saveSplashBannerRefresh(v: Boolean) {
+        context.dataStore.edit { prefs -> prefs[SPLASH_BANNER_REFRESH_KEY] = v }
+    }
+
+    suspend fun saveSplashBannerLandscapeTop(v: Boolean) {
+        context.dataStore.edit { prefs -> prefs[SPLASH_BANNER_LANDSCAPE_TOP_KEY] = v }
+    }
+
+    suspend fun saveSplashBannerPortraitRight(v: Boolean) {
+        context.dataStore.edit { prefs -> prefs[SPLASH_BANNER_PORTRAIT_RIGHT_KEY] = v }
     }
 
     private fun todayStamp(): String =

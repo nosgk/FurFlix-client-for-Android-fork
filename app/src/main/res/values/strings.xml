@@ -91,6 +91,16 @@
     <!-- Auto-hide top/bottom bars while scrolling -->
     <string name="settings_auto_hide_bars">Auto-hide bars while scrolling</string>
     <string name="settings_auto_hide_bars_desc">Expand more content while browsing</string>
+    <!-- Splash site banner (full display; placement per orientation) -->
+    <string name="settings_splash_banner">Splash Site Banner</string>
+    <string name="settings_splash_banner_desc">Today\'s FA banner on the splash screen</string>
+    <string name="settings_splash_banner_refresh">Fetch today\'s banner on splash</string>
+    <string name="settings_splash_banner_landscape">Landscape placement</string>
+    <string name="settings_splash_banner_top">Top</string>
+    <string name="settings_splash_banner_bottom">Bottom</string>
+    <string name="settings_splash_banner_portrait">Portrait placement (rotated along the edge)</string>
+    <string name="settings_splash_banner_left">Left</string>
+    <string name="settings_splash_banner_right">Right</string>
     <string name="settings_thumb_quality_auto">Auto</string>
     <string name="settings_detail_layout">Detail Layout</string>
     <!-- Tablets / landscape can show artwork and info side by side -->
