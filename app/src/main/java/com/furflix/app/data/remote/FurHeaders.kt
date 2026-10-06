@@ -6,7 +6,7 @@ import okhttp3.Request
  * 抓取请求的 Fetch Metadata / Client Hints 拟真头集：真实 Chrome 导航请求
  * 除 UA 外还带 sec-ch-ua 三件套与 sec-fetch-* 四件套，缺失这些头是 OkHttp
  * 流量与浏览器流量的最大静态差异之一（CF 的 bot score 直接采信）。
- * 头值与 UserAgent.desktop() 的版本自洽（版本取设备真实 WebView 内核）。
+ * 头值与 UserAgent.desktop()（桌面 Chrome/131 常量）自洽。
  */
 object FurHeaders {
 

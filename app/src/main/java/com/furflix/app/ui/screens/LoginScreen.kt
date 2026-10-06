@@ -454,9 +454,9 @@ private fun HybridLoginWebView(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    // UA 单一来源（设备真实 WebView 内核版本）：Turnstile 校验
-                    // UA 声称版本与内核指纹的一致性，硬编码版本会拒绝静默签发
-                    userAgentString = com.furflix.app.data.remote.UserAgent.desktop()
+                    // 登录 WebView 不设 UA：Android 原生 UA 与 WebView 的平台/TLS
+                    // 指纹三方一致，CF/Turnstile 按合法客户端放行（桌面 UA 伪装
+                    // Windows 平台会被识别为伪装流量拒绝——登录回归实测结论）
                 }
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
@@ -632,8 +632,9 @@ private fun FaLoginWebView(
                 var isChallenge = t.indexOf('just a moment') >= 0 || t.indexOf('checking') >= 0 ||
                     document.body.innerHTML.indexOf('_cf_chl_opt') >= 0;
 
-                // 挑战态：移除遮罩让 CF 页面可见可交互，turnstile 置于屏幕中央，
-                // 外层轮询会在挑战通过后自动继续填表提交
+                // 挑战态：移除遮罩让 CF 页面可见可交互，turnstile 置于屏幕中央。
+                // 必须返回 FORM_NOT_FOUND（而非专用值）保持外层轮询不中断——
+                // 挑战通过后由下一轮注入自动继续填表提交
                 if (isChallenge) {
                     var veil = document.getElementById('ffx-veil');
                     if (veil) veil.remove();
@@ -645,7 +646,7 @@ private fun FaLoginWebView(
                         w.style.transform = 'translate(-50%, -50%)';
                         w.style.zIndex = '100000';
                     }
-                    return 'CHALLENGE';
+                    return 'FORM_NOT_FOUND';
                 }
 
                 if (!window.__uiHidden) {
@@ -717,9 +718,8 @@ private fun FaLoginWebView(
                 WebView(ctx).apply {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
-                    // UA 单一来源：与 invisible WebView、OkHttp 抓取链路同版本，
-                    // cf_clearance 的 UA 绑定在所有链路间一致
-                    settings.userAgentString = com.furflix.app.data.remote.UserAgent.desktop()
+                    // 登录 WebView 不设 UA：Android 原生 UA 与平台/TLS 指纹一致，
+                    // 是 CF 放行与 Turnstile 签发的前提（见 HybridLoginWebView 注释）
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 

@@ -122,9 +122,8 @@ private fun CloudflareGateWebView(url: String) {
             WebView(ctx).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
-                // 与抓取链路同一 UA（UserAgent 单一来源）：cf_clearance 绑定 UA，
-                // 两条链路版本一致验证结果才对 OkHttp 生效
-                settings.userAgentString = com.furflix.app.data.remote.UserAgent.desktop()
+                // 验证 WebView 不设 UA：Android 原生 UA 与平台/TLS 指纹一致，
+                // CF 按合法客户端放行（桌面 UA 伪装 Windows 平台会被拒绝）
                 android.webkit.CookieManager.getInstance().setAcceptCookie(true)
                 android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 

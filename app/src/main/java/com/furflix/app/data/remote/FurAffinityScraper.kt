@@ -87,31 +87,52 @@ object FurAffinityScraper {
      * Only uses cookies that are actual auth/session cookies - not consent junk.
      * @param forceNsfw if true, injects sfw=0; if false, injects sfw=1; if null, leaves it alone.
      *
-     * cookie 合并策略（CF 对抗关键）：CookieManager 永远读最新——CF 验证弹窗 /
-     * 登录 WebView 刚拿到的 cf_clearance 与站点轮换的会话 cookie 都实时在
-     * CookieManager 里；sessionCookies（登录同步的权威集）覆盖同名项。
-     * 缺了 cf_clearance 或它与请求 UA 不一致，CF 会对 OkHttp 流量重新弹挑战。
+     * cookie 合并策略（CF 对抗关键）：有会话时以 sessionCookies 为权威，
+     * 并从 CookieManager **精准补齐 Cloudflare 系 cookie**（cf_clearance 等——
+     * 验证弹窗/登录 WebView 刚通过挑战拿到的通行证在这里实时落库）；
+     * 不合并 FCCDCF/FCNEC 等 consent 垃圾（ Cookie 头膨胀反而恶化指纹）。
+     * 无会话（访客态）时回落全量 CookieManager，维持原行为。
      */
     fun getCookiesString(forceNsfw: Boolean? = null): String {
-        val merged = LinkedHashMap<String, String>()
-        fun absorb(raw: String?) {
-            raw?.split(";")?.forEach { part ->
-                val kv = part.trim().split("=", limit = 2)
-                if (kv.size == 2 && kv[0].trim().isNotEmpty()) {
-                    merged[kv[0].trim()] = kv[1].trim()
+        // CF 系 cookie 白名单：验证/挑战链路签发的通行凭证
+        val cfCookieNames = setOf("cf_clearance", "__cf_bm", "__cfruid", "__cf_chl_seqn")
+
+        fun parseCm(): Map<String, String> {
+            val map = LinkedHashMap<String, String>()
+            listOf(
+                cookieManager.getCookie("https://furaffinity.net"),
+                cookieManager.getCookie("https://www.furaffinity.net")
+            ).forEach { raw ->
+                raw?.split(";")?.forEach { part ->
+                    val kv = part.trim().split("=", limit = 2)
+                    if (kv.size == 2 && kv[0].trim().isNotEmpty()) {
+                        map[kv[0].trim()] = kv[1].trim()
+                    }
                 }
             }
+            return map
         }
-        absorb(cookieManager.getCookie("https://furaffinity.net"))
-        absorb(cookieManager.getCookie("https://www.furaffinity.net"))
-        sessionCookies.forEach { (name, value) -> merged[name] = value }
 
-        if (forceNsfw == true) {
-            merged.remove("sfw")
-        } else if (forceNsfw == false) {
-            merged["sfw"] = "1"
+        val cmCookies = parseCm()
+        return if (sessionCookies.isNotEmpty()) {
+            val merged = LinkedHashMap<String, String>()
+            merged.putAll(cmCookies.filterKeys { it in cfCookieNames })
+            sessionCookies.forEach { (name, value) -> merged[name] = value }
+            if (forceNsfw == true) merged.remove("sfw")
+            else if (forceNsfw == false) merged["sfw"] = "1"
+            merged.entries.joinToString("; ") { "${it.key}=${it.value}" }
+        } else {
+            var combined = cmCookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
+            if (forceNsfw == true) {
+                combined = combined.replace(Regex("""sfw=\d+"""), "")
+                    .replace(Regex(""";\s*;"""), ";").trim(';', ' ')
+            } else if (forceNsfw == false) {
+                combined = combined.replace(Regex("""sfw=\d+"""), "").trim(';', ' ')
+                if (combined.isNotEmpty()) combined += "; "
+                combined += "sfw=1"
+            }
+            combined
         }
-        return merged.entries.joinToString("; ") { "${it.key}=${it.value}" }
     }
 
     /**
