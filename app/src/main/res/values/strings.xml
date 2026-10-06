@@ -161,13 +161,13 @@
     <string name="history_tab_users">Users</string>
     <!-- Favorites sub-columns: my favorites vs others' favorites collections -->
     <string name="profile_my_favorites">My favorites</string>
-    <string name="profile_others_favorites">Others' favorites</string>
+    <string name="profile_others_favorites">Others\' favorites</string>
     <string name="empty_others_favorites">No saved favorites collections yet.</string>
     <!-- User page favorites tab: save/unsave the user's favorites collection -->
     <string name="fav_collection_add">Save this favorites collection</string>
     <string name="fav_collection_remove">Saved · tap to remove</string>
-    <string name="toast_others_fav_added">Saved to Others' favorites</string>
-    <string name="toast_others_fav_removed">Removed from Others' favorites</string>
+    <string name="toast_others_fav_added">Saved to Others\' favorites</string>
+    <string name="toast_others_fav_removed">Removed from Others\' favorites</string>
     <!-- User page info chips (trades/commissions status, views/journals) -->
     <string name="profile_trades">Trades</string>
     <string name="profile_commissions">Commissions</string>
