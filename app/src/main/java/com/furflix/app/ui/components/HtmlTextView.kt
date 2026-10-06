@@ -1,17 +1,24 @@
 package com.furflix.app.ui.components
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.widget.TextView
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
 import androidx.core.text.HtmlCompat
+import com.furflix.app.data.remote.FaLink
+import com.furflix.app.data.remote.parseFaLink
 import com.furflix.app.ui.theme.LinkColor
 
 /**
  * HTML 渲染（原文与译文共用；URLSpan 重写为站内导航）。
- * /user/ 链接 → onAuthorClick，/view/ 链接 → onNavigateToPost，其余走系统浏览器。
+ * 链接统一经 [parseFaLink] 判定：FA 的作品/用户（含 gallery/favorites/scraps/
+ * journals 等子页）链接走站内路由，其余（外部站、FA 搜索页、媒体直链）走系统
+ * 浏览器。此前只认 "/user/"、"/view/" 两个子串且不校验 host——/gallery/ 等
+ * 链接全被丢给浏览器，表现为"应用内打不开 FA 链接"。
  * 详情页描述与日志正文共用此组件。
  */
 @Composable
@@ -45,15 +52,12 @@ fun HtmlTextView(
                 htmlSpannable.removeSpan(span)
                 htmlSpannable.setSpan(object : android.text.style.ClickableSpan() {
                     override fun onClick(widget: android.view.View) {
-                        if (url.contains("/user/")) {
-                            val username = url.substringAfter("/user/").substringBefore("/")
-                            if (username.isNotEmpty()) onAuthorClick(username)
-                        } else if (url.contains("/view/")) {
-                            val id = url.substringAfter("/view/").substringBefore("/")
-                            if (id.isNotEmpty()) onNavigateToPost(id)
-                        } else {
-                            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                            context.startActivity(intent)
+                        when (val link = parseFaLink(url)) {
+                            is FaLink.Submission -> if (link.id.isNotEmpty()) onNavigateToPost(link.id)
+                            is FaLink.User -> if (link.username.isNotEmpty()) onAuthorClick(link.username)
+                            // 站内搜索深链需完整筛选状态与 tab 切换，描述内罕见，
+                            // 交系统浏览器；非 FA 链接同样外开
+                            else -> openExternal(context, url)
                         }
                     }
                 }, start, end, flags)
@@ -61,4 +65,12 @@ fun HtmlTextView(
             textView.text = htmlSpannable
         }
     )
+}
+
+private fun openExternal(context: android.content.Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    } catch (_: ActivityNotFoundException) {
+        // 无浏览器可接手：静默忽略，比崩溃好
+    }
 }
