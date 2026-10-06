@@ -24,12 +24,19 @@ import java.io.File
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = FurRepository.getInstance(application)
+    private val listCache = com.furflix.app.data.local.ListCacheStore.getInstance(application)
 
     private val _browseSubmissions = MutableStateFlow<List<Submission>>(emptyList())
     val browseSubmissions: StateFlow<List<Submission>> = _browseSubmissions.asStateFlow()
 
     private val _latestSubmissions = MutableStateFlow<List<Submission>>(emptyList())
     val latestSubmissions: StateFlow<List<Submission>> = _latestSubmissions.asStateFlow()
+
+    /** 缓存优先指示：当前列表整页来自本地缓存（下拉刷新后熄灭），供页面提示条展示 */
+    private val _browseRestoredFromCache = MutableStateFlow(false)
+    val browseRestoredFromCache: StateFlow<Boolean> = _browseRestoredFromCache.asStateFlow()
+    private val _latestRestoredFromCache = MutableStateFlow(false)
+    val latestRestoredFromCache: StateFlow<Boolean> = _latestRestoredFromCache.asStateFlow()
 
     private val _searchSubmissions = MutableStateFlow<List<Submission>>(emptyList())
     val searchSubmissions: StateFlow<List<Submission>> = _searchSubmissions.asStateFlow()
@@ -322,10 +329,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val defaultTab = repository.defaultTabFlow.first()
             _selectedTab.value = defaultTab
-            // Trigger load based on default tab
+            // Trigger load based on default tab（缓存优先：本地有就先出，不自动联网）
             when (defaultTab) {
-                0 -> loadBrowse()
-                1 -> loadLatest()
+                0 -> loadBrowse(allowCacheRestore = true)
+                1 -> loadLatest(allowCacheRestore = true)
             }
         }
         _isLoggedIn.value = FurAffinityScraper.isLoggedIn()
@@ -420,18 +427,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loadBrowse() {
+    /**
+     * 浏览 tab 加载：[allowCacheRestore]（首次进入/冷启动）时先吃本地缓存，
+     * 命中即零流量出列表、不发网络请求；下拉刷新/NSFW 翻转/登录态变化走网络
+     * 并整页回写缓存——缓存优先，刷新即校验。
+     */
+    fun loadBrowse(allowCacheRestore: Boolean = false) {
         browsePage = 1
         browseHasMore = true
         // 浏览 tab 的筛选快照：一次会话内（含 loadMore 翻页）用同一份，
         // 搜索 tab 的筛选调整不再静默改写进行中的浏览会话
         browseActiveFilters = _searchFilters.value
         viewModelScope.launch {
+            if (allowCacheRestore) {
+                val cached = listCache.load(
+                    com.furflix.app.data.local.ListCacheStore.KEY_BROWSE, _nsfwEnabled.value
+                )
+                if (cached != null && _browseSubmissions.value.isEmpty()) {
+                    _browseSubmissions.value = cached
+                    _browseRestoredFromCache.value = true
+                    return@launch
+                }
+            }
+            fetchBrowseFirstPage()
+        }
+    }
+
+    private fun fetchBrowseFirstPage() {
+        viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             try {
                 val result = repository.getBrowse(browsePage, browseActiveFilters)
                 _browseSubmissions.value = result
+                _browseRestoredFromCache.value = false
+                listCache.save(
+                    com.furflix.app.data.local.ListCacheStore.KEY_BROWSE, result, _nsfwEnabled.value
+                )
                 // 列表页 HTML 不带统计：整页投喂预热，卡片浮层的数字/类型徽标随后点亮
                 prefetchSubmissionStats(result.map { it.id })
                 // Do not set errorMessage when empty — can happen briefly on startup
@@ -444,15 +476,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loadLatest() {
+    /** 最新 tab 加载：缓存优先语义同 [loadBrowse]（Latest 翻页游标随缓存失效，翻到底自动停）。 */
+    fun loadLatest(allowCacheRestore: Boolean = false) {
         latestPage = 1
         latestHasMore = true
+        viewModelScope.launch {
+            if (allowCacheRestore) {
+                val cached = listCache.load(
+                    com.furflix.app.data.local.ListCacheStore.KEY_LATEST, _nsfwEnabled.value
+                )
+                if (cached != null && _latestSubmissions.value.isEmpty()) {
+                    _latestSubmissions.value = cached
+                    _latestRestoredFromCache.value = true
+                    return@launch
+                }
+            }
+            fetchLatestFirstPage()
+        }
+    }
+
+    private fun fetchLatestFirstPage() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             try {
                 val result = repository.getLatest(latestPage)
                 _latestSubmissions.value = result
+                _latestRestoredFromCache.value = false
+                listCache.save(
+                    com.furflix.app.data.local.ListCacheStore.KEY_LATEST, result, _nsfwEnabled.value
+                )
                 prefetchSubmissionStats(result.map { it.id })
                 // Do not set errorMessage when empty
             } catch (e: Exception) {
@@ -809,6 +862,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _browseSubmissions.value = emptyList()
             _latestSubmissions.value = emptyList()
             _searchSubmissions.value = emptyList()
+            _browseRestoredFromCache.value = false
+            _latestRestoredFromCache.value = false
         }
     }
 

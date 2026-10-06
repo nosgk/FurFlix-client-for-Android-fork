@@ -382,18 +382,19 @@ fun HomeScreen(
                 snapshotFlow { pagerState.currentPage }
                     .distinctUntilChanged()
                     .collect { page ->
-                        if (page != selectedTab) {
-                            viewModel.setSelectedTab(page)
-                            if (page !in loadedTabs) {
-                                when (page) {
-                                    0 -> viewModel.loadBrowse()
-                                    1 -> viewModel.loadLatest()
-                                    2 -> {}
-                                    3 -> {}
+                            if (page != selectedTab) {
+                                viewModel.setSelectedTab(page)
+                                if (page !in loadedTabs) {
+                                    when (page) {
+                                        // 首次进入 tab：缓存优先（本地有就先出，不自动联网）
+                                        0 -> viewModel.loadBrowse(allowCacheRestore = true)
+                                        1 -> viewModel.loadLatest(allowCacheRestore = true)
+                                        2 -> {}
+                                        3 -> {}
+                                    }
+                                    loadedTabs.add(page)
                                 }
-                                loadedTabs.add(page)
                             }
-                        }
                     }
             }
 
@@ -478,6 +479,7 @@ fun HomeScreen(
                         val bottomBarClearance = 120.dp
                         val submissions = if (page == 0) browseSubmissions else latestSubmissions
 
+                        Box(modifier = Modifier.fillMaxSize()) {
                         if (page == 1 && !isLoggedIn) {
                             LoginContent(
                                 modifier = Modifier.fillMaxSize(),
@@ -679,6 +681,46 @@ fun HomeScreen(
                                     }
                                 }
                             }
+                        }
+
+                        // 缓存优先提示条：当前列表整页来自本地缓存（秒开零流量），下拉刷新即拉最新
+                        val browseRestored by viewModel.browseRestoredFromCache.collectAsState()
+                        val latestRestored by viewModel.latestRestoredFromCache.collectAsState()
+                        val showCachedHint = when (page) {
+                            0 -> browseRestored
+                            1 -> latestRestored
+                            else -> false
+                        }
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = showCachedHint,
+                            enter = fadeIn() + slideInVertically { -it / 2 },
+                            exit = fadeOut() + slideOutVertically { -it / 2 },
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.Black.copy(alpha = 0.55f),
+                                modifier = Modifier.padding(top = 10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.CloudOff,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.list_restored_from_cache),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f)
+                                    )
+                                }
+                            }
+                        }
                         }
                     }
                     2 -> {

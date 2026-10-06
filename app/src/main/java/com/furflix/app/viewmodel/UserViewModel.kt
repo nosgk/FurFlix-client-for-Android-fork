@@ -15,6 +15,7 @@ import com.furflix.app.data.repository.FurRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class UserViewModel(
@@ -23,6 +24,9 @@ class UserViewModel(
 ) : AndroidViewModel(application) {
 
     private val repository = FurRepository.getInstance(application)
+    private val listCache = com.furflix.app.data.local.ListCacheStore.getInstance(application)
+
+    private suspend fun currentNsfw(): Boolean = repository.nsfwEnabledFlow.first()
 
     private val _submissions = MutableStateFlow<List<Submission>>(emptyList())
     val submissions: StateFlow<List<Submission>> = _submissions.asStateFlow()
@@ -185,6 +189,10 @@ class UserViewModel(
         }
     }
 
+    /**
+     * 画廊/Scraps 加载：非强制（首次进入）时缓存优先——命中即零流量出列表；
+     * force（下拉刷新/分区切换/NSFW 翻转）走网络并整页回写缓存。
+     */
     fun loadGallery(force: Boolean = false) {
         if (!force && _currentTab.value == TAB_GALLERY && _submissions.value.isNotEmpty()) return
         _currentTab.value = TAB_GALLERY
@@ -193,6 +201,16 @@ class UserViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
+            val cacheKey = com.furflix.app.data.local.ListCacheStore
+                .userGallery(username, _gallerySection.value == GALLERY_SECTION_SCRAPS)
+            if (!force) {
+                val cached = listCache.load(cacheKey, currentNsfw())
+                if (cached != null) {
+                    _submissions.value = cached
+                    _isLoading.value = false
+                    return@launch
+                }
+            }
             try {
                 val result = if (_gallerySection.value == GALLERY_SECTION_SCRAPS) {
                     repository.getUserScraps(username, currentPage)
@@ -200,6 +218,7 @@ class UserViewModel(
                     repository.getUserGallery(username, currentPage)
                 }
                 _submissions.value = result
+                listCache.save(cacheKey, result, currentNsfw())
                 if (result.isEmpty()) {
                     _errorMessage.value = if (_gallerySection.value == GALLERY_SECTION_SCRAPS) {
                         getApplication<Application>().getString(R.string.empty_scraps)
@@ -227,6 +246,7 @@ class UserViewModel(
         loadGallery(force = true)
     }
 
+    /** 收藏加载：缓存优先语义同 [loadGallery]。 */
     fun loadFavorites(force: Boolean = false) {
         if (!force && _currentTab.value == TAB_FAVORITES && _submissions.value.isNotEmpty()) return
         _currentTab.value = TAB_FAVORITES
@@ -235,9 +255,19 @@ class UserViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
+            val cacheKey = com.furflix.app.data.local.ListCacheStore.userFavorites(username)
+            if (!force) {
+                val cached = listCache.load(cacheKey, currentNsfw())
+                if (cached != null) {
+                    _submissions.value = cached
+                    _isLoading.value = false
+                    return@launch
+                }
+            }
             try {
                 val result = repository.getUserFavorites(username, currentPage)
                 _submissions.value = result
+                listCache.save(cacheKey, result, currentNsfw())
                 if (result.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.profile_no_favorites)
             } catch (e: Exception) {
                 _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")

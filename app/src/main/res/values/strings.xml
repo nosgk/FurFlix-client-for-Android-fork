@@ -396,6 +396,8 @@
     <string name="cf_gate_title">Security verification</string>
     <string name="cf_gate_desc">Fur Affinity requires a browser check. Complete it below — loading resumes automatically.</string>
     <string name="home_not_logged_in">Not logged in. Some content may be unavailable.</string>
+    <!-- Cache-first list hint: the page was restored from the local list cache -->
+    <string name="list_restored_from_cache">Loaded from local cache · pull to refresh</string>
     <string name="settings_startup_tab">Default Startup Tab</string>
     <string name="settings_startup_tab_desc">Choose which tab opens when you launch the app</string>
 

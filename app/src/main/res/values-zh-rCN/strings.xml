@@ -405,6 +405,8 @@
     <string name="cf_gate_title">安全验证</string>
     <string name="cf_gate_desc">Fur Affinity 要求通过一次浏览器检查。请在下方完成,完成后会自动继续加载。</string>
     <string name="home_not_logged_in">未登录,部分内容可能无法查看。</string>
+    <!-- Cache-first list hint: the page was restored from the local list cache -->
+    <string name="list_restored_from_cache">已显示本地缓存 · 下拉刷新获取最新</string>
     <string name="settings_startup_tab">默认启动页</string>
     <string name="settings_startup_tab_desc">选择启动应用时打开的页面</string>
 
