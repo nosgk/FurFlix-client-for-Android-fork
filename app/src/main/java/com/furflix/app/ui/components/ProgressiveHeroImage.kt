@@ -59,6 +59,7 @@ fun ProgressiveImageContent(
     ratio: Float = 0f,
     fixedSized: Boolean = false,
     fallbackAspectRatio: Float = 4f / 3f,
+    heroKey: String? = null,
     onImageClick: (() -> Unit)? = null,
     onImageSuccess: (() -> Unit)? = null
 ) {
@@ -112,7 +113,13 @@ fun ProgressiveImageContent(
             ),
             contentDescription = contentDescription,
             contentScale = contentScale,
-            onSuccess = { onImageSuccess?.invoke() },
+            onSuccess = {
+                // 跨视图复用：详情原图加载完成即登记，返回列表时卡片可顶替缩略图
+                heroKey?.let { key ->
+                    com.furflix.app.data.local.HeroUpgradeRegistry.record(key, fullUrl)
+                }
+                onImageSuccess?.invoke()
+            },
             loading = {
                 if (placeholderUrl != null) {
                     // 占位已可见：右下角小进度芯片，不打断视觉

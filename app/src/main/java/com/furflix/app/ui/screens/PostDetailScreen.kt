@@ -727,6 +727,7 @@ private fun TwoPaneHeroImage(
                 contentScale = ContentScale.Fit,
                 ratio = sub.thumbnailWidthOnHeightRatio,
                 fixedSized = true,
+                heroKey = sub.id,
                 onImageClick = onImageClick
             )
 
@@ -884,6 +885,7 @@ private fun HeroImage(
                 contentScale = if (knownRatio) ContentScale.Crop else ContentScale.FillWidth,
                 ratio = sub.thumbnailWidthOnHeightRatio,
                 fixedSized = knownRatio,
+                heroKey = sub.id,
                 onImageClick = onImageClick,
                 onImageSuccess = { fullImageLoaded = true }
             )

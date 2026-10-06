@@ -177,8 +177,17 @@ fun SubmissionCard(
                     else -> submission.fileType.uppercase().take(6)
                 }
                 val showStats = stats != null || forceFavorited || instantTypeLabel.isNotEmpty()
+                // 跨视图复用：该作品在详情页完整加载过且高清图仍在内存缓存时，
+                // 直接用高清图顶替缩略图（原缩略图请求剔除；缓存被逐则回落缩略图）
+                val heroUrl = remember(submission.id) {
+                    com.furflix.app.data.local.HeroUpgradeRegistry.lookup(submission.id)
+                }
+                val upgradedUrl = if (heroUrl != null &&
+                    ImageLoaderFactory.getInstance(LocalContext.current)
+                        .memoryCache?.get(coil3.memory.MemoryCache.Key(heroUrl)) != null
+                ) heroUrl else null
                 // 失败自动重试 3 次；耗尽后小浮层显示错误码与重试
-                val retryState = rememberRetryImageState(displayUrl)
+                val retryState = rememberRetryImageState(upgradedUrl ?: displayUrl)
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(retryState.effectiveUrl)
