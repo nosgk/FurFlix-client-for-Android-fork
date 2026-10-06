@@ -108,7 +108,7 @@ fun GifFrameViewer(
                     runCatching { snapshot.close() }
                 }
             }
-            if (!cached.isNullOrEmpty()) {
+            if (cached != null && cached.isNotEmpty()) {
                 bytes = cached
             } else {
                 val raw = FurAffinityScraper.fetchBinary(imageUrl)

@@ -1,5 +1,7 @@
 package com.furflix.app.data.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * FA 画廊文件夹（/gallery/{user}/folder/{id}/{slug}）。
  * [href] 为站内相对链接（page 1 直达）；解析源为 /gallery/{user}/ 侧栏的
@@ -9,6 +11,7 @@ package com.furflix.app.data.model
  * 无分组（default-group）时为空串。作品详情页 sidebar-lower 的 Folders
  * 区块也复用本模型（strong=分组、span=文件夹名）。
  */
+@Serializable
 data class GalleryFolder(
     val id: String,
     val name: String,

@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import com.furflix.app.data.download.DownloadManager
 import com.furflix.app.data.download.DownloadStatus
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
