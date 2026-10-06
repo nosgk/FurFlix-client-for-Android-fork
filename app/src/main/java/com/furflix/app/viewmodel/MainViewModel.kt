@@ -192,16 +192,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { cardStatsCache.clear() }
     }
 
-    // 各画廊列表页通用的统计预热：走共享预热器（去重+串行限速），回填缓存并顺带
-    // 落详情缓存（之后点进详情免二次抓取）；不触碰 isLoading/errorMessage
+    // 各画廊列表页通用的统计预热：走共享预热器（会话去重+缓存 TTL 跳过+有界并发），
+    // 回填按整批落缓存并顺带整批并入详情缓存（之后点进详情免二次抓取）；
+    // 不触碰 isLoading/errorMessage。整批并入避免逐条触发热流发射引发成片重组。
     fun prefetchSubmissionStats(ids: List<String>) {
         if (ids.isEmpty()) return
         viewModelScope.launch {
             com.furflix.app.data.local.CardStatsPrefetcher.prefetch(
                 getApplication(),
                 ids
-            ) { id, sub ->
-                _submissionDetails.update { it + (id to sub) }
+            ) { batch ->
+                _submissionDetails.update { current -> current + batch }
             }
         }
     }

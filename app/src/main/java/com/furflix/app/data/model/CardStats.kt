@@ -28,7 +28,13 @@ data class CardStats(
     val ratio: Float = 0f,
     val fileType: String = "",
     val fileExt: String = "",
-    val visited: Boolean = true
+    val visited: Boolean = true,
+    /**
+     * 快照落库时间（epoch ms）。统计预热用它判断新鲜度：TTL 内的条目直接跳过
+     * 重抓，把预热队列让给真正没数据的卡片。旧版本缓存无此字段 → 反序列化为
+     * 0，视为过期，升级后的第一轮预热补齐时间戳。
+     */
+    val fetchedAt: Long = 0
 ) {
     companion object {
         /**
@@ -40,7 +46,8 @@ data class CardStats(
             sub: Submission,
             visited: Boolean = false,
             favorited: Boolean = sub.isFavorited,
-            favorites: Int = sub.favorites
+            favorites: Int = sub.favorites,
+            fetchedAt: Long = System.currentTimeMillis()
         ): CardStats = CardStats(
             views = sub.views,
             favorites = favorites,
@@ -54,7 +61,8 @@ data class CardStats(
             ratio = sub.thumbnailWidthOnHeightRatio,
             fileType = sub.fileType,
             fileExt = sub.fileExt,
-            visited = visited
+            visited = visited,
+            fetchedAt = fetchedAt
         )
     }
 }
