@@ -100,6 +100,14 @@ fun FurFlixNavGraph(
     val thumbnailQuality by qualityFlow.collectAsState(initial = DynamicThumbnail.TIER_AUTO)
 
     CompositionLocalProvider(LocalThumbnailQuality provides thumbnailQuality) {
+        // CF 验证处理：抓取链路命中拦截时全局弹出（人工通过后抓取协程自动重试）
+        val cfChallengeUrl by com.furflix.app.data.remote.CloudflareGate.challengeUrl.collectAsState()
+        cfChallengeUrl?.let { challengeUrl ->
+            com.furflix.app.ui.components.CloudflareGateDialog(
+                url = challengeUrl,
+                onDismiss = { com.furflix.app.data.remote.CloudflareGate.cancel() }
+            )
+        }
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,

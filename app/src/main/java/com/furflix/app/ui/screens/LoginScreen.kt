@@ -96,7 +96,14 @@ fun LoginContent(
     var isPageReady by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var loginWebView by remember { mutableStateOf<WebView?>(null) }
-    var connectingStatus by remember { mutableStateOf("Connecting to FurAffinity...") }
+    // 连接/验证状态文案在组合层解析成值，回调里只捕获结果（lint 口径）
+    val statusConnecting = stringResource(R.string.login_status_connecting)
+    val statusWaiting = stringResource(R.string.login_status_waiting)
+    val statusChallenge = stringResource(R.string.login_status_challenge)
+    val statusTimeout = stringResource(R.string.login_status_timeout)
+    val errorFormNotReady = stringResource(R.string.login_form_not_ready)
+    val browserTitle = stringResource(R.string.login_browser_title)
+    var connectingStatus by remember { mutableStateOf(statusConnecting) }
     var showWebLogin by remember { mutableStateOf(false) }
 
     LaunchedEffect(isLoggedIn) {
@@ -114,8 +121,21 @@ fun LoginContent(
                 onLoginDetected = { cookies, detectedUsername ->
                     viewModel.loginWithCookies(cookies, detectedUsername)
                 },
-                onError = { errorMessage = it },
+                onError = { raw ->
+                    // 原始描述传回，i18n 模板在组合层拼装
+                    errorMessage = raw
+                },
                 onStatusUpdate = { connectingStatus = it },
+                onChallengeDetected = {
+                    // 交互式 CF 挑战在 1dp 隐形 WebView 里无法点击：自动浮出
+                    // 全屏可交互 WebView 让用户完成验证
+                    connectingStatus = statusChallenge
+                    showWebLogin = true
+                },
+                statusConnecting = statusConnecting,
+                statusWaiting = statusWaiting,
+                statusChallenge = statusChallenge,
+                statusTimeout = statusTimeout,
                 webViewRef = { loginWebView = it }
             )
 
@@ -201,7 +221,7 @@ fun LoginContent(
 
                 if (errorMessage != null) {
                     Text(
-                        text = errorMessage!!,
+                        text = stringResource(R.string.login_error_connection, errorMessage ?: ""),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(vertical = 4.dp)
@@ -254,7 +274,7 @@ fun LoginContent(
                                     showWebLogin = true
                                 } else if (r == "NO_SUBMIT") {
                                     isLoggingIn = false
-                                    errorMessage = "Login form not ready. Please try again."
+                                    errorMessage = errorFormNotReady
                                 } else if (r == "SUBMITTED") {
                                     pollPostSubmit(loginWebView) { state ->
                                         Log.d("FurFlixLogin", "Post-submit state: $state")
@@ -345,7 +365,7 @@ fun LoginContent(
                                 }
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    "Login via browser",
+                                    browserTitle,
                                     style = MaterialTheme.typography.titleMedium,
                                     color = Color.White
                                 )
@@ -362,7 +382,9 @@ fun LoginContent(
                                         showWebLogin = false
                                     },
                                     initialCredentials = if (username.isNotEmpty() && password.isNotEmpty())
-                                        Pair(username, password) else null
+                                        Pair(username, password) else null,
+                                    overlayTitle = stringResource(R.string.login_overlay_title),
+                                    overlayDesc = stringResource(R.string.login_overlay_desc)
                                 )
                             }
                         }
@@ -379,12 +401,18 @@ private fun HybridLoginWebView(
     onLoginDetected: (String, String) -> Unit,
     onError: (String) -> Unit,
     onStatusUpdate: (String) -> Unit,
+    onChallengeDetected: () -> Unit,
+    statusConnecting: String,
+    statusWaiting: String,
+    statusChallenge: String,
+    statusTimeout: String,
     webViewRef: (WebView) -> Unit
 ) {
     var hasDetected by remember { mutableStateOf(false) }
     var pageLoaded by remember { mutableStateOf(false) }
 
     val onDetectRef = rememberUpdatedState(onLoginDetected)
+    val onChallengeRef = rememberUpdatedState(onChallengeDetected)
 
     fun checkLogin(view: WebView?, url: String?) {
         if (hasDetected) return
@@ -426,7 +454,9 @@ private fun HybridLoginWebView(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                    // UA 单一来源（设备真实 WebView 内核版本）：Turnstile 校验
+                    // UA 声称版本与内核指纹的一致性，硬编码版本会拒绝静默签发
+                    userAgentString = com.furflix.app.data.remote.UserAgent.desktop()
                 }
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
@@ -439,13 +469,23 @@ private fun HybridLoginWebView(
                         checkLogin(view, url)
                         if (!pageLoaded) {
                             pageLoaded = true
-                            onStatusUpdate("Waiting for FurAffinity...")
-                            if (view != null) pollForForm(view, onPageReady, onStatusUpdate)
+                            onStatusUpdate(statusWaiting)
+                            if (view != null) {
+                                pollForForm(
+                                    view,
+                                    onPageReady,
+                                    onStatusUpdate,
+                                    onChallengeDetected = { onChallengeRef.value() },
+                                    statusWaiting = statusWaiting,
+                                    statusChallenge = statusChallenge,
+                                    statusTimeout = statusTimeout
+                                )
+                            }
                         }
                     }
 
                     override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
-                        onError("Connection error: ${description ?: "unknown"}")
+                        onError(description ?: "unknown")
                     }
                 }
 
@@ -469,6 +509,10 @@ private fun pollForForm(
     view: WebView,
     onReady: () -> Unit,
     onStatusUpdate: (String) -> Unit,
+    onChallengeDetected: () -> Unit,
+    statusWaiting: String,
+    statusChallenge: String,
+    statusTimeout: String,
     attempt: Int = 0
 ) {
     val maxAttempts = 25
@@ -481,17 +525,28 @@ private fun pollForForm(
         when {
             r == "READY" -> onReady()
             r == "CHALLENGE" -> {
-                onStatusUpdate("Cloudflare challenge active")
+                // 交互式挑战：隐形 WebView 无法点击，交给全屏 WebView 处理
+                onStatusUpdate(statusChallenge)
+                onChallengeDetected()
                 onReady()
             }
             attempt >= maxAttempts -> {
-                onStatusUpdate("Ready (connection timeout)")
+                onStatusUpdate(statusTimeout)
                 onReady()
             }
             else -> {
-                onStatusUpdate("Waiting for FurAffinity...")
+                onStatusUpdate(statusWaiting)
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    pollForForm(view, onReady, onStatusUpdate, attempt + 1)
+                    pollForForm(
+                        view,
+                        onReady,
+                        onStatusUpdate,
+                        onChallengeDetected,
+                        statusWaiting,
+                        statusChallenge,
+                        statusTimeout,
+                        attempt + 1
+                    )
                 }, 1000)
             }
         }
@@ -550,13 +605,19 @@ private fun tryInject(
 @Composable
 private fun FaLoginWebView(
     onLoginDetected: (String, String) -> Unit,
-    initialCredentials: Pair<String, String>? = null
+    initialCredentials: Pair<String, String>? = null,
+    overlayTitle: String,
+    overlayDesc: String
 ) {
     var hasDetected by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     val onDetectRef = rememberUpdatedState(onLoginDetected)
 
     var hasInjected by remember { mutableStateOf(false) }
+
+    // overlay 文案在组合层解析为值，注入脚本捕获结果（lint 口径）
+    val safeOverlayTitle = overlayTitle.replace("'", "\\'")
+    val safeOverlayDesc = overlayDesc.replace("'", "\\'")
 
     LaunchedEffect(webView, initialCredentials) {
         if (hasInjected) return@LaunchedEffect
@@ -567,9 +628,30 @@ private fun FaLoginWebView(
         val safePass = creds.second.replace("\\", "\\\\").replace("\"", "\\\"")
         val js = """
             (function() {
+                var t = (document.title || '').toLowerCase();
+                var isChallenge = t.indexOf('just a moment') >= 0 || t.indexOf('checking') >= 0 ||
+                    document.body.innerHTML.indexOf('_cf_chl_opt') >= 0;
+
+                // 挑战态：移除遮罩让 CF 页面可见可交互，turnstile 置于屏幕中央，
+                // 外层轮询会在挑战通过后自动继续填表提交
+                if (isChallenge) {
+                    var veil = document.getElementById('ffx-veil');
+                    if (veil) veil.remove();
+                    var w = document.querySelector('.cf-turnstile');
+                    if (w) {
+                        w.style.position = 'fixed';
+                        w.style.top = '55%';
+                        w.style.left = '50%';
+                        w.style.transform = 'translate(-50%, -50%)';
+                        w.style.zIndex = '100000';
+                    }
+                    return 'CHALLENGE';
+                }
+
                 if (!window.__uiHidden) {
                     window.__uiHidden = true;
                     var overlay = document.createElement('div');
+                    overlay.id = 'ffx-veil';
                     overlay.style.position = 'fixed';
                     overlay.style.top = '0';
                     overlay.style.left = '0';
@@ -582,30 +664,35 @@ private fun FaLoginWebView(
                     overlay.style.alignItems = 'center';
                     overlay.style.justifyContent = 'center';
                     overlay.style.fontFamily = 'sans-serif';
-                    overlay.innerHTML = '<h3 style="margin-bottom: 20px; color: #40E0D0; font-size: 20px; font-weight: 600;">Secure Connection</h3><p style="color: #A0A0A0; font-size: 14px;">Please wait while we verify your browser...</p>';
+                    overlay.innerHTML = '<h3 style="margin-bottom: 20px; color: #40E0D0; font-size: 20px; font-weight: 600;">$safeOverlayTitle</h3><p style="color: #A0A0A0; font-size: 14px;">$safeOverlayDesc</p>';
                     document.body.appendChild(overlay);
                 }
 
                 var u = document.querySelector('input[name="name"]');
                 var p = document.querySelector('input[name="pass"]');
                 if (!u || !p) return 'FORM_NOT_FOUND';
-                
+
                 var tsWidget = document.querySelector('.cf-turnstile');
-                if (tsWidget) {
-                    tsWidget.style.position = 'fixed';
-                    tsWidget.style.top = '60%';
-                    tsWidget.style.left = '50%';
-                    tsWidget.style.transform = 'translate(-50%, -50%)';
-                    tsWidget.style.zIndex = '100000';
-                }
 
                 var tsResponse = document.querySelector('[name="cf-turnstile-response"]');
                 if (tsWidget && (!tsResponse || !tsResponse.value)) {
+                    // Turnstile 未签发：露出 widget 供交互（去遮罩），等待下一轮
+                    var veil = document.getElementById('ffx-veil');
+                    if (veil) veil.remove();
+                    if (tsWidget) {
+                        tsWidget.style.position = 'fixed';
+                        tsWidget.style.top = '55%';
+                        tsWidget.style.left = '50%';
+                        tsWidget.style.transform = 'translate(-50%, -50%)';
+                        tsWidget.style.zIndex = '100000';
+                    }
                     u.value = "$safeUser";
                     p.value = "$safePass";
                     return 'FORM_NOT_FOUND';
                 }
 
+                var veil = document.getElementById('ffx-veil');
+                if (veil) veil.remove();
                 u.value = "$safeUser";
                 p.value = "$safePass";
                 u.dispatchEvent(new Event('input', {bubbles: true}));
@@ -618,7 +705,7 @@ private fun FaLoginWebView(
             })();
         """.trimIndent()
         Log.d("FurFlixLogin", "WebLogin visible, injecting credentials...")
-        tryInject(wv, js, 60, 1000) { result -> 
+        tryInject(wv, js, 60, 1000) { result ->
             Log.d("FurFlixLogin", "WebLogin inject result: $result")
         }
     }
@@ -630,24 +717,23 @@ private fun FaLoginWebView(
                 WebView(ctx).apply {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
-                    settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                    // UA 单一来源：与 invisible WebView、OkHttp 抓取链路同版本，
+                    // cf_clearance 的 UA 绑定在所有链路间一致
+                    settings.userAgentString = com.furflix.app.data.remote.UserAgent.desktop()
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
-                        
+
                         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                             super.onPageStarted(view, url, favicon)
-                            view?.evaluateJavascript("""
-                                (function() {
-                                    var overlay = document.createElement('div');
-                                    overlay.style.position = 'fixed';
-                                    overlay.style.top = '0'; overlay.style.left = '0'; overlay.style.width = '100vw'; overlay.style.height = '100vh';
-                                    overlay.style.backgroundColor = '#0A0A0C'; overlay.style.zIndex = '99999';
-                                    document.body.appendChild(overlay);
-                                })();
-                            """.trimIndent(), null)
+                            // 旧页面的遮罩在导航瞬间清掉：若新页是挑战页，
+                            // 必须让 CF 的验证 UI 完整可见可交互
+                            view?.evaluateJavascript(
+                                "(function(){var v=document.getElementById('ffx-veil');if(v)v.remove();})();",
+                                null
+                            )
                         }
 
                         override fun onPageFinished(view: WebView?, url: String?) {

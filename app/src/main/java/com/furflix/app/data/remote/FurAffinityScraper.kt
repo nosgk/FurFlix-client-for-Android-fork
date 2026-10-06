@@ -35,9 +35,12 @@ object FurAffinityScraper {
     private val cookieManager = CookieManager.getInstance()
 
     // PC UA：FA 按 UA/指纹区分呈现，移动 UA 曾加剧“仅注册用户”门页与移动端形态分歧；
-    // 改用桌面 Chrome UA 与浏览器实测样本保持一致（解析规则全部按桌面主题校准）
-    private const val USER_AGENT =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    // 改用桌面 Chrome UA 与浏览器实测样本保持一致（解析规则全部按桌面主题校准）。
+    // 版本号由 UserAgent 按设备真实 WebView 内核动态解析（与登录 WebView、
+    // Coil 图片端共用同一来源）：版本一致性是 Turnstile 静默签发与
+    // cf_clearance 的 UA 绑定在两条链路间成立的前提。
+    val USER_AGENT: String
+        get() = UserAgent.desktop()
 
     const val FA_BASE = "https://www.furaffinity.net"
 
@@ -83,29 +86,32 @@ object FurAffinityScraper {
      * Returns the Cookie header string from session cookies.
      * Only uses cookies that are actual auth/session cookies - not consent junk.
      * @param forceNsfw if true, injects sfw=0; if false, injects sfw=1; if null, leaves it alone.
+     *
+     * cookie 合并策略（CF 对抗关键）：CookieManager 永远读最新——CF 验证弹窗 /
+     * 登录 WebView 刚拿到的 cf_clearance 与站点轮换的会话 cookie 都实时在
+     * CookieManager 里；sessionCookies（登录同步的权威集）覆盖同名项。
+     * 缺了 cf_clearance 或它与请求 UA 不一致，CF 会对 OkHttp 流量重新弹挑战。
      */
     fun getCookiesString(forceNsfw: Boolean? = null): String {
-        val cookies = sessionCookies.toMutableMap()
+        val merged = LinkedHashMap<String, String>()
+        fun absorb(raw: String?) {
+            raw?.split(";")?.forEach { part ->
+                val kv = part.trim().split("=", limit = 2)
+                if (kv.size == 2 && kv[0].trim().isNotEmpty()) {
+                    merged[kv[0].trim()] = kv[1].trim()
+                }
+            }
+        }
+        absorb(cookieManager.getCookie("https://furaffinity.net"))
+        absorb(cookieManager.getCookie("https://www.furaffinity.net"))
+        sessionCookies.forEach { (name, value) -> merged[name] = value }
+
         if (forceNsfw == true) {
-            cookies.remove("sfw")
+            merged.remove("sfw")
         } else if (forceNsfw == false) {
-            cookies["sfw"] = "1"
+            merged["sfw"] = "1"
         }
-        
-        if (cookies.isNotEmpty()) {
-            return cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
-        }
-        val c1 = cookieManager.getCookie("https://furaffinity.net") ?: ""
-        val c2 = cookieManager.getCookie("https://www.furaffinity.net") ?: ""
-        
-        var combined = listOf(c1, c2).filter { it.isNotEmpty() }.joinToString("; ")
-        if (forceNsfw == true) {
-            combined = combined.replace(Regex("""sfw=\d+"""), "")
-            combined = combined.replace(Regex(""";\s*;"""), ";").trim(';', ' ')
-        } else if (forceNsfw == false) {
-            combined = combined.replace(Regex("""sfw=\d+"""), "") + "; sfw=1"
-        }
-        return combined
+        return merged.entries.joinToString("; ") { "${it.key}=${it.value}" }
     }
 
     /**
@@ -155,63 +161,97 @@ object FurAffinityScraper {
     }
 
         private suspend fun postDocument(url: String, formBody: okhttp3.FormBody, forceNsfw: Boolean? = null): org.jsoup.nodes.Document =
-        withContext(Dispatchers.IO) {
-            Log.d("FurScraper", "POSTing to: $url")
-            val cookieHeader = getCookiesString(forceNsfw)
-            val reqBuilder = Request.Builder()
-                .url(url)
-                .post(formBody)
-                .header("User-Agent", USER_AGENT)
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-                .header("Accept-Language", "en-US,en;q=0.5")
-                .header("Referer", "$FA_BASE/")
-                .header("Connection", "keep-alive")
+            withCfGuard(url) {
+                withContext(Dispatchers.IO) {
+                    Log.d("FurScraper", "POSTing to: $url")
+                    val cookieHeader = getCookiesString(forceNsfw)
+                    val reqBuilder = Request.Builder()
+                        .url(url)
+                        .post(formBody)
+                        .header("User-Agent", USER_AGENT)
+                        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+                        .header("Accept-Language", "en-US,en;q=0.5")
+                        .header("Referer", "$FA_BASE/")
+                        .header("Connection", "keep-alive")
+                    FurHeaders.applyFormHints(reqBuilder)
 
-            if (cookieHeader.isNotEmpty()) {
-                reqBuilder.header("Cookie", cookieHeader)
+                    if (cookieHeader.isNotEmpty()) {
+                        reqBuilder.header("Cookie", cookieHeader)
+                    }
+
+                    val response = httpClient.newCall(reqBuilder.build()).execute()
+                    val html = response.body.string()
+                    val finalUrl = response.request.url.toString()
+
+                    Log.d("FurScraper", "POST Status=${response.code}, finalUrl=$finalUrl, len=${html.length}")
+                    if (isCloudflareChallenge(response.code, html)) {
+                        throw CloudflareChallengeException(finalUrl)
+                    }
+                    Jsoup.parse(html, finalUrl)
+                }
             }
-
-            val response = httpClient.newCall(reqBuilder.build()).execute()
-            val html = response.body.string()
-            val finalUrl = response.request.url.toString()
-
-            Log.d("FurScraper", "POST Status=${response.code}, finalUrl=$finalUrl, len=${html.length}")
-            Jsoup.parse(html, finalUrl)
-        }
 
     private suspend fun fetchDocument(url: String, forceNsfw: Boolean? = null): org.jsoup.nodes.Document =
-        withContext(Dispatchers.IO) {
-            Log.d("FurScraper", "Fetching: $url")
+        withCfGuard(url) {
+            withContext(Dispatchers.IO) {
+                Log.d("FurScraper", "Fetching: $url")
 
-            val cookieHeader = getCookiesString(forceNsfw)
-            val reqBuilder = Request.Builder()
-                .url(url)
-                .header("User-Agent", USER_AGENT)
-                .header(
-                    "Accept",
-                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
-                )
-                .header("Accept-Language", "en-US,en;q=0.5")
-                .header("Referer", "$FA_BASE/")
-                .header("Connection", "keep-alive")
+                val cookieHeader = getCookiesString(forceNsfw)
+                val reqBuilder = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", USER_AGENT)
+                    .header(
+                        "Accept",
+                        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+                    )
+                    .header("Accept-Language", "en-US,en;q=0.5")
+                    .header("Referer", "$FA_BASE/")
+                    .header("Connection", "keep-alive")
+                FurHeaders.applyDocumentHints(reqBuilder)
 
-            if (cookieHeader.isNotEmpty()) {
-                reqBuilder.header("Cookie", cookieHeader)
+                if (cookieHeader.isNotEmpty()) {
+                    reqBuilder.header("Cookie", cookieHeader)
+                }
+
+                val response = httpClient.newCall(reqBuilder.build()).execute()
+                val html = response.body.string()
+                val finalUrl = response.request.url.toString()
+
+                Log.d("FurScraper", "Status=${response.code}, finalUrl=$finalUrl, len=${html.length}")
+                if (html.length < 1000) Log.d("FurScraper", "Short HTML: ${html.take(500)}")
+
+                if (finalUrl.contains("/login")) {
+                    Log.w("FurScraper", "Redirected to login — session cookie 'a' missing or expired")
+                }
+
+                if (isCloudflareChallenge(response.code, html)) {
+                    throw CloudflareChallengeException(finalUrl)
+                }
+
+                Jsoup.parse(html, FA_BASE)
             }
-
-            val response = httpClient.newCall(reqBuilder.build()).execute()
-            val html = response.body.string()
-            val finalUrl = response.request.url.toString()
-
-            Log.d("FurScraper", "Status=${response.code}, finalUrl=$finalUrl, len=${html.length}")
-            if (html.length < 1000) Log.d("FurScraper", "Short HTML: ${html.take(500)}")
-
-            if (finalUrl.contains("/login")) {
-                Log.w("FurScraper", "Redirected to login — session cookie 'a' missing or expired")
-            }
-
-            Jsoup.parse(html, FA_BASE)
         }
+
+    /**
+     * CF 验证 guard：请求命中拦截时挂起等待用户在验证对话框完成人机验证
+     * （cookie 由验证 WebView 落入 CookieManager，getCookiesString 合并生效），
+     * 通过后自动重试一次；用户放弃/超时则如实上抛。
+     */
+    private suspend fun <T> withCfGuard(url: String, block: suspend () -> T): T {
+        try {
+            return block()
+        } catch (e: CloudflareChallengeException) {
+            Log.w("FurScraper", "CF challenge at $url — requesting user verification")
+            CloudflareGate.request(e.pageUrl)
+            val passed = CloudflareGate.awaitResolution()
+            if (!passed) {
+                Log.w("FurScraper", "CF verification not completed for $url")
+                throw e
+            }
+            Log.d("FurScraper", "CF verification passed — retrying $url")
+            return block()
+        }
+    }
 
     /**
      * After successful WebView login, verify the session by fetching the home page
@@ -272,7 +312,16 @@ object FurAffinityScraper {
                 .build()
 
             val getResp = loginClient.newCall(
-                Request.Builder().url("$FA_BASE/login/").header("User-Agent", USER_AGENT).build()
+                Request.Builder()
+                    .url("$FA_BASE/login/")
+                    .header("User-Agent", USER_AGENT)
+                    .header(
+                        "Accept",
+                        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+                    )
+                    .header("Accept-Language", "en-US,en;q=0.5")
+                    .also { FurHeaders.applyDocumentHints(it) }
+                    .build()
             ).execute()
             val html = getResp.body.string()
             if (html.isEmpty()) return@withContext Result.failure(Exception("Empty response"))
@@ -296,8 +345,11 @@ object FurAffinityScraper {
                             .build()
                     )
                     .header("User-Agent", USER_AGENT)
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+                    .header("Accept-Language", "en-US,en;q=0.5")
                     .header("Referer", "$FA_BASE/login/")
-                    .header("Origin", FA_BASE)
+                    .header("Connection", "keep-alive")
+                    .also { FurHeaders.applyFormHints(it) }
                     .build()
             ).execute()
 

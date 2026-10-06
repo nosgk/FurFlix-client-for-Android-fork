@@ -354,6 +354,19 @@
     <string name="settings_not_logged_in">Not logged in</string>
     <string name="settings_login_to_furaffinity">Login to FurAffinity</string>
     <string name="login_sign_in">Sign in to FurAffinity</string>
+
+    <!-- Login flow / Cloudflare verification (hardcode cleanup + CF gate) -->
+    <string name="login_status_connecting">Connecting to Fur Affinity…</string>
+    <string name="login_status_waiting">Waiting for Fur Affinity…</string>
+    <string name="login_status_challenge">Verification required — complete it in the window below</string>
+    <string name="login_status_timeout">Ready (connection timeout)</string>
+    <string name="login_form_not_ready">Login form not ready. Please try again.</string>
+    <string name="login_error_connection">Connection error: %s</string>
+    <string name="login_browser_title">Login via browser</string>
+    <string name="login_overlay_title">Secure connection</string>
+    <string name="login_overlay_desc">Please wait while we verify your browser…</string>
+    <string name="cf_gate_title">Security verification</string>
+    <string name="cf_gate_desc">Fur Affinity requires a browser check. Complete it below — loading resumes automatically.</string>
     <string name="home_not_logged_in">Not logged in. Some content may be unavailable.</string>
     <string name="settings_startup_tab">Default Startup Tab</string>
     <string name="settings_startup_tab_desc">Choose which tab opens when you launch the app</string>

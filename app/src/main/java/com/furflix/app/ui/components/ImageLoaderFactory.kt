@@ -38,21 +38,17 @@ object ImageLoaderFactory {
                 maxRequestsPerHost = 16
             })
             .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-                    .header("Referer", "https://www.furaffinity.net/")
-                    .build()
-
                 val cookiesStr = FurAffinityScraper.getCookiesString()
-                val finalRequest = if (cookiesStr.isNotEmpty()) {
-                    request.newBuilder()
-                        .header("Cookie", cookiesStr)
-                        .build()
-                } else {
-                    request
+                val request = chain.request().newBuilder()
+                    .header("User-Agent", com.furflix.app.data.remote.UserAgent.desktop())
+                    .header("Referer", "https://www.furaffinity.net/")
+                // 图片端 Fetch Metadata 拟真：跨站 CDN 请求的 sec-fetch-*/client hints
+                // 与 UA 同源自洽，压低 CF 对图片链路的 bot 评分
+                com.furflix.app.data.remote.FurHeaders.applyImageHints(request)
+                if (cookiesStr.isNotEmpty()) {
+                    request.header("Cookie", cookiesStr)
                 }
-
-                chain.proceed(finalRequest)
+                chain.proceed(request.build())
             }
             // 图片请求失败自动重试 3 次；同时把字节进度按 URL 汇报给 ImageLoadProgress
             .addInterceptor(com.furflix.app.data.remote.RetryInterceptor())

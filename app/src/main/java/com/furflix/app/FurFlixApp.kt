@@ -10,6 +10,9 @@ class FurFlixApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        // UA 全链路单一来源：先按设备真实 WebView 内核版本解析，再建抓取与图片
+        // 客户端——版本一致性是 Turnstile 静默签发与 cf_clearance 绑定的前提
+        com.furflix.app.data.remote.UserAgent.resolve(this)
         FurAffinityScraper.init(this)
         // Route ALL Coil loads (even bare AsyncImage calls) through our loader,
         // which carries FA headers/cookies and the GIF decoder for animated avatars.

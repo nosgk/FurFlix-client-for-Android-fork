@@ -363,6 +363,19 @@
     <string name="settings_not_logged_in">未登录</string>
     <string name="settings_login_to_furaffinity">登录 FurAffinity</string>
     <string name="login_sign_in">登录 FurAffinity</string>
+
+    <!-- 登录流程 / Cloudflare 验证(硬编码清退 + CF 验证模块) -->
+    <string name="login_status_connecting">正在连接 Fur Affinity…</string>
+    <string name="login_status_waiting">正在等待 Fur Affinity…</string>
+    <string name="login_status_challenge">需要人机验证——请在下方窗口完成</string>
+    <string name="login_status_timeout">就绪(连接超时)</string>
+    <string name="login_form_not_ready">登录表单未就绪,请重试。</string>
+    <string name="login_error_connection">连接错误:%s</string>
+    <string name="login_browser_title">通过浏览器登录</string>
+    <string name="login_overlay_title">安全连接</string>
+    <string name="login_overlay_desc">正在验证浏览器,请稍候…</string>
+    <string name="cf_gate_title">安全验证</string>
+    <string name="cf_gate_desc">Fur Affinity 要求通过一次浏览器检查。请在下方完成,完成后会自动继续加载。</string>
     <string name="home_not_logged_in">未登录,部分内容可能无法查看。</string>
     <string name="settings_startup_tab">默认启动页</string>
     <string name="settings_startup_tab_desc">选择启动应用时打开的页面</string>
