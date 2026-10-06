@@ -81,7 +81,15 @@ class UserViewModel(
         const val TAB_WATCHING = 2
         const val TAB_WATCHERS = 3
         const val TAB_JOURNALS = 4
+
+        /** 画廊 tab 内的两个顶级分区，与 FA 侧栏 default-folders 对应（Main Gallery / Scraps）。 */
+        const val GALLERY_SECTION_MAIN = 0
+        const val GALLERY_SECTION_SCRAPS = 1
     }
+
+    /** 画廊 tab 当前分区：主画廊或 Scraps。文件夹浏览只存在于主画廊分区。 */
+    private val _gallerySection = MutableStateFlow(GALLERY_SECTION_MAIN)
+    val gallerySection: StateFlow<Int> = _gallerySection.asStateFlow()
 
     private var _lastNsfwEnabled: Boolean? = null
 
@@ -92,7 +100,14 @@ class UserViewModel(
                 if (_lastNsfwEnabled != null && _lastNsfwEnabled != nsfw) {
                     _submissions.value = emptyList()
                     if (_currentTab.value == TAB_GALLERY) {
-                        loadGallery()
+                        if (_activeFolder.value != null) {
+                            // 文件夹浏览态下切 NSFW:留在原文件夹重载,而不是回落分区列表
+                            folderPage = 1
+                            folderMore = true
+                            loadFolderContent()
+                        } else {
+                            loadGallery()
+                        }
                     } else if (_currentTab.value == TAB_FAVORITES) {
                         loadFavorites()
                     }
@@ -180,14 +195,35 @@ class UserViewModel(
             _isLoading.value = true
             _errorMessage.value = null
             try {
-                val result = repository.getUserGallery(username, currentPage)
+                val result = if (_gallerySection.value == GALLERY_SECTION_SCRAPS) {
+                    repository.getUserScraps(username, currentPage)
+                } else {
+                    repository.getUserGallery(username, currentPage)
+                }
                 _submissions.value = result
-                if (result.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.empty_gallery)
+                if (result.isEmpty()) {
+                    _errorMessage.value = if (_gallerySection.value == GALLERY_SECTION_SCRAPS) {
+                        getApplication<Application>().getString(R.string.empty_scraps)
+                    } else {
+                        getApplication<Application>().getString(R.string.empty_gallery)
+                    }
+                }
             } catch (e: Exception) {
                 _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }
             _isLoading.value = false
         }
+    }
+
+    /** 切换画廊 tab 的分区（主画廊/Scraps）：退出文件夹浏览、回到画廊 tab 并按新分区重载列表。 */
+    fun selectGallerySection(section: Int) {
+        if (_gallerySection.value == section && _activeFolder.value == null &&
+            _currentTab.value == TAB_GALLERY
+        ) return
+        _gallerySection.value = section
+        _activeFolder.value = null
+        _submissions.value = emptyList()
+        loadGallery(force = true)
     }
 
     fun loadFavorites(force: Boolean = false) {
@@ -273,6 +309,8 @@ class UserViewModel(
     fun openFolder(folder: GalleryFolder) {
         _activeFolder.value = folder
         _submissions.value = emptyList()
+        // 文件夹只挂主画廊：从 Scraps 分区点文件夹时切回主画廊（FA 行为一致）
+        _gallerySection.value = GALLERY_SECTION_MAIN
         _currentTab.value = TAB_GALLERY
         folderPage = 1
         folderMore = true
@@ -321,7 +359,11 @@ class UserViewModel(
                         }
                         if (!contentMore) { _isLoadingMore.value = false; return@launch }
                         currentPage++
-                        val more = repository.getUserGallery(username, currentPage)
+                        val more = if (_gallerySection.value == GALLERY_SECTION_SCRAPS) {
+                            repository.getUserScraps(username, currentPage)
+                        } else {
+                            repository.getUserGallery(username, currentPage)
+                        }
                         val uniqueMore = more.filter { newSub -> _submissions.value.none { it.id == newSub.id } }
                         contentMore = uniqueMore.isNotEmpty()
                         if (uniqueMore.isEmpty()) currentPage--

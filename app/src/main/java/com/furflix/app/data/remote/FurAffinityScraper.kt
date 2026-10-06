@@ -38,6 +38,7 @@ object FurAffinityScraper {
     var searchNextUrl: String? = null
     
     private val galleryNextUrls = mutableMapOf<String, String>()
+    private val scrapsNextUrls = mutableMapOf<String, String>()
     private val favoritesNextUrls = mutableMapOf<String, String>()
 
     /** 用户画廊文件夹缓存（/gallery/{user}/ 侧栏区块；键 = username） */
@@ -457,9 +458,10 @@ object FurAffinityScraper {
         }
     }
 
-    /** 下拉刷新用：清空该用户的画廊/收藏分页缓存，防止刷新后续页错位。 */
+    /** 下拉刷新用：清空该用户的画廊/草稿箱/收藏分页缓存，防止刷新后续页错位。 */
     fun clearUserPagination(username: String) {
         galleryNextUrls.remove(username)
+        scrapsNextUrls.remove(username)
         favoritesNextUrls.remove(username)
         folderNextUrls.keys.removeAll { it.startsWith("$username:") }
     }
@@ -545,6 +547,41 @@ object FurAffinityScraper {
             folders
         } catch (e: Exception) {
             Log.e("FurScraper", "getUserGalleryFolders error: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Scraps（草稿箱，/scraps/{user}/）：与主画廊并列的顶级分区，作品网格结构相同；
+     * 分页 URL 为 /scraps/{user}/{page}/，Next 是 form[action^=/scraps/] 里的
+     * "Next" 按钮（现代主题分页为 form+button，与画廊页同形态）。
+     */
+    suspend fun getUserScraps(username: String, page: Int = 1, forceNsfw: Boolean? = null): List<Submission> = withContext(Dispatchers.IO) {
+        try {
+            val url = if (page == 1) {
+                "$FA_BASE/scraps/$username/"
+            } else {
+                scrapsNextUrls[username] ?: return@withContext emptyList()
+            }
+            val doc = fetchDocument(url, forceNsfw)
+
+            val nextA = doc.select("a").firstOrNull { it.text().contains("Next", ignoreCase = true) && it.attr("href").contains("/scraps/", ignoreCase = true) }
+            if (nextA != null) {
+                scrapsNextUrls[username] = "$FA_BASE${nextA.attr("href")}"
+            } else {
+                val nextBtn = doc.select("form[action^=/scraps/] button, form[action^=/scraps/] input").firstOrNull { (it.tagName() == "button" && it.text().contains("Next", ignoreCase = true)) || (it.tagName() == "input" && it.attr("value").contains("Next", ignoreCase = true)) }
+                val form = nextBtn?.closest("form")
+                val actionUrl = form?.attr("action")
+                if (!actionUrl.isNullOrEmpty()) {
+                    scrapsNextUrls[username] = "$FA_BASE$actionUrl"
+                } else {
+                    scrapsNextUrls.remove(username)
+                }
+            }
+
+            parseSearchResults(doc)
+        } catch (e: Exception) {
+            Log.e("FurScraper", "getUserScraps error: ${e.message}", e)
             emptyList()
         }
     }

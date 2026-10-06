@@ -220,6 +220,12 @@ class FurRepository(private val context: Context) {
         return filterSubmissions(FurAffinityScraper.getUserGallery(username, page, nsfwEnabled))
     }
 
+    /** 用户 Scraps（草稿箱）：与主画廊同一套 NSFW + 屏蔽词过滤。 */
+    suspend fun getUserScraps(username: String, page: Int): List<Submission> {
+        val nsfwEnabled = nsfwEnabledFlow.first()
+        return filterSubmissions(FurAffinityScraper.getUserScraps(username, page, nsfwEnabled))
+    }
+
     suspend fun getUserFavorites(username: String, page: Int): List<Submission> {
         val nsfwEnabled = nsfwEnabledFlow.first()
         return filterSubmissions(FurAffinityScraper.getUserFavorites(username, page, nsfwEnabled))
