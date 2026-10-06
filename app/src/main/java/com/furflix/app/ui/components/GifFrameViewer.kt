@@ -3,9 +3,8 @@ package com.furflix.app.ui.components
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Movie
-import android.graphics.Paint
+import android.graphics.PorterDuff
 import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
@@ -24,10 +23,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -42,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,23 +54,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.furflix.app.R
 import com.furflix.app.data.remote.FurAffinityScraper
+import com.furflix.app.data.remote.GifFrameTable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
- * GIF 全屏逐帧播放器：android.graphics.Movie 驱动（各 API 版本行为一致），
- * 支持暂停/播放、上一帧/下一帧、进度条拖帧、按当前帧原始分辨率无损截屏入图库。
- * 字节经 FA 抓取层获取（含会话头），帧延时从 GIF 块结构解析（帧序 = GCE 顺序）。
+ * GIF 全屏逐帧播放器：帧延时由 [GifFrameTable] 从 GIF 块结构解析，帧画面由
+ * android.graphics.Movie 按帧时间画进一张**软件位图**（ARGB_8888），Compose 侧
+ * drawImage 等比 fit 显示——不在硬件画布上直绘 Movie，规避设备兼容性差异。
+ * 支持暂停/播放、上一帧/下一帧、进度条拖帧、按原始分辨率无损截屏入图库。
  */
 @Composable
 fun GifFrameViewer(
@@ -83,8 +87,10 @@ fun GifFrameViewer(
     BackHandler { onClose() }
     var bytes by remember { mutableStateOf<ByteArray?>(null) }
     var failed by remember { mutableStateOf(false) }
+    var attempt by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(imageUrl) {
+    LaunchedEffect(imageUrl, attempt) {
+        failed = false
         withContext(Dispatchers.IO) {
             val raw = FurAffinityScraper.fetchBinary(imageUrl)
             if (raw == null) failed = true else bytes = raw
@@ -101,10 +107,10 @@ fun GifFrameViewer(
                 if (movie != null && movie.width() > 0) {
                     GifPlayer(movie = movie, bytes = data, submissionId = submissionId)
                 } else {
-                    LoadFailedHint(modifier = Modifier.align(Alignment.Center))
+                    LoadFailedHint(onRetry = { attempt++ })
                 }
             }
-            failed -> LoadFailedHint(modifier = Modifier.align(Alignment.Center))
+            failed -> LoadFailedHint(onRetry = { attempt++ })
             else -> CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center).size(40.dp),
                 color = MaterialTheme.colorScheme.primary
@@ -127,13 +133,20 @@ fun GifFrameViewer(
 }
 
 @Composable
-private fun LoadFailedHint(modifier: Modifier = Modifier) {
-    Text(
-        text = stringResource(R.string.gif_load_failed),
-        color = Color.White.copy(alpha = 0.7f),
-        style = MaterialTheme.typography.bodyMedium,
-        modifier = modifier
-    )
+private fun LoadFailedHint(modifier: Modifier = Modifier, onRetry: () -> Unit) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = stringResource(R.string.gif_load_failed),
+            color = Color.White.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        TextButton(onClick = onRetry) {
+            Text(stringResource(R.string.downloads_retry), color = MaterialTheme.colorScheme.primary)
+        }
+    }
 }
 
 @Composable
@@ -144,8 +157,10 @@ private fun GifPlayer(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val delays = remember(bytes) { parseFrameDelaysMs(bytes) }
-    val frameCount = delays.size.coerceAtLeast(1)
+    val delays = remember(bytes) {
+        GifFrameTable.parseFrameDelaysMs(bytes).ifEmpty { listOf(100) }
+    }
+    val frameCount = delays.size
     // 帧边界时间（ms）：setTime 落在 [start, nextStart) 区间即显示该帧
     val frameStartsMs = remember(delays) {
         val starts = IntArray(delays.size)
@@ -157,21 +172,41 @@ private fun GifPlayer(
         starts
     }
 
+    // 软件位图：Movie 逐帧画进 ARGB_8888，drawImage 只负责把当前位图贴上屏幕
+    val bitmap = remember(movie) {
+        runCatching {
+            Bitmap.createBitmap(
+                movie.width().coerceAtLeast(1),
+                movie.height().coerceAtLeast(1),
+                Bitmap.Config.ARGB_8888
+            )
+        }.getOrNull()
+    }
+
     var frameIndex by remember { mutableIntStateOf(0) }
     var playing by remember { mutableStateOf(true) }
-    // version 只作重绘驱动：Canvas 块读它，帧一变即重画 Movie 当前帧
+    // drawVersion 只作重绘驱动：Canvas 块读它，帧一变即重贴位图当前内容
     var drawVersion by remember { mutableIntStateOf(0) }
-    val paint = remember { Paint() }
+
+    if (bitmap == null) {
+        // 超大 GIF 位图分配失败（OOM 防线）
+        Box(modifier = Modifier.fillMaxSize()) {
+            LoadFailedHint(modifier = Modifier.align(Alignment.Center), onRetry = {})
+        }
+        return
+    }
+    val softCanvas = remember(bitmap) { android.graphics.Canvas(bitmap) }
 
     fun showFrame(index: Int) {
-        if (frameCount <= 0) return
         val clamped = index.coerceIn(0, frameCount - 1)
         frameIndex = clamped
         movie.setTime(frameStartsMs[clamped])
+        softCanvas.drawColor(android.graphics.Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        movie.draw(softCanvas, 0f, 0f)
         drawVersion++
     }
 
-    // 首帧定位（Movie 默认停在 setTime(0) 的帧上）
+    // 首帧定位
     LaunchedEffect(movie) { showFrame(0) }
 
     // 播放循环：按当前帧延时推进，尾帧回环
@@ -221,7 +256,6 @@ private fun GifPlayer(
                 }
             }
     ) {
-        // 原始分辨率逐帧渲染（等比 fit 全屏，graphicsLayer 承担缩放）
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -232,15 +266,19 @@ private fun GifPlayer(
                     translationY = offset.y
                 }
         ) {
-            if (drawVersion >= 0) {
-                val nativeCanvas = drawContext.canvas.nativeCanvas
-                val dx = (size.width - movie.width()) / 2f
-                val dy = (size.height - movie.height()) / 2f
-                nativeCanvas.save()
-                nativeCanvas.translate(dx, dy)
-                movie.draw(nativeCanvas, 0f, 0f, paint)
-                nativeCanvas.restore()
-            }
+            drawVersion // 读它触发重绘
+            val iw = bitmap.width.toFloat()
+            val ih = bitmap.height.toFloat()
+            val fit = min(size.width / iw, size.height / ih)
+            val dw = (iw * fit).roundToInt().coerceAtLeast(1)
+            val dh = (ih * fit).roundToInt().coerceAtLeast(1)
+            val dx = ((size.width - dw) / 2f).roundToInt()
+            val dy = ((size.height - dh) / 2f).roundToInt()
+            drawImage(
+                bitmap.asImageBitmap(),
+                dstOffset = IntOffset(dx, dy),
+                dstSize = IntSize(dw, dh)
+            )
         }
 
         // 底部控制条：进度条拖帧 + 上一帧/播放暂停/下一帧/截屏
@@ -292,10 +330,14 @@ private fun GifPlayer(
                     )
                 }
                 IconButton(onClick = {
-                    // Movie 非线程安全：帧捕获必须留在主线程，只有落盘走 IO
+                    // 位图就是当前帧的原始分辨率内容，直接拷贝落盘（主线程拷贝，IO 落盘）
                     scope.launch {
-                        val bitmap = captureFrameBitmap(movie, paint)
-                        saveFrameToGallery(context, bitmap, submissionId, frameIndex)
+                        val copied = runCatching {
+                            bitmap.copy(Bitmap.Config.ARGB_8888, false)
+                        }.getOrNull()
+                        if (copied != null) {
+                            saveFrameToGallery(context, copied, submissionId, frameIndex)
+                        }
                     }
                 }) {
                     Icon(
@@ -307,17 +349,6 @@ private fun GifPlayer(
             }
         }
     }
-}
-
-/** 把当前帧按 Movie 原始分辨率画进新位图（主线程调用；PNG 落盘在 saveFrameToGallery）。 */
-private fun captureFrameBitmap(movie: Movie, paint: Paint): Bitmap {
-    val width = movie.width().coerceAtLeast(1)
-    val height = movie.height().coerceAtLeast(1)
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    canvas.drawColor(android.graphics.Color.BLACK)
-    movie.draw(canvas, 0f, 0f, paint)
-    return bitmap
 }
 
 /** 位图写入系统图库（PNG 无损）：Q+ 走 MediaStore，老版本直写 Pictures/FurFlix + 扫描。 */
@@ -370,57 +401,4 @@ private suspend fun saveFrameToGallery(
             android.widget.Toast.LENGTH_SHORT
         ).show()
     }
-}
-
-/**
- * 从 GIF 字节流解析每帧延时（Graphic Control Extension 的 delay，单位 10ms）。
- * 帧序 = GCE 出现顺序；异常帧按 100ms 处理（与浏览器空延时默认一致）。
- */
-private fun parseFrameDelaysMs(bytes: ByteArray): List<Int> {
-    val delays = mutableListOf<Int>()
-    fun u16(o: Int): Int = if (o + 1 < bytes.size) {
-        (bytes[o].toInt() and 0xFF) or ((bytes[o + 1].toInt() and 0xFF) shl 8)
-    } else 0
-
-    try {
-        var i = 6 + 7 // header(6) + logical screen descriptor(7)
-        if (i >= bytes.size) return delays
-        if ((bytes[10].toInt() and 0x80) != 0) {
-            // 全局色表：3 字节/项，项数 = 2^(n+1)
-            i += 3 * (1 shl ((bytes[10].toInt() and 0x07) + 1))
-        }
-        while (i < bytes.size) {
-            when (bytes[i].toInt() and 0xFF) {
-                0x21 -> { // 扩展块
-                    val label = if (i + 1 < bytes.size) bytes[i + 1].toInt() and 0xFF else -1
-                    if (label == 0xF9 && i + 6 < bytes.size) {
-                        val delay = u16(i + 4) * 10
-                        delays.add(if (delay <= 0) 100 else delay)
-                    }
-                    i += 2
-                    while (i < bytes.size && bytes[i].toInt() != 0) {
-                        i += 1 + (bytes[i].toInt() and 0xFF)
-                    }
-                    i += 1
-                }
-                0x2C -> { // 图像描述符：9 字节定长 + 可选局部色表 + LZW 子块链
-                    i += 1 + 8
-                    if (i >= bytes.size) break
-                    if ((bytes[i].toInt() and 0x80) != 0) {
-                        i += 3 * (1 shl ((bytes[i].toInt() and 0x07) + 1))
-                    }
-                    i += 1 // LZW 最小编码长度
-                    while (i < bytes.size && bytes[i].toInt() != 0) {
-                        i += 1 + (bytes[i].toInt() and 0xFF)
-                    }
-                    i += 1
-                }
-                0x3B -> break // trailer
-                else -> break // 结构异常：以已解析的为准
-            }
-        }
-    } catch (_: Exception) {
-        // 越界等异常：返回已解析部分
-    }
-    return delays
 }

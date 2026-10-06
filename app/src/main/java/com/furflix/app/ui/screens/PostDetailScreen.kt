@@ -584,8 +584,16 @@ fun PostDetailScreen(
                     }
                     zoomSubmission.fileExt == "gif" ||
                         zoomSubmission.fullImageUrl.endsWith(".gif", ignoreCase = true) -> {
+                        // 逐帧播放需要真正的 GIF 字节：内联图不是 .gif 时退回下载链接
+                        val gifUrl = when {
+                            zoomSubmission.fullImageUrl.endsWith(".gif", ignoreCase = true) ->
+                                zoomSubmission.fullImageUrl
+                            zoomSubmission.fileUrl.endsWith(".gif", ignoreCase = true) ->
+                                zoomSubmission.fileUrl
+                            else -> zoomSubmission.fullImageUrl
+                        }
                         GifFrameViewer(
-                            imageUrl = zoomSubmission.fullImageUrl,
+                            imageUrl = gifUrl,
                             submissionId = currentPostId,
                             onClose = { showZoom = false }
                         )
