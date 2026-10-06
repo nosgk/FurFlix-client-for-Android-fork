@@ -29,7 +29,6 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.*
@@ -117,6 +116,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToDownloads: () -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
+    onOpenCollectedFavorites: (String) -> Unit = {},
     viewModel: MainViewModel = viewModel(),
     watchlistViewModel: com.furflix.app.viewmodel.WatchlistViewModel = viewModel()
 ) {
@@ -173,7 +173,14 @@ fun HomeScreen(
         if (pendingViewMode == persistedViewMode) pendingViewMode = null
     }
 
-    var showTitles by rememberSaveable { mutableStateOf(true) }
+    // 缩略图标题开关（'T' 图标）为全局偏好：“我的”页收藏/历史栏目同源生效；
+    // 乐观覆盖先行生效，DataStore 回流后对齐（与 viewMode 开关同一做法）
+    val persistedShowTitles by repository.cardTitlesFlow.collectAsState(initial = true)
+    var pendingShowTitles by remember { mutableStateOf<Boolean?>(null) }
+    val showTitles = pendingShowTitles ?: persistedShowTitles
+    LaunchedEffect(persistedShowTitles) {
+        if (pendingShowTitles == persistedShowTitles) pendingShowTitles = null
+    }
 
     LaunchedEffect(Unit) {
         viewModel.tryAutoLogin()
@@ -317,7 +324,10 @@ fun HomeScreen(
                     }
 
                     // Show titles toggle
-                    IconButton(onClick = { showTitles = !showTitles }, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = {
+                        pendingShowTitles = !showTitles
+                        coroutineScope.launch { repository.saveCardTitles(!showTitles) }
+                    }, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.Title,
                             contentDescription = stringResource(R.string.cd_toggle_titles),
@@ -1171,6 +1181,7 @@ fun HomeScreen(
                         ProfileScreen(
                             viewMode = viewMode,
                             columnsPref = gridColumnsPref,
+                            showTitles = showTitles,
                             cardStats = cardStats,
                             onClearHistory = { viewModel.clearCardStats() },
                             onWarmStats = { viewModel.prefetchSubmissionStats(it) },
@@ -1186,6 +1197,7 @@ fun HomeScreen(
                             onNavigateToUser = onNavigateToUser,
                             onNavigateToPost = onNavigateToPost,
                             onNavigateToFavoritesPost = onNavigateToFavoritesPost,
+                            onOpenCollectedFavorites = onOpenCollectedFavorites,
                             scrollToTopTrigger = profileScrollToTopTrigger,
                             onRegisterScrollSource = { source -> registerScrollSource(3, source) },
                             viewModel = watchlistViewModel

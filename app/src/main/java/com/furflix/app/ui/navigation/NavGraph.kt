@@ -32,25 +32,33 @@ object Routes {
     const val FILTERS_SETTINGS = "filters_settings"
     const val TRANSLATION_SETTINGS = "translation_settings"
     const val LOGIN = "login"
-    // 可选 folder* 参数：作品详情页 Folders 区块直达“用户页内文件夹浏览”
+    // 可选 folder* 参数：作品详情页 Folders 区块直达“用户页内文件夹浏览”；
+    // 可选 tab 参数：别人的收藏夹等入口直达“用户页收藏 tab”（值 favorites）
     const val USER_PROFILE =
-        "user/{username}?folderId={folderId}&folderName={folderName}&folderGroup={folderGroup}&folderHref={folderHref}&folderCount={folderCount}"
+        "user/{username}?folderId={folderId}&folderName={folderName}&folderGroup={folderGroup}&folderHref={folderHref}&folderCount={folderCount}&tab={tab}"
     const val TAG_SEARCH = "tag_search/{tag}"
     const val JOURNAL = "journal/{journalId}"
     const val ABOUT_DEVELOPER = "about_developer"
 
     fun postDetail(postId: String, source: String = "main") = "post/$postId/$source"
-    fun userProfile(username: String, folder: com.furflix.app.data.model.GalleryFolder? = null): String {
+    fun userProfile(
+        username: String,
+        folder: com.furflix.app.data.model.GalleryFolder? = null,
+        tab: String? = null
+    ): String {
         val base = "user/$username"
-        if (folder == null) return base
-        val count = folder.count.toString()
-        return base + listOf(
-            "folderId=" + android.net.Uri.encode(folder.id),
-            "folderName=" + android.net.Uri.encode(folder.name),
-            "folderGroup=" + android.net.Uri.encode(folder.group),
-            "folderHref=" + android.net.Uri.encode(folder.href),
-            "folderCount=" + android.net.Uri.encode(count)
-        ).joinToString("&", "?")
+        if (folder == null && tab == null) return base
+        val params = buildList {
+            if (folder != null) {
+                add("folderId=" + android.net.Uri.encode(folder.id))
+                add("folderName=" + android.net.Uri.encode(folder.name))
+                add("folderGroup=" + android.net.Uri.encode(folder.group))
+                add("folderHref=" + android.net.Uri.encode(folder.href))
+                add("folderCount=" + android.net.Uri.encode(folder.count.toString()))
+            }
+            if (tab != null) add("tab=" + android.net.Uri.encode(tab))
+        }
+        return base + params.joinToString("&", "?")
     }
     fun tagSearch(tag: String) = "tag_search/${tag.replace("#", "%23")}"
     fun journal(journalId: String) = "journal/$journalId"
@@ -117,6 +125,9 @@ fun FurFlixNavGraph(
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToDownloads = { navController.navigate(Routes.DOWNLOADS) },
                 onNavigateToFavoritesPost = { postId -> navController.navigate(Routes.postDetail(postId, "favorites")) },
+                onOpenCollectedFavorites = { username ->
+                    navController.navigate(Routes.userProfile(username, tab = "favorites"))
+                },
                 viewModel = mainViewModel,
                 watchlistViewModel = watchlistViewModel
             )
@@ -316,7 +327,8 @@ fun FurFlixNavGraph(
                 navArgument("folderName") { type = NavType.StringType; defaultValue = "" },
                 navArgument("folderGroup") { type = NavType.StringType; defaultValue = "" },
                 navArgument("folderHref") { type = NavType.StringType; defaultValue = "" },
-                navArgument("folderCount") { type = NavType.StringType; defaultValue = "0" }
+                navArgument("folderCount") { type = NavType.StringType; defaultValue = "0" },
+                navArgument("tab") { type = NavType.StringType; defaultValue = "" }
             )
         ) { backStackEntry ->
             val username = backStackEntry.arguments?.getString("username") ?: return@composable
@@ -341,6 +353,11 @@ fun FurFlixNavGraph(
                 }
                 androidx.compose.runtime.LaunchedEffect(initialFolder) {
                     userViewModel.openFolder(initialFolder)
+                }
+            } else if (backStackEntry.arguments?.getString("tab") == "favorites") {
+                // 别人的收藏夹直达：进入用户页即选中收藏 tab
+                androidx.compose.runtime.LaunchedEffect(backStackEntry) {
+                    userViewModel.loadFavorites()
                 }
             }
             UserProfileScreen(

@@ -26,6 +26,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -77,6 +78,7 @@ private const val SELECTION_SOURCE_HISTORY = "profile_hist"
 fun ProfileScreen(
     viewMode: GalleryViewMode,
     columnsPref: Int = 2,
+    showTitles: Boolean = true,
     cardStats: Map<String, com.furflix.app.data.model.CardStats> = emptyMap(),
     onClearHistory: () -> Unit = {},
     onWarmStats: (List<String>) -> Unit = {},
@@ -85,6 +87,7 @@ fun ProfileScreen(
     onNavigateToUser: (String) -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
+    onOpenCollectedFavorites: (String) -> Unit = {},
     scrollToTopTrigger: Int = 0,
     onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit = {},
     viewModel: WatchlistViewModel = viewModel()
@@ -112,6 +115,9 @@ fun ProfileScreen(
     // 浏览历史“用户”栏：真实到访的用户页记录（数据层与帖子历史分开，长按可删单条）
     val userVisitCache = remember { com.furflix.app.data.local.UserVisitCache.getInstance(context) }
     val userVisits by userVisitCache.flow.collectAsState(initial = emptyList())
+    // “别人的收藏夹”：收藏过的其他用户收藏夹入口（本地存储；长按移除）
+    val collectedFavStore = remember { com.furflix.app.data.local.CollectedFavoritesStore.getInstance(context) }
+    val collectedFavorites by collectedFavStore.flow.collectAsState(initial = emptyList())
     var noteEditingUser by remember { mutableStateOf<WatchlistUser?>(null) }
 
     // 多选批量（"我的"页）：收藏栏批量取消收藏，历史栏批量删除历史；
@@ -253,9 +259,15 @@ fun ProfileScreen(
                     errorMessage = errorMessage,
                     viewMode = viewMode,
                     columnsPref = columnsPref,
+                    showTitles = showTitles,
                     cardStats = cardStats,
                     selectionActive = favSelectionActive,
                     selectedIds = selection.ids,
+                    collectedFavorites = collectedFavorites,
+                    onOpenCollectedFavorites = onOpenCollectedFavorites,
+                    onRemoveCollectedFavorites = { username ->
+                        coroutineScope.launch { collectedFavStore.remove(username) }
+                    },
                     onNavigateToPost = onNavigateToFavoritesPost,
                     onNavigateToUser = onNavigateToUser,
                     onLoadMore = { viewModel.loadMore() },
@@ -292,6 +304,7 @@ fun ProfileScreen(
                     userNotes = userNotes,
                     viewMode = viewMode,
                     columnsPref = columnsPref,
+                    showTitles = showTitles,
                     cardStats = cardStats,
                     selectionActive = histSelectionActive,
                     selectedIds = selection.ids,
@@ -321,6 +334,7 @@ fun ProfileScreen(
     }
 }
 
+/** 收藏夹顶层：小栏目 0 = 我的收藏(站点收藏流)，1 = 别人的收藏夹(本地收藏的用户收藏夹入口)；与浏览历史的 作品/用户 子栏同款交互。 */
 @Composable
 private fun FavoritesContent(
     submissions: List<com.furflix.app.data.model.Submission>,
@@ -329,6 +343,73 @@ private fun FavoritesContent(
     errorMessage: String?,
     viewMode: GalleryViewMode,
     columnsPref: Int,
+    showTitles: Boolean,
+    cardStats: Map<String, com.furflix.app.data.model.CardStats>,
+    selectionActive: Boolean,
+    selectedIds: Set<String>,
+    collectedFavorites: List<com.furflix.app.data.local.CollectedFavoritesRecord>,
+    onOpenCollectedFavorites: (String) -> Unit,
+    onRemoveCollectedFavorites: (String) -> Unit,
+    onNavigateToPost: (String) -> Unit,
+    onNavigateToUser: (String) -> Unit,
+    onLoadMore: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit = {},
+    scrollToTopTrigger: Int = 0
+) {
+    var favSubTab by remember { mutableIntStateOf(0) }
+    Column(modifier = Modifier.fillMaxSize()) {
+        CustomTabRow(
+            tabs = listOf(
+                stringResource(R.string.profile_my_favorites),
+                stringResource(R.string.profile_others_favorites)
+            ),
+            selectedTab = favSubTab,
+            onTabSelected = { favSubTab = it },
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+        Crossfade(targetState = favSubTab, animationSpec = tween(300), label = "favSubTab") { subTab ->
+            when (subTab) {
+                1 -> OthersFavoritesContent(
+                    records = collectedFavorites,
+                    onOpen = onOpenCollectedFavorites,
+                    onRemove = onRemoveCollectedFavorites,
+                    onRegisterScrollSource = onRegisterScrollSource,
+                    scrollToTopTrigger = scrollToTopTrigger
+                )
+                else -> MyFavoritesContent(
+                    submissions = submissions,
+                    isLoading = isLoading,
+                    isLoadingMore = isLoadingMore,
+                    errorMessage = errorMessage,
+                    viewMode = viewMode,
+                    columnsPref = columnsPref,
+                    showTitles = showTitles,
+                    cardStats = cardStats,
+                    selectionActive = selectionActive,
+                    selectedIds = selectedIds,
+                    onNavigateToPost = onNavigateToPost,
+                    onNavigateToUser = onNavigateToUser,
+                    onLoadMore = onLoadMore,
+                    onRefresh = onRefresh,
+                    onRegisterScrollSource = onRegisterScrollSource,
+                    scrollToTopTrigger = scrollToTopTrigger
+                )
+            }
+        }
+    }
+}
+
+/** 我的收藏：站点收藏流，沿用全局网格/瀑布流/列表三视图。 */
+@Composable
+private fun MyFavoritesContent(
+    submissions: List<com.furflix.app.data.model.Submission>,
+    isLoading: Boolean,
+    isLoadingMore: Boolean,
+    errorMessage: String?,
+    viewMode: GalleryViewMode,
+    columnsPref: Int,
+    showTitles: Boolean,
     cardStats: Map<String, com.furflix.app.data.model.CardStats>,
     selectionActive: Boolean,
     selectedIds: Set<String>,
@@ -396,7 +477,7 @@ private fun FavoritesContent(
                                             onNavigateToPost(submission.id)
                                         }
                                     },
-                                    showTitle = true,
+                                    showTitle = showTitles,
                                     compact = true,
                                     ratio = submission.thumbnailWidthOnHeightRatio,
                                     stats = cardStats[submission.id],
@@ -453,7 +534,7 @@ private fun FavoritesContent(
                                         onNavigateToPost(submission.id)
                                     }
                                 },
-                                showTitle = true,
+                                showTitle = showTitles,
                                 compact = true,
                                 stats = cardStats[submission.id],
                                 forceFavorited = true,
@@ -503,6 +584,7 @@ private fun FavoritesContent(
                                         onNavigateToPost(submission.id)
                                     }
                                 },
+                                showTitle = showTitles,
                                 stats = cardStats[submission.id],
                                 forceFavorited = true,
                                 selectionActive = selectionActive,
@@ -523,6 +605,61 @@ private fun FavoritesContent(
     }
 }
 
+/** 别人的收藏夹：收藏过的其他用户收藏夹入口（本地存储）；点按进其用户页收藏 tab，长按移除。 */
+@Composable
+private fun OthersFavoritesContent(
+    records: List<com.furflix.app.data.local.CollectedFavoritesRecord>,
+    onOpen: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit = {},
+    scrollToTopTrigger: Int = 0
+) {
+    if (records.isEmpty()) {
+        EmptyState(
+            message = stringResource(R.string.empty_others_favorites),
+            icon = Icons.Default.CollectionsBookmark
+        )
+        return
+    }
+    val listState = rememberLazyListState()
+    LiveScrollSourceEffect(register = onRegisterScrollSource) {
+        listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+    }
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+    }
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item(key = "header", contentType = "header") {
+            Text(
+                stringResource(R.string.storage_entries_count, records.size),
+                style = MaterialTheme.typography.labelLarge,
+                color = SubtleGray,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+        items(
+            records,
+            key = { it.username.lowercase() },
+            contentType = { "collected_fav_user" }
+        ) { record ->
+            WatchlistItem(
+                user = com.furflix.app.data.model.WatchlistUser(
+                    username = record.username,
+                    displayName = record.displayName.ifEmpty { record.username },
+                    avatarUrl = record.avatarUrl
+                ),
+                onClick = { onOpen(record.username) },
+                onLongClick = { onRemove(record.username) }
+            )
+        }
+    }
+}
+
 @Composable
 private fun HistoryContent(
     entries: List<com.furflix.app.data.model.Submission>,
@@ -530,6 +667,7 @@ private fun HistoryContent(
     userNotes: Map<String, String>,
     viewMode: GalleryViewMode,
     columnsPref: Int,
+    showTitles: Boolean,
     cardStats: Map<String, com.furflix.app.data.model.CardStats>,
     selectionActive: Boolean,
     selectedIds: Set<String>,
@@ -590,6 +728,7 @@ private fun HistoryContent(
                             entries = entries,
                             viewMode = viewMode,
                             columnsPref = columnsPref,
+                            showTitles = showTitles,
                             cardStats = cardStats,
                             selectionActive = selectionActive,
                             selectedIds = selectedIds,
@@ -612,6 +751,7 @@ private fun HistorySubmissionsContent(
     entries: List<com.furflix.app.data.model.Submission>,
     viewMode: GalleryViewMode,
     columnsPref: Int,
+    showTitles: Boolean,
     cardStats: Map<String, com.furflix.app.data.model.CardStats>,
     selectionActive: Boolean,
     selectedIds: Set<String>,
@@ -658,7 +798,7 @@ private fun HistorySubmissionsContent(
                                     onNavigateToPost(submission.id)
                                 }
                             },
-                            showTitle = true,
+                            showTitle = showTitles,
                             compact = true,
                             ratio = submission.thumbnailWidthOnHeightRatio,
                             stats = cardStats[submission.id],
@@ -698,7 +838,7 @@ private fun HistorySubmissionsContent(
                                     onNavigateToPost(submission.id)
                                 }
                             },
-                            showTitle = true,
+                            showTitle = showTitles,
                             compact = true,
                             stats = cardStats[submission.id],
                             forceFavorited = submission.isFavorited,
@@ -735,6 +875,7 @@ private fun HistorySubmissionsContent(
                                     onNavigateToPost(submission.id)
                                 }
                             },
+                            showTitle = showTitles,
                             stats = cardStats[submission.id],
                             forceFavorited = submission.isFavorited,
                             selectionActive = selectionActive,

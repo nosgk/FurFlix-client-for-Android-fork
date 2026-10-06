@@ -63,6 +63,7 @@ class FurRepository(private val context: Context) {
     private val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
     private val HIDE_BARS_KEY = booleanPreferencesKey("hide_bars_on_scroll")
     private val CLIPBOARD_LINK_KEY = booleanPreferencesKey("clipboard_link_enabled")
+    private val CARD_TITLES_KEY = booleanPreferencesKey("card_titles")
         private val DEFAULT_TAB_KEY = androidx.datastore.preferences.core.intPreferencesKey("default_tab")
         private val THEME_ID_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_id")
         private val APP_ICON_KEY = stringPreferencesKey("app_icon")
@@ -346,6 +347,20 @@ class FurRepository(private val context: Context) {
     suspend fun saveGridColumns(count: Int) {
         context.dataStore.edit { prefs ->
             prefs[GRID_COLUMNS_KEY] = count
+        }
+    }
+
+    /**
+     * 画廊缩略图标题显示开关（顶栏 'T' 图标）：全局生效——首页各画廊列表与
+     * “我的”页收藏/历史栏目共用同一份，切换一处处处同步。
+     */
+    val cardTitlesFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[CARD_TITLES_KEY] ?: true
+    }
+
+    suspend fun saveCardTitles(show: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[CARD_TITLES_KEY] = show
         }
     }
 

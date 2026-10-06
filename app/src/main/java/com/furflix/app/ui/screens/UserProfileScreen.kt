@@ -125,6 +125,10 @@ fun UserProfileScreen(
     val selectedTab by viewModel.currentTab.collectAsState()
     val activeFolder by viewModel.activeFolder.collectAsState()
     val gallerySection by viewModel.gallerySection.collectAsState()
+    // “别人的收藏夹”：本用户是否已被收藏（用户页收藏 tab 的收藏按钮状态源）
+    val collectedFavStore = remember { com.furflix.app.data.local.CollectedFavoritesStore.getInstance(context) }
+    val collectedFavorites by collectedFavStore.flow.collectAsState(initial = emptyList())
+    val isFavCollected = collectedFavorites.any { it.username.equals(username, ignoreCase = true) }
     val repository = remember { FurRepository.getInstance(context) }
     val bannerStore = remember { UserBannerStore.getInstance(repository) }
     val userBanners by bannerStore.banners.collectAsState()
@@ -156,6 +160,9 @@ fun UserProfileScreen(
     val tabWatching = stringResource(R.string.user_watching)
     val tabWatchers = stringResource(R.string.user_watchers)
     val tabJournals = stringResource(R.string.user_journals)
+    // 收藏按钮的 Toast 文案：组合层先解析成值，回调只捕获结果（lint LocalContextGetResourceValueCall）
+    val favAddedText = stringResource(R.string.toast_others_fav_added)
+    val favRemovedText = stringResource(R.string.toast_others_fav_removed)
 
     val bottomBarItems = remember(tabGallery, tabFavorites, tabWatching, tabWatchers, tabJournals) {
         listOf(
@@ -427,6 +434,29 @@ fun UserProfileScreen(
 
                     when (selectedTab) {
                         UserViewModel.TAB_GALLERY, UserViewModel.TAB_FAVORITES -> {
+                            if (selectedTab == UserViewModel.TAB_FAVORITES) {
+                                item(key = "fav_collect", span = StaggeredGridItemSpan.FullLine) {
+                                    CollectFavoritesCard(
+                                        collected = isFavCollected,
+                                        onClick = {
+                                            if (isFavCollected) {
+                                                screenScope.launch { collectedFavStore.remove(username) }
+                                                android.widget.Toast.makeText(context, favRemovedText, android.widget.Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                val profile = userProfile
+                                                screenScope.launch {
+                                                    collectedFavStore.add(
+                                                        username,
+                                                        profile?.displayName ?: "",
+                                                        profile?.avatarUrl ?: ""
+                                                    )
+                                                }
+                                                android.widget.Toast.makeText(context, favAddedText, android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                }
+                            }
                             if (selectedTab == UserViewModel.TAB_GALLERY &&
                                 gallerySection == UserViewModel.GALLERY_SECTION_MAIN &&
                                 activeFolder != null
@@ -875,6 +905,44 @@ private fun FolderTreeRow(
                 color = SubtleGray
             )
         }
+    }
+}
+
+// -----------------------------------------------------------------------------------------
+// 用户页收藏 tab：收藏/取消“TA 的收藏夹”到 我的-收藏夹-别人的收藏夹（本地存储）
+// -----------------------------------------------------------------------------------------
+
+@Composable
+private fun CollectFavoritesCard(collected: Boolean, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(if (collected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else DarkSurfaceVariant)
+            .border(
+                1.dp,
+                if (collected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else BorderSubtleDark,
+                RoundedCornerShape(24.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp)
+    ) {
+        Icon(
+            if (collected) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+            contentDescription = null,
+            tint = if (collected) MaterialTheme.colorScheme.primary else Color.White,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = stringResource(if (collected) R.string.fav_collection_remove else R.string.fav_collection_add),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (collected) MaterialTheme.colorScheme.primary else Color.White
+        )
     }
 }
 
