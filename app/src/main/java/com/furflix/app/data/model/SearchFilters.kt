@@ -42,7 +42,8 @@ data class SearchFilters(
         if (typeMusic) map["type-music"] = "1"
         if (typeStory) map["type-story"] = "1"
         if (typePoetry) map["type-poetry"] = "1"
-        map["range"] = range
+        // FA 只认原生枚举：旧版存过 "1week"/"1month"，投递前归一化
+        map["range"] = normalizedRange
         map["mode"] = mode
         if (category != 0) map["category"] = category.toString()
         if (artType != 0) map["arttype"] = artType.toString()
@@ -50,6 +51,14 @@ data class SearchFilters(
         if (gender.isNotEmpty()) map["gender"] = gender
         return map
     }
+
+    /** range 归一化到 FA 原生枚举（2026-10-07 /search/ 表单实测）。 */
+    val normalizedRange: String
+        get() = when (range) {
+            "1week" -> "7days"
+            "1month" -> "30days"
+            else -> range
+        }
 
     fun toBrowseQueryMap(): Map<String, String> {
         val map = mutableMapOf<String, String>()

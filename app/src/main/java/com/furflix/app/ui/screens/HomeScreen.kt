@@ -1850,12 +1850,13 @@ fun InlineSearchFilters(
                 onSelect = { onFiltersChanged(filters.copy(orderDirection = it)) }
             )
 
-            // 5. Time Range
+            // 5. Time Range — 值必须是 FA 原生枚举（1week/1month 是无效值，2026-10-07 表单实测）
             val timeRanges = listOf(
                 "1day" to stringResource(R.string.filter_time_1d),
                 "3days" to stringResource(R.string.filter_time_3d),
-                "1week" to stringResource(R.string.filter_time_1w),
-                "1month" to stringResource(R.string.filter_time_1m),
+                "7days" to stringResource(R.string.filter_time_1w),
+                "30days" to stringResource(R.string.filter_time_1m),
+                "90days" to stringResource(R.string.filter_time_90d),
                 "1year" to stringResource(R.string.filter_time_1y),
                 "3years" to stringResource(R.string.filter_time_3y),
                 "5years" to stringResource(R.string.filter_time_5y),
@@ -1877,6 +1878,55 @@ fun InlineSearchFilters(
                     FAFilterChip(label = stringResource(R.string.filter_type_music), selected = filters.typeMusic) { onFiltersChanged(filters.copy(typeMusic = !filters.typeMusic)) }
                     FAFilterChip(label = stringResource(R.string.filter_type_story), selected = filters.typeStory) { onFiltersChanged(filters.copy(typeStory = !filters.typeStory)) }
                     FAFilterChip(label = stringResource(R.string.filter_type_poetry), selected = filters.typePoetry) { onFiltersChanged(filters.copy(typePoetry = !filters.typePoetry)) }
+                }
+            }
+
+            // 7. Species（FA 原生物种下拉，App 以 0=未设置（不发键）对应 FA 的省略）
+            val speciesOptions = remember {
+                listOf("0" to "All") + com.furflix.app.data.FA_SPECIES.map { it.first.toString() to it.second }
+            }
+            FilterDropdownRow(
+                title = stringResource(R.string.filter_species),
+                currentValueLabel = speciesOptions.firstOrNull { it.first == filters.species.toString() }?.second ?: "All",
+                options = speciesOptions,
+                onSelect = { onFiltersChanged(filters.copy(species = it.toIntOrNull() ?: 0)) }
+            )
+
+            // 8. 搜索语法速查：FA 原生 Lucene 系操作符（/help/#search）
+            var showSyntax by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showSyntax = !showSyntax }
+                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.search_syntax_title), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                Icon(
+                    imageVector = if (showSyntax) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MutedText,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            HorizontalDivider(color = BorderDark, thickness = 1.dp)
+            if (showSyntax) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 10.dp)
+                ) {
+                    Text(stringResource(R.string.search_syntax_intro), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_and), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_or), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_not), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_group), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_phrase), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_order), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_proximity), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_quorum), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_fields), style = MaterialTheme.typography.bodySmall, color = MutedText)
+                    Text(stringResource(R.string.search_syntax_multi), style = MaterialTheme.typography.bodySmall, color = MutedText)
                 }
             }
         }
