@@ -345,6 +345,10 @@
     <string name="search_clear_recent">Clear</string>
     <string name="search_furaffinity">Search FurAffinity</string>
     <!-- Server-side query stats (FA #query-stats): per-term hits + result window + time -->
+    <string name="search_stats_found_in">%1$s found in %2$s</string>
+    <string name="search_stats_range">(%1$d - %2$d of %3$d)</string>
+    <string name="search_stats_time">%1$s sec</string>
+    <!-- Server-side query stats (FA #query-stats): per-term hits + result window + time -->
 
     <!-- Quick presets & tag long-press actions -->
     <string name="search_presets">Quick Presets</string>

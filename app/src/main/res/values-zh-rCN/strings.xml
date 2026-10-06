@@ -353,6 +353,10 @@
     <string name="search_clear_recent">清除</string>
     <string name="search_furaffinity">搜索 FurAffinity</string>
     <!-- 服务端检索统计(FA #query-stats):逐词命中 + 结果区间 + 耗时 -->
+    <string name="search_stats_found_in">%1$s 命中 %2$s 个作品</string>
+    <string name="search_stats_range">(第 %1$d - %2$d 项 / 共 %3$d 项)</string>
+    <string name="search_stats_time">%1$s 秒</string>
+    <!-- 服务端检索统计(FA #query-stats):逐词命中 + 结果区间 + 耗时 -->
 
     <!-- 快捷预设与标签长按菜单 -->
     <string name="search_presets">快捷预设</string>

@@ -307,6 +307,9 @@ fun HomeScreen(
                     )
 
                     // Gallery layout: grid → masonry → list
+                    // 搜索 tab 不显示：搜索页自有的 InlineFiltersRow 视图切换与其重复，
+                    // 双顶栏同现"两套画廊视图选项"即由此而来
+                    if (selectedTab != MainViewModel.TAB_SEARCH) {
                     IconButton(
                         onClick = {
                             val next = when (viewMode) {
@@ -344,6 +347,7 @@ fun HomeScreen(
                             tint = if (showTitles) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                             modifier = Modifier.size(20.dp)
                         )
+                    }
                     }
 
                     // Settings
@@ -758,9 +762,8 @@ fun HomeScreen(
                         Column(modifier = Modifier.fillMaxSize()) {
                         
                         val tagSuggestions by viewModel.tagSuggestions.collectAsState()
-                        // 分词计数 chips：逐词并行抓取（首页抓取数口径），点击直搜该词
-                        val keywordCounts by viewModel.searchKeywordCounts.collectAsState()
-                        val searchResults by viewModel.searchSubmissions.collectAsState()
+                        // 服务端检索统计（#query-stats）：逐词命中 + 结果区间 + 耗时
+                        val queryStats by viewModel.searchQueryStats.collectAsState()
 
                         androidx.compose.animation.AnimatedVisibility(
                             visible = isHeaderVisible || showFilters || !hasSearched,
@@ -826,50 +829,12 @@ fun HomeScreen(
                             }
                         }
 
-                        // 分词计数条常驻（不随搜索栏收起）：搜索后始终可见
-                        if (keywordCounts.isNotEmpty() && hasSearched) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState())
-                                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                keywordCounts.forEach { (word, count) ->
-                                    val label = when {
-                                        count == -1 -> "$word · …"
-                                        count == -2 -> "$word · ?"
-                                        else -> "$word · $count"
-                                    }
-                                    Surface(
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                        onClick = { viewModel.loadSearch(word) }
-                                    ) {
-                                        Text(
-                                            label,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                                if (keywordCounts.size > 1) {
-                                    Surface(
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                    ) {
-                                        Text(
-                                            // 展示层剥离 @keywords 组语法，与最近搜索的显示规则一致
-                                            "${searchQuery.replace("@keywords ", "#")} · ${searchResults.size}",
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        // 服务端统计条常驻（不随搜索栏收起）：搜索后始终可见
+                        QueryStatsBar(
+                            stats = queryStats,
+                            visible = hasSearched,
+                            onTermClick = { viewModel.loadSearch(it) }
+                        )
                         
                         androidx.compose.animation.AnimatedVisibility(
                             visible = showFilters,

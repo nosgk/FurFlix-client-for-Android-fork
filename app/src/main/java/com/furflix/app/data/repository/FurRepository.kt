@@ -221,8 +221,12 @@ class FurRepository(private val context: Context) {
         return filterSubmissions(FurAffinityScraper.getWatchlistPage(page))
     }
 
-    suspend fun search(query: String, page: Int, filters: com.furflix.app.data.model.SearchFilters = com.furflix.app.data.model.SearchFilters()): List<Submission> {
-        return filterSubmissions(FurAffinityScraper.search(query, page, filters))
+    suspend fun search(query: String, page: Int, filters: com.furflix.app.data.model.SearchFilters = com.furflix.app.data.model.SearchFilters()): com.furflix.app.data.model.SearchResult {
+        val raw = FurAffinityScraper.search(query, page, filters)
+        return com.furflix.app.data.model.SearchResult(
+            submissions = filterSubmissions(raw.submissions),
+            stats = raw.stats
+        )
     }
 
     /** 清空指定用户页的分页缓存（下拉刷新时调用）。 */

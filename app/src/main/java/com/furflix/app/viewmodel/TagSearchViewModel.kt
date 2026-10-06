@@ -40,6 +40,10 @@ class TagSearchViewModel(
     private val _searchQuery = MutableStateFlow(initialQuery)
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    /** 服务端检索统计（#query-stats：逐词命中 + 结果区间 + 耗时）。 */
+    private val _queryStats = MutableStateFlow<com.furflix.app.data.model.SearchQueryStats?>(null)
+    val queryStats: StateFlow<com.furflix.app.data.model.SearchQueryStats?> = _queryStats.asStateFlow()
+
     private val _tagSuggestions = MutableStateFlow<List<String>>(emptyList())
     val tagSuggestions: StateFlow<List<String>> = _tagSuggestions.asStateFlow()
 
@@ -74,13 +78,15 @@ class TagSearchViewModel(
         val gen = ++searchGeneration
         searchJob = viewModelScope.launch {
             _submissions.value = emptyList()
+            _queryStats.value = null
             _isLoading.value = true
             _errorMessage.value = null
             try {
                 val result = repository.search(newQuery, currentPage, _searchFilters.value)
                 if (gen == searchGeneration) {
-                    _submissions.value = result
-                    if (result.isEmpty()) {
+                    _submissions.value = result.submissions
+                    _queryStats.value = result.stats
+                    if (result.submissions.isEmpty()) {
                         _errorMessage.value = getApplication<Application>().getString(R.string.empty_search_results)
                     }
                 }
@@ -112,12 +118,14 @@ class TagSearchViewModel(
             currentPage = 1
             hasMore = true
             _submissions.value = emptyList()
+            _queryStats.value = null
             _isLoading.value = true
             _errorMessage.value = null
             try {
                 val result = repository.search(_searchQuery.value, 1, filters)
                 if (gen == searchGeneration) {
-                    _submissions.value = result
+                    _submissions.value = result.submissions
+                    _queryStats.value = result.stats
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -144,18 +152,18 @@ class TagSearchViewModel(
                     currentPage--
                     return@launch
                 }
-                if (result.isEmpty()) {
+                if (result.submissions.isEmpty()) {
                     hasMore = false
                     currentPage--
                 } else {
                     val currentIds = _submissions.value.map { it.id }.toSet()
-                    val newItems = result.filter { it.id !in currentIds }
+                    val newItems = result.submissions.filter { it.id !in currentIds }
                     if (newItems.isEmpty()) {
                         hasMore = false
                         currentPage--
                     } else {
                         _submissions.value = _submissions.value + newItems
-                        hasMore = result.size >= pageSize
+                        hasMore = result.submissions.size >= pageSize
                     }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {

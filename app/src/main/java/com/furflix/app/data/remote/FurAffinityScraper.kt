@@ -181,37 +181,6 @@ object FurAffinityScraper {
         cookieManager.flush()
     }
 
-        private suspend fun postDocument(url: String, formBody: okhttp3.FormBody, forceNsfw: Boolean? = null): org.jsoup.nodes.Document =
-            withCfGuard(url) {
-                withContext(Dispatchers.IO) {
-                    Log.d("FurScraper", "POSTing to: $url")
-                    val cookieHeader = getCookiesString(forceNsfw)
-                    val reqBuilder = Request.Builder()
-                        .url(url)
-                        .post(formBody)
-                        .header("User-Agent", USER_AGENT)
-                        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-                        .header("Accept-Language", "en-US,en;q=0.5")
-                        .header("Referer", "$FA_BASE/")
-                        .header("Connection", "keep-alive")
-                    FurHeaders.applyFormHints(reqBuilder)
-
-                    if (cookieHeader.isNotEmpty()) {
-                        reqBuilder.header("Cookie", cookieHeader)
-                    }
-
-                    val response = httpClient.newCall(reqBuilder.build()).execute()
-                    val html = response.body.string()
-                    val finalUrl = response.request.url.toString()
-
-                    Log.d("FurScraper", "POST Status=${response.code}, finalUrl=$finalUrl, len=${html.length}")
-                    if (isCloudflareChallenge(response.code, html)) {
-                        throw CloudflareChallengeException(finalUrl)
-                    }
-                    Jsoup.parse(html, finalUrl)
-                }
-            }
-
     private suspend fun fetchDocument(url: String, forceNsfw: Boolean? = null): org.jsoup.nodes.Document =
         withCfGuard(url) {
             withContext(Dispatchers.IO) {
@@ -458,32 +427,34 @@ object FurAffinityScraper {
     }
 
     /**
-     * 搜索（FA 原生 /search/ 表单，2026-10 实测字段全集见 SearchFilters）。
-     * 异常不吞：网络失败如实上抛，由 ViewModel 呈现错误态，
-     * 避免把"请求失败"误渲染成"无结果"。
+     * 搜索（FA 原生 /search/ 表单，2026-10-07 GET 实测字段全集见 SearchFilters）。
+     * 必须走 GET：FA 的搜索表单是 method=get，POST 提交的筛选参数会被整包忽略
+     * （浏览器实测同表单 GET 4467 条 / POST 25675 条，POST 下类型/评级/时间
+     * 全部失效）——这正是历史版本"筛选近乎无效"的根因。
+     * 异常不吞：网络失败如实上抛，由 ViewModel 呈现错误态。
+     * 回包附带 #query-stats 服务端统计（逐词命中 + 总数 + 耗时）。
      */
-    suspend fun search(query: String, page: Int = 1, filters: com.furflix.app.data.model.SearchFilters = com.furflix.app.data.model.SearchFilters()): List<Submission> =
+    suspend fun search(query: String, page: Int = 1, filters: com.furflix.app.data.model.SearchFilters = com.furflix.app.data.model.SearchFilters()): com.furflix.app.data.model.SearchResult =
         withContext(Dispatchers.IO) {
             // Deterministic form: q/page/perpage first, then the filter map
             // in declaration order (see SearchFilters.buildSearchForm).
-            val formBuilder = okhttp3.FormBody.Builder()
-            filters.buildSearchForm(query, page).forEach { (key, value) ->
-                formBuilder.add(key, value)
-            }
+            val qs = filters.buildSearchForm(query, page)
+                .joinToString("&") { (key, value) ->
+                    "${URLEncoder.encode(key, "UTF-8")}=${URLEncoder.encode(value, "UTF-8")}"
+                }
 
             val forceNsfw = filters.ratingAdult || filters.ratingMature
-            val doc = postDocument("$FA_BASE/search/", formBuilder.build(), forceNsfw)
+            val doc = fetchDocument("$FA_BASE/search/?$qs", forceNsfw)
 
             // Pagination is handled by passing the correct page number,
             // but we can check if a "Next" button exists to know if there are more results.
             val hasNext = doc.select("button[name=page]").any { it.text().contains("Next", ignoreCase = true) }
-            if (!hasNext && doc.select("form[action^=/search/]").isNotEmpty()) {
-                searchNextUrl = null
-            } else {
-                searchNextUrl = "has_next" // dummy value so the ViewModel knows there's more
-            }
+            searchNextUrl = if (hasNext) "has_next" else null
 
-            parseSearchResults(doc)
+            com.furflix.app.data.model.SearchResult(
+                submissions = parseSearchResults(doc),
+                stats = SearchQueryStatsParser.parse(doc.selectFirst("#query-stats"))
+            )
         }
 
     suspend fun getSubmissionDetails(submissionId: String, loadStoryText: Boolean = true): Submission? =

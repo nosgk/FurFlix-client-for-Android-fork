@@ -167,6 +167,14 @@ fun TagSearchScreen(
                     }
                 )
 
+                // 服务端检索统计（#query-stats）：逐词命中 + 结果区间 + 耗时，恒显
+                val queryStats by viewModel.queryStats.collectAsState()
+                QueryStatsBar(
+                    stats = queryStats,
+                    visible = true,
+                    onTermClick = { viewModel.loadSearch(it) }
+                )
+
                 // 多选动作条：与首页/用户页同一套批量操作
                 if (selectionActive) {
                     val batchQueuedText = stringResource(R.string.toast_batch_download_queued, selection.ids.size)

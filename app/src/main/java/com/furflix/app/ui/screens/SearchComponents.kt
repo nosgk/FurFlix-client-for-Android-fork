@@ -1127,3 +1127,71 @@ private fun FAFilterChip(
         )
     )
 }
+
+/** 千分位计数展示（与 FA 站点数字口径一致）。 */
+private fun formatSearchCount(count: Long): String =
+    java.text.DecimalFormat("#,###").format(count)
+
+/**
+ * 服务端检索统计条（FA /search/ #query-stats 的镜像）：
+ * 逐词命中（点击重搜该词）+ 结果区间 + 耗时。[visible] 为 true 且有数据才渲染，
+ * 首页搜索 tab 传 hasSearched（搜索后常驻，不随搜索栏收起），标签搜索页恒传 true。
+ */
+@Composable
+fun QueryStatsBar(
+    stats: com.furflix.app.data.model.SearchQueryStats?,
+    visible: Boolean,
+    onTermClick: (String) -> Unit = {}
+) {
+    if (!visible || stats == null) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        stats.perTerm.forEach { (term, count) ->
+            Surface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                color = DarkSurfaceVariant,
+                onClick = { onTermClick(term) }
+            ) {
+                Text(
+                    text = stringResource(R.string.search_stats_found_in, term, formatSearchCount(count)),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+        if (stats.hasTotal) {
+            Surface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+            ) {
+                Text(
+                    text = buildString {
+                        append(
+                            stringResource(
+                                R.string.search_stats_range,
+                                stats.shownFrom ?: 0,
+                                stats.shownTo ?: 0,
+                                formatSearchCount(stats.totalResults ?: 0)
+                            )
+                        )
+                        stats.elapsedSeconds?.let {
+                            append(" · ")
+                            append(stringResource(R.string.search_stats_time, it))
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
