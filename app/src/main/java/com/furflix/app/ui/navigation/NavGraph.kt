@@ -147,11 +147,12 @@ fun FurFlixNavGraph(
                 val userProfileEntry = androidx.compose.runtime.remember(backStackEntry) {
                     runCatching { navController.getBackStackEntry(Routes.userProfile(username)) }.getOrNull()
                 }
-                val capturedEntryState = userProfileEntry?.lifecycle?.currentState
-                val vmOwner = androidx.compose.runtime.remember(userProfileEntry, capturedEntryState) {
-                    userProfileEntry?.takeIf {
-                        capturedEntryState != androidx.lifecycle.Lifecycle.State.DESTROYED
-                    } ?: backStackEntry
+                // currentState 不可在组合内直读(Lint: LifecycleCurrentStateInComposition)，
+                // 用 currentStateFlow 订阅销毁态，翻转即驱动重组重解析 owner
+                val capturedEntryDestroyed = userProfileEntry?.lifecycle?.currentStateFlow
+                    ?.collectAsState()?.value == androidx.lifecycle.Lifecycle.State.DESTROYED
+                val vmOwner = androidx.compose.runtime.remember(userProfileEntry, capturedEntryDestroyed) {
+                    userProfileEntry?.takeIf { !capturedEntryDestroyed } ?: backStackEntry
                 }
                 val userViewModel: com.furflix.app.viewmodel.UserViewModel = viewModel(
                     viewModelStoreOwner = vmOwner,
@@ -173,11 +174,10 @@ fun FurFlixNavGraph(
                 val tagSearchEntry = androidx.compose.runtime.remember(backStackEntry) {
                     runCatching { navController.getBackStackEntry(searchRoute) }.getOrNull()
                 }
-                val capturedTagEntryState = tagSearchEntry?.lifecycle?.currentState
-                val tagOwner = androidx.compose.runtime.remember(tagSearchEntry, capturedTagEntryState) {
-                    tagSearchEntry?.takeIf {
-                        capturedTagEntryState != androidx.lifecycle.Lifecycle.State.DESTROYED
-                    } ?: backStackEntry
+                val capturedTagEntryDestroyed = tagSearchEntry?.lifecycle?.currentStateFlow
+                    ?.collectAsState()?.value == androidx.lifecycle.Lifecycle.State.DESTROYED
+                val tagOwner = androidx.compose.runtime.remember(tagSearchEntry, capturedTagEntryDestroyed) {
+                    tagSearchEntry?.takeIf { !capturedTagEntryDestroyed } ?: backStackEntry
                 }
                 val tagViewModel: com.furflix.app.viewmodel.TagSearchViewModel = viewModel(
                     viewModelStoreOwner = tagOwner,
