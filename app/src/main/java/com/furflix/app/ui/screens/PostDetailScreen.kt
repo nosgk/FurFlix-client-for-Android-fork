@@ -103,6 +103,8 @@ import com.furflix.app.ui.components.StoryReader
 import com.furflix.app.ui.components.FlashPlayerViewer
 import com.furflix.app.ui.components.GifFrameViewer
 import com.furflix.app.ui.components.AudioHeroContent
+import com.furflix.app.ui.components.PdfHeroContent
+import com.furflix.app.ui.components.DocumentHeroContent
 import com.furflix.app.ui.theme.*
 import com.furflix.app.viewmodel.MainViewModel
 import dev.chrisbanes.haze.HazeState
@@ -596,9 +598,12 @@ fun PostDetailScreen(
             }
 
             // Full-screen viewers: Flash → Ruffle WebView；GIF → 逐帧播放器；其余 → 缩放查看器；
-            // 音频作品在主媒体区内嵌播放，无全屏查看器
+            // 音频/PDF/文档在主媒体区内处理，无全屏图片查看器
             val zoomSubmission = submission
-            if (showZoom && zoomSubmission?.fullImageUrl?.isNotEmpty() == true && !isAudioSubmission(zoomSubmission)) {
+            if (showZoom && zoomSubmission?.fullImageUrl?.isNotEmpty() == true &&
+                !isAudioSubmission(zoomSubmission) && !isPdfSubmission(zoomSubmission) &&
+                !isDocumentSubmission(zoomSubmission)
+            ) {
                 when {
                     zoomSubmission.fileExt == "swf" || zoomSubmission.fileType.equals("Flash", true) -> {
                         FlashPlayerViewer(
@@ -661,6 +666,25 @@ private fun TwoPaneHeroImage(
     if (isAudioSubmission(sub)) {
         AudioHeroContent(
             audioUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
+            coverUrl = placeholderUrl,
+            modifier = modifier
+        )
+        return
+    }
+    // PDF：原件抓取 + 系统 PdfRenderer 逐页渲染
+    if (isPdfSubmission(sub)) {
+        PdfHeroContent(
+            pdfUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
+            coverUrl = placeholderUrl,
+            modifier = modifier
+        )
+        return
+    }
+    // 文档类（doc/docx/rtf 等）：元信息卡 + 下载提示
+    if (isDocumentSubmission(sub)) {
+        DocumentHeroContent(
+            fileName = sub.fileName.ifEmpty { sub.title },
+            fileSize = sub.fileSize,
             coverUrl = placeholderUrl,
             modifier = modifier
         )
@@ -748,6 +772,16 @@ private fun isAudioSubmission(sub: Submission): Boolean =
         sub.fileType.equals("Music", ignoreCase = true) ||
         sub.fileType.equals("Podcast", ignoreCase = true)
 
+/** PDF 文档（FA Story/Poetry 类可上传 pdf 原件）：详情页无图，仅 Download 直链。 */
+private fun isPdfSubmission(sub: Submission): Boolean =
+    sub.fileExt.equals("pdf", ignoreCase = true)
+
+/** 无系统渲染器的文档类型：交给下载 + 系统应用打开。 */
+private val DOCUMENT_EXTS = setOf("doc", "docx", "rtf", "odt")
+
+private fun isDocumentSubmission(sub: Submission): Boolean =
+    sub.fileExt.lowercase() in DOCUMENT_EXTS
+
 @Composable
 private fun HeroImage(
     sub: Submission,
@@ -769,6 +803,25 @@ private fun HeroImage(
     if (isAudioSubmission(sub)) {
         AudioHeroContent(
             audioUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
+            coverUrl = placeholderUrl,
+            modifier = Modifier.fillMaxWidth()
+        )
+        return
+    }
+    // PDF：原件抓取 + 系统 PdfRenderer 逐页渲染
+    if (isPdfSubmission(sub)) {
+        PdfHeroContent(
+            pdfUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
+            coverUrl = placeholderUrl,
+            modifier = Modifier.fillMaxWidth()
+        )
+        return
+    }
+    // 文档类（doc/docx/rtf 等）：元信息卡 + 下载提示
+    if (isDocumentSubmission(sub)) {
+        DocumentHeroContent(
+            fileName = sub.fileName.ifEmpty { sub.title },
+            fileSize = sub.fileSize,
             coverUrl = placeholderUrl,
             modifier = Modifier.fillMaxWidth()
         )

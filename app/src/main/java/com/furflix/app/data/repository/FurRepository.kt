@@ -194,6 +194,10 @@ class FurRepository(private val context: Context) {
         return FurAffinityScraper.getSubmissionDetails(id, loadStoryText)
     }
 
+    /** 拉取作品文件原件（PDF 等），走会话 cookie 与 PC UA；超限返回 null。 */
+    suspend fun fetchSubmissionFile(url: String, maxBytes: Int = 40_000_000): ByteArray? =
+        FurAffinityScraper.fetchBinary(url, maxBytes)
+
     suspend fun getWatchlist(page: Int = 1): List<Submission> {
         return filterSubmissions(FurAffinityScraper.getWatchlistPage(page))
     }

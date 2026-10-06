@@ -376,27 +376,44 @@ private fun DownloadCard(
                     .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
                     .clickable { onOpen(item) }
             ) {
-                if (item.isAudio) {
-                    // 音频下载无位图可解：类型图标占位
-                    Box(
-                        modifier = Modifier.fillMaxSize().background(DarkSurfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = SubtleGray,
-                            modifier = Modifier.size(44.dp)
+                when {
+                    item.isAudio -> {
+                        // 音频下载无位图可解：类型图标占位
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(DarkSurfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = SubtleGray,
+                                modifier = Modifier.size(44.dp)
+                            )
+                        }
+                    }
+                    item.isDoc -> {
+                        // 文档类（PDF 等）：类型图标占位
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(DarkSurfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Description,
+                                contentDescription = null,
+                                tint = SubtleGray,
+                                modifier = Modifier.size(44.dp)
+                            )
+                        }
+                    }
+                    else -> {
+                        val retryState = rememberRetryImageState(item.uri.toString())
+                        RetrySubcomposeAsyncImage(
+                            state = retryState,
+                            contentDescription = stringResource(R.string.cd_downloaded_image),
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
                     }
-                } else {
-                    val retryState = rememberRetryImageState(item.uri.toString())
-                    RetrySubcomposeAsyncImage(
-                        state = retryState,
-                        contentDescription = stringResource(R.string.cd_downloaded_image),
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
                 }
             }
 

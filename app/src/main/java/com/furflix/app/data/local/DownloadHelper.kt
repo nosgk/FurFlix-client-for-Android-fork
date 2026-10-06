@@ -24,6 +24,7 @@ data class DownloadedItem(
 
     /** 音频/文档类下载：无位图可解，列表按类型图标呈现。 */
     val isAudio: Boolean get() = mimeType.startsWith("audio")
+    val isDoc: Boolean get() = mimeType.startsWith("application/")
 }
 
 object DownloadHelper {
@@ -117,6 +118,11 @@ object DownloadHelper {
             "flac" -> "audio/flac"
             "aac" -> "audio/aac"
             "mid", "midi" -> "audio/midi"
+            "pdf" -> "application/pdf"
+            "doc" -> "application/msword"
+            "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            "rtf" -> "application/rtf"
+            "swf" -> "application/x-shockwave-flash"
             else -> ""
         }
     }

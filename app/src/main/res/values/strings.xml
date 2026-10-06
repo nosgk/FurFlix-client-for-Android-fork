@@ -252,10 +252,26 @@
     <string name="filter_time_3d">3 Days</string>
     <string name="filter_time_1w">1 Week</string>
     <string name="filter_time_1m">1 Month</string>
+    <string name="filter_time_90d">90 Days</string>
     <string name="filter_time_1y">1 Year</string>
     <string name="filter_time_3y">3 Years</string>
     <string name="filter_time_5y">5 Years</string>
     <string name="filter_time_all">All Time</string>
+
+    <string name="filter_species">Species</string>
+    <!-- Search syntax cheat sheet (FA native Lucene-style operators, from /help/#search) -->
+    <string name="search_syntax_title">Search syntax</string>
+    <string name="search_syntax_intro">Matches titles, descriptions, filenames, keywords and the uploader\'s account name. Case-insensitive. Field searches are exact matches.</string>
+    <string name="search_syntax_and">foo bar — match ALL terms (AND)</string>
+    <string name="search_syntax_or">foo | bar — EITHER term (OR)</string>
+    <string name="search_syntax_not">foo -bar — exclude bar</string>
+    <string name="search_syntax_group">fox &amp; (box | socks) — grouping with parentheses</string>
+    <string name="search_syntax_phrase">\"quick brown fox\" — exact phrase in order</string>
+    <string name="search_syntax_order">quick &lt;&lt; brown &lt;&lt; fox — words in this order</string>
+    <string name="search_syntax_proximity">\"quick brown fox\"~3 — all within 3 words of each other</string>
+    <string name="search_syntax_quorum">\"a b c\"/2 — at least 2 of the listed words</string>
+    <string name="search_syntax_fields">@title @message @keywords @lower — limit to one field (exact match)</string>
+    <string name="search_syntax_multi">@(title,keywords) fox — search several fields at once</string>
     
     <string name="filter_content_type">Content Type</string>
     <string name="filter_type_art">Art</string>
@@ -322,6 +338,9 @@
     <string name="post_tags">Tags</string>
     <string name="post_no_description">No description</string>
     <string name="post_no_comments">No comments yet</string>
+    <!-- Submission file viewers (PDF inline / document card) -->
+    <string name="pdf_load_failed">PDF failed to load — tap to retry</string>
+    <string name="doc_download_hint">Download from the toolbar below, then open with any document app</string>
     <!-- Meta labels also used by the info chips on the detail page -->
     <string name="meta_category">Category</string>
     <string name="meta_species">Species</string>
