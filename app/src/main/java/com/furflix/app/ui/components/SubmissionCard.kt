@@ -67,8 +67,8 @@ import com.furflix.app.ui.theme.*
  */
 @Composable
 private fun CardTitleAutoEffect(entry: TranslationEntry, prefs: TranslationUiPrefs) {
-    LaunchedEffect(entry, prefs.enabled, prefs.auto) {
-        if (prefs.enabled && prefs.auto) {
+    LaunchedEffect(entry, prefs.enabled, prefs.titleAuto) {
+        if (prefs.enabled && prefs.titleAuto) {
             kotlinx.coroutines.delay(500)
             val state = entry.state.value
             if (state is TranslationUiState.Idle && !state.autoAttempted) {

@@ -81,11 +81,12 @@ fun rememberTranslationEntry(
     return entry
 }
 
-/** 自动翻译效果：开关打开且未尝试过时触发一次（中文原文会被跳过）。 */
+/** 自动翻译效果：该类别的自动开关打开且未尝试过时触发一次（中文原文会被跳过）。 */
 @Composable
 fun TranslatableAutoEffect(entry: TranslationEntry, prefs: TranslationUiPrefs) {
-    LaunchedEffect(prefs.enabled, prefs.auto) {
-        if (prefs.enabled && prefs.auto) {
+    val autoForCategory = prefs.autoFor(entry.category)
+    LaunchedEffect(prefs.enabled, autoForCategory) {
+        if (prefs.enabled && autoForCategory) {
             val s = entry.state.value
             if (s is TranslationUiState.Idle && !s.autoAttempted) entry.translateAuto()
         }

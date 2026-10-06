@@ -1730,8 +1730,8 @@ private fun JournalCard(
         category = TranslationCategory.TITLE
     )
     // 与卡片标题同款防抖：快速滑动时不打翻译服务，停稳 500ms 才送翻
-    LaunchedEffect(entry, prefs.enabled, prefs.auto) {
-        if (prefs.enabled && prefs.auto) {
+    LaunchedEffect(entry, prefs.enabled, prefs.titleAuto) {
+        if (prefs.enabled && prefs.titleAuto) {
             kotlinx.coroutines.delay(500)
             val s = entry.state.value
             if (s is com.furflix.app.translate.ui.TranslationUiState.Idle && !s.autoAttempted) {

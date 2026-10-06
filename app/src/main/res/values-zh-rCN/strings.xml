@@ -534,11 +534,15 @@
     <string name="settings_translation_desc">翻译描述、标签与评论</string>
     <string name="translation_title">翻译</string>
     <string name="translation_enabled">启用翻译</string>
-    <string name="translation_enabled_desc">在作品页显示翻译按钮</string>
-    <string name="translation_auto">自动翻译内容</string>
-    <string name="translation_auto_desc">描述、评论与用户简介</string>
-    <string name="translation_tags_auto">自动翻译标签</string>
-    <string name="translation_tags_auto_desc">无页面开关时自动翻译标签</string>
+    <string name="translation_enabled_desc">显示翻译按钮</string>
+    <!-- Per-category auto-translate switches (split from the former global toggle) -->
+    <string name="translation_auto_section">自动翻译</string>
+    <string name="translation_auto_cat_title">作品标题</string>
+    <string name="translation_auto_cat_description">作品描述</string>
+    <string name="translation_auto_cat_tag">标签</string>
+    <string name="translation_auto_cat_comment">评论</string>
+    <string name="translation_auto_cat_profile">用户简介</string>
+    <string name="translation_auto_cat_journal">日志</string>
     <string name="translation_target_language">目标语言</string>
     <string name="translation_provider">翻译服务商</string>
     <string name="translation_provider_google">Google（免费）</string>

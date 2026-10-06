@@ -13,8 +13,15 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
 private val K_ENABLED = booleanPreferencesKey("translateEnabled")
+/** 旧版全局"自动翻译内容"开关：仅作逐项开关缺失时的迁移回落值读取，不再写入 */
 private val K_AUTO = booleanPreferencesKey("translateAuto")
 private val K_TAGS_AUTO = booleanPreferencesKey("translateTagsAuto")
+/** 逐类别自动翻译开关（2026-10 拆分自全局 translateAuto；旧用户自动迁移） */
+private val K_TITLE_AUTO = booleanPreferencesKey("translateTitleAuto")
+private val K_DESCRIPTION_AUTO = booleanPreferencesKey("translateDescriptionAuto")
+private val K_COMMENT_AUTO = booleanPreferencesKey("translateCommentAuto")
+private val K_PROFILE_AUTO = booleanPreferencesKey("translateProfileAuto")
+private val K_JOURNAL_AUTO = booleanPreferencesKey("translateJournalAuto")
 private val K_DISPLAY_MODES = stringPreferencesKey("translateDisplayModes")
 private val K_STORY_GRANULARITY = stringPreferencesKey("translateStoryGranularity")
 private val K_TARGET_LANGUAGE = stringPreferencesKey("translateTargetLanguage")
@@ -52,16 +59,30 @@ private val K_PROFILE_OPENAI = stringPreferencesKey("translateProfileOpenAI")
 /** UI 层消费的聚合快照。 */
 data class TranslationUiPrefs(
     val enabled: Boolean = false,
-    val auto: Boolean = false,
     // [FurFlix 偏离蓝本] 标签自动翻译默认开：FA 标签短小廉价（缓存+合并兜底），
     // 且"启用翻译即标签可译"符合 zh-first 用户预期。用户显式关闭后存键生效。
     val tagsAuto: Boolean = true,
+    val titleAuto: Boolean = false,
+    val descriptionAuto: Boolean = false,
+    val commentAuto: Boolean = false,
+    val profileAuto: Boolean = false,
+    val journalAuto: Boolean = false,
     val displayModes: Map<TranslationCategory, TranslationDisplayMode> = emptyMap(),
     // 小说正文翻译切分粒度（默认整段）
     val storyGranularity: StoryGranularity = StoryGranularity.PARAGRAPH,
 ) {
     fun displayMode(category: TranslationCategory): TranslationDisplayMode =
         displayModes[category] ?: TranslationDisplayMode.BILINGUAL
+
+    /** 逐类别自动翻译开关（原全局开关已按类别拆分，TAG 沿用独立旧键） */
+    fun autoFor(category: TranslationCategory): Boolean = when (category) {
+        TranslationCategory.TITLE -> titleAuto
+        TranslationCategory.DESCRIPTION -> descriptionAuto
+        TranslationCategory.TAG -> tagsAuto
+        TranslationCategory.COMMENT -> commentAuto
+        TranslationCategory.USER_PROFILE -> profileAuto
+        TranslationCategory.JOURNAL -> journalAuto
+    }
 
     companion object {
         val DEFAULT = TranslationUiPrefs()
@@ -101,7 +122,12 @@ class TranslationSettings private constructor(private val context: Context) {
     val uiPrefs: Flow<TranslationUiPrefs> = context.translationDataStore.data.map { p ->
         TranslationUiPrefs(
             enabled = p[K_ENABLED] ?: false,
-            auto = p[K_AUTO] ?: false,
+            // 逐项键缺失时回落旧全局开关值（老用户迁移：原来全开就继续全开）
+            titleAuto = p[K_TITLE_AUTO] ?: (p[K_AUTO] ?: false),
+            descriptionAuto = p[K_DESCRIPTION_AUTO] ?: (p[K_AUTO] ?: false),
+            commentAuto = p[K_COMMENT_AUTO] ?: (p[K_AUTO] ?: false),
+            profileAuto = p[K_PROFILE_AUTO] ?: (p[K_AUTO] ?: false),
+            journalAuto = p[K_JOURNAL_AUTO] ?: (p[K_AUTO] ?: false),
             tagsAuto = p[K_TAGS_AUTO] ?: true, // 默认开，见 TranslationUiPrefs 注释
             displayModes = parseDisplayModes(p[K_DISPLAY_MODES] ?: "{}"),
             storyGranularity = StoryGranularity.fromId(p[K_STORY_GRANULARITY] ?: "")
@@ -132,7 +158,11 @@ class TranslationSettings private constructor(private val context: Context) {
     // ---- savers（设置页用；空 prompt = 回落内置默认）----
 
     suspend fun saveEnabled(v: Boolean) = edit { it[K_ENABLED] = v }
-    suspend fun saveAuto(v: Boolean) = edit { it[K_AUTO] = v }
+    suspend fun saveTitleAuto(v: Boolean) = edit { it[K_TITLE_AUTO] = v }
+    suspend fun saveDescriptionAuto(v: Boolean) = edit { it[K_DESCRIPTION_AUTO] = v }
+    suspend fun saveCommentAuto(v: Boolean) = edit { it[K_COMMENT_AUTO] = v }
+    suspend fun saveProfileAuto(v: Boolean) = edit { it[K_PROFILE_AUTO] = v }
+    suspend fun saveJournalAuto(v: Boolean) = edit { it[K_JOURNAL_AUTO] = v }
     suspend fun saveTagsAuto(v: Boolean) = edit { it[K_TAGS_AUTO] = v }
     suspend fun saveStoryGranularity(v: StoryGranularity) = edit { it[K_STORY_GRANULARITY] = v.id }
     suspend fun saveConcurrency(v: Int) = edit { it[K_CONCURRENCY] = v.coerceIn(1, 8) }

@@ -135,19 +135,45 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
                     checked = prefs.enabled,
                     onChecked = { scope.launch { settings.saveEnabled(it) } }
                 )
-                CardDivider()
+            }
+
+            // 自动翻译按内容类型逐项开关（原全局开关拆分）
+            SectionTitle(stringResource(R.string.translation_auto_section))
+            SettingsCard {
                 SwitchRow(
-                    title = stringResource(R.string.translation_auto),
-                    subtitle = stringResource(R.string.translation_auto_desc),
-                    checked = prefs.auto,
-                    onChecked = { scope.launch { settings.saveAuto(it) } }
+                    title = stringResource(R.string.translation_auto_cat_title),
+                    checked = prefs.titleAuto,
+                    onChecked = { scope.launch { settings.saveTitleAuto(it) } }
                 )
                 CardDivider()
                 SwitchRow(
-                    title = stringResource(R.string.translation_tags_auto),
-                    subtitle = stringResource(R.string.translation_tags_auto_desc),
+                    title = stringResource(R.string.translation_auto_cat_description),
+                    checked = prefs.descriptionAuto,
+                    onChecked = { scope.launch { settings.saveDescriptionAuto(it) } }
+                )
+                CardDivider()
+                SwitchRow(
+                    title = stringResource(R.string.translation_auto_cat_tag),
                     checked = prefs.tagsAuto,
                     onChecked = { scope.launch { settings.saveTagsAuto(it) } }
+                )
+                CardDivider()
+                SwitchRow(
+                    title = stringResource(R.string.translation_auto_cat_comment),
+                    checked = prefs.commentAuto,
+                    onChecked = { scope.launch { settings.saveCommentAuto(it) } }
+                )
+                CardDivider()
+                SwitchRow(
+                    title = stringResource(R.string.translation_auto_cat_profile),
+                    checked = prefs.profileAuto,
+                    onChecked = { scope.launch { settings.saveProfileAuto(it) } }
+                )
+                CardDivider()
+                SwitchRow(
+                    title = stringResource(R.string.translation_auto_cat_journal),
+                    checked = prefs.journalAuto,
+                    onChecked = { scope.launch { settings.saveJournalAuto(it) } }
                 )
             }
 
