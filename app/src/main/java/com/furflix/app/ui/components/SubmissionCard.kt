@@ -1,5 +1,9 @@
 package com.furflix.app.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -246,7 +250,9 @@ fun SubmissionCard(
                     }
                 }
 
-                if (!imageLoaded) {
+                if (!imageLoaded && !compact) {
+                    // 大图（单列列表）保留转圈提示；网格/瀑布流的小格子里每个空格子
+                    // 各挂一个无限动画既噪又费帧，统一用静色占位 + 交叉淡入承接
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -305,7 +311,13 @@ fun SubmissionCard(
                 // Stats overlay — bottom-end on the scrim; heart goes pink when
                 // the submission is locally known to be favorited. A file-type
                 // badge (ext, falling back to FA's type label) leads the row.
-                if (showStats) {
+                // 条件放外层由 AnimatedVisibility 驱动：预热并发化后统计整批点亮，
+                // 入场走轻量淡入+下滑，避免数字突兀地砸出来
+                AnimatedVisibility(
+                    visible = showStats,
+                    enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 4 },
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                ) {
                     val statStyle = MaterialTheme.typography.labelSmall.copy(
                         shadow = Shadow(
                             color = Color.Black.copy(alpha = 0.8f),
@@ -314,9 +326,7 @@ fun SubmissionCard(
                         )
                     )
                     Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = if (compact) 6.dp else 10.dp, bottom = if (compact) 6.dp else 10.dp),
+                        modifier = Modifier.padding(end = if (compact) 6.dp else 10.dp, bottom = if (compact) 6.dp else 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
