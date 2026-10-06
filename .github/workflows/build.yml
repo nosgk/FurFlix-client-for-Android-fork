@@ -82,14 +82,14 @@ jobs:
 
       - name: Upload release APK (arm64-v8a)
         if: env.BUILD_TYPE != 'debug'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: FurFlix-release-arm64-v8a
           path: app/build/outputs/apk/release/*.apk
 
       - name: Upload debug APK
         if: env.BUILD_TYPE == 'debug'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: FurFlix-debug-apk
           path: app/build/outputs/apk/debug/*.apk
