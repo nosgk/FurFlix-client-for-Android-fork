@@ -458,7 +458,7 @@ fun AppearanceSettingsScreen(
 
             // --- Detail page image quality (0 = follow display, -1 = original) ---
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.HighQuality, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
@@ -504,7 +504,8 @@ fun AppearanceSettingsScreen(
                 }
             }
 
-            // --- Text size (multiplies the system font scale) ---            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // --- Text size (multiplies the system font scale) ---
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {

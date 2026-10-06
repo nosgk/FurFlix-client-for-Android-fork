@@ -107,7 +107,6 @@ fun ProgressiveImageContent(
                     else -> coil3.size.Size(detailQuality, detailQuality)
                 }
             },
-            state = retryState,
             modifier = imageModifier.then(
                 if (onImageClick != null) Modifier.clickable(onClick = onImageClick) else Modifier
             ),

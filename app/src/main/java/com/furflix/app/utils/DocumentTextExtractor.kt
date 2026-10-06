@@ -25,15 +25,6 @@ object DocumentTextExtractor {
 
     fun isSupported(ext: String): Boolean = ext.lowercase() in SUPPORTED_EXTS
 
-    /** 按扩展名分发；不支持的类型返回单段空文档（调用方呈现不支持态）。 */
-    fun parse(ext: String, bytes: ByteArray): ParsedDocument = when (ext.lowercase()) {
-        "txt" -> ParsedDocument(textToParagraphs(decodeText(bytes)))
-        "rtf" -> ParsedDocument(rtfToParagraphs(bytes))
-        "docx" -> parseDocx(bytes)
-        "odt" -> parseOdt(bytes)
-        else -> ParsedDocument(emptyList())
-    }
-
     /** FA 文本多为 UTF-8；老上传可能是 cp1252——先按 UTF-8 严格解码，失败回落单字节。 */
     fun decodeText(bytes: ByteArray): String = try {
         Charsets.UTF_8.newDecoder()
@@ -50,32 +41,6 @@ object DocumentTextExtractor {
             .split(Regex("\n{2,}"))
             .map { it.trim('\n', ' ') }
             .filter { it.isNotBlank() }
-
-    /** docx：word/document.xml 的 w:p → 段落，w:t → 文本；word/media/* → 内嵌媒体。 */
-    private fun parseDocx(bytes: ByteArray): ParsedDocument {
-        val entries = readZipEntries(bytes)
-        val xml = entries["word/document.xml"]?.let { String(it, Charsets.UTF_8) }
-        val paragraphs = if (xml != null) {
-            val doc = Jsoup.parse(xml, "", Parser.xmlParser())
-            doc.getElementsByTag("w:p")
-                .map { p -> p.getElementsByTag("w:t").joinToString("") { it.text() }.trim() }
-                .filter { it.isNotEmpty() }
-        } else emptyList()
-        return ParsedDocument(paragraphs, zipMediaEntries(entries, "word/media/"))
-    }
-
-    /** odt：content.xml 的 text:p → 段落；Pictures/* → 内嵌媒体。 */
-    private fun parseOdt(bytes: ByteArray): ParsedDocument {
-        val entries = readZipEntries(bytes)
-        val xml = entries["content.xml"]?.let { String(it, Charsets.UTF_8) }
-        val paragraphs = if (xml != null) {
-            val doc = Jsoup.parse(xml, "", Parser.xmlParser())
-            doc.getElementsByTag("text:p")
-                .map { it.text().trim() }
-                .filter { it.isNotEmpty() }
-        } else emptyList()
-        return ParsedDocument(paragraphs, zipMediaEntries(entries, "Pictures/"))
-    }
 
     private fun zipMediaEntries(entries: Map<String, ByteArray>, prefix: String): List<ByteArray> =
         entries.entries.asSequence()
@@ -108,6 +73,32 @@ object DocumentTextExtractor {
             // 坏 zip：返回已读到的部分，调用方按空文档降级
         }
         return map
+    }
+
+    /** docx：word/document.xml 的 w:p → 段落，w:t → 文本；word/media/* → 内嵌媒体。 */
+    private fun parseDocx(bytes: ByteArray): ParsedDocument {
+        val entries = readZipEntries(bytes)
+        val xml = entries["word/document.xml"]?.let { String(it, Charsets.UTF_8) }
+        val paragraphs = if (xml != null) {
+            val doc = Jsoup.parse(xml, "", Parser.xmlParser())
+            doc.getElementsByTag("w:p")
+                .map { p -> p.getElementsByTag("w:t").joinToString("") { it.text() }.trim() }
+                .filter { it.isNotEmpty() }
+        } else emptyList()
+        return ParsedDocument(paragraphs, zipMediaEntries(entries, "word/media/"))
+    }
+
+    /** odt：content.xml 的 text:p → 段落；Pictures/* → 内嵌媒体。 */
+    private fun parseOdt(bytes: ByteArray): ParsedDocument {
+        val entries = readZipEntries(bytes)
+        val xml = entries["content.xml"]?.let { String(it, Charsets.UTF_8) }
+        val paragraphs = if (xml != null) {
+            val doc = Jsoup.parse(xml, "", Parser.xmlParser())
+            doc.getElementsByTag("text:p")
+                .map { it.text().trim() }
+                .filter { it.isNotEmpty() }
+        } else emptyList()
+        return ParsedDocument(paragraphs, zipMediaEntries(entries, "Pictures/"))
     }
 
     /**
@@ -172,5 +163,14 @@ object DocumentTextExtractor {
             i++
         }
         return text.toString().split('\n').map { it.trim() }.filter { it.isNotBlank() }
+    }
+
+    /** 按扩展名分发；不支持的类型返回空文档（调用方呈现不支持态）。 */
+    fun parse(ext: String, bytes: ByteArray): ParsedDocument = when (ext.lowercase()) {
+        "txt" -> ParsedDocument(textToParagraphs(decodeText(bytes)))
+        "rtf" -> ParsedDocument(rtfToParagraphs(bytes))
+        "docx" -> parseDocx(bytes)
+        "odt" -> parseOdt(bytes)
+        else -> ParsedDocument(emptyList())
     }
 }
