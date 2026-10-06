@@ -134,17 +134,33 @@ fun FurFlixNavGraph(
             
             val submissions: List<com.furflix.app.data.model.Submission>
             val onLoadMore: () -> Unit
-            
+            // user_ 来源时持有共享 VM：文件夹直达“返回来源用户页并就地打开文件夹”复用它
+            var sharedUserViewModel: com.furflix.app.viewmodel.UserViewModel? = null
+
             if (source.startsWith("user_")) {
                 val username = source.removePrefix("user_")
-                val userProfileEntry = androidx.compose.runtime.remember(backStackEntry) { navController.getBackStackEntry(Routes.userProfile(username)) }
+                // 跨页面复用来源用户页的 VM（延续列表与分页）。getBackStackEntry 按
+                // destination 匹配并返回栈顶 entry；文件夹直达等场景会为同一用户叠出
+                // 多个 entry，被捕获的 entry 一旦弹出销毁，后续重组再访问其 ViewModel
+                // 会抛 IllegalStateException——解析失败/已销毁时回落到详情自身 entry，
+                // 销毁态翻转本身会驱动重组重新解析，访问窗口由此闭合
+                val userProfileEntry = androidx.compose.runtime.remember(backStackEntry) {
+                    runCatching { navController.getBackStackEntry(Routes.userProfile(username)) }.getOrNull()
+                }
+                val capturedEntryState = userProfileEntry?.lifecycle?.currentState
+                val vmOwner = androidx.compose.runtime.remember(userProfileEntry, capturedEntryState) {
+                    userProfileEntry?.takeIf {
+                        capturedEntryState != androidx.lifecycle.Lifecycle.State.DESTROYED
+                    } ?: backStackEntry
+                }
                 val userViewModel: com.furflix.app.viewmodel.UserViewModel = viewModel(
-                    viewModelStoreOwner = userProfileEntry,
+                    viewModelStoreOwner = vmOwner,
                     factory = com.furflix.app.viewmodel.UserViewModel.Factory(
                         androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application,
                         username
                     )
                 )
+                sharedUserViewModel = userViewModel
                 submissions = userViewModel.submissions.collectAsState().value
                 onLoadMore = { userViewModel.loadMore() }
             } else if (source == "favorites") {
@@ -153,9 +169,18 @@ fun FurFlixNavGraph(
             } else if (source.startsWith("tag_")) {
                 val tag = source.removePrefix("tag_")
                 val searchRoute = Routes.tagSearch("@keywords $tag")
-                val tagSearchEntry = androidx.compose.runtime.remember(backStackEntry) { navController.getBackStackEntry(searchRoute) }
+                // 同 user_ 分支：解析失败/已销毁回落详情自身 entry，防跨页面 entry 竞态
+                val tagSearchEntry = androidx.compose.runtime.remember(backStackEntry) {
+                    runCatching { navController.getBackStackEntry(searchRoute) }.getOrNull()
+                }
+                val capturedTagEntryState = tagSearchEntry?.lifecycle?.currentState
+                val tagOwner = androidx.compose.runtime.remember(tagSearchEntry, capturedTagEntryState) {
+                    tagSearchEntry?.takeIf {
+                        capturedTagEntryState != androidx.lifecycle.Lifecycle.State.DESTROYED
+                    } ?: backStackEntry
+                }
                 val tagViewModel: com.furflix.app.viewmodel.TagSearchViewModel = viewModel(
-                    viewModelStoreOwner = tagSearchEntry,
+                    viewModelStoreOwner = tagOwner,
                     factory = com.furflix.app.viewmodel.TagSearchViewModel.Factory(
                         androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application,
                         "@keywords $tag"
@@ -184,8 +209,20 @@ fun FurFlixNavGraph(
                     // 文件夹链接自带所属用户：/gallery/{user}/folder/{id}/{slug}
                     val folderUsername = folder.href.substringAfter("/gallery/").substringBefore("/")
                         .ifEmpty { submissions.firstOrNull { it.id == postId }?.authorUsername.orEmpty() }
-                    if (folderUsername.isNotEmpty()) {
-                        navController.navigate(Routes.userProfile(folderUsername, folder))
+                    // 来源用户页就是该文件夹所属用户时：直接复用栈下用户页的 VM 打开
+                    // 文件夹并返回——不在栈上再叠一个同目标 entry（叠出的同 destination
+                    // entry 会让 getBackStackEntry 的栈顶匹配与已捕获 entry 弹压错位，
+                    // 是 NavBackStackEntry ViewModel 跨页访问崩溃的根源）
+                    val sameUserVm = if (source.startsWith("user_") &&
+                        source.removePrefix("user_").equals(folderUsername, ignoreCase = true)
+                    ) sharedUserViewModel else null
+                    when {
+                        folderUsername.isEmpty() -> Unit
+                        sameUserVm != null -> {
+                            sameUserVm.openFolder(folder)
+                            navController.popBackStack()
+                        }
+                        else -> navController.navigate(Routes.userProfile(folderUsername, folder))
                     }
                 },
                 onTagClick = { tag ->
