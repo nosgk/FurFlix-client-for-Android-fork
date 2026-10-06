@@ -15,61 +15,78 @@ data class DownloadedItem(
     val uri: Uri,
     val filename: String,
     val width: Int = 0,
-    val height: Int = 0
+    val height: Int = 0,
+    val mimeType: String = ""
 ) {
     /** 宽高未知（旧数据或 pre-Q 量测失败）时按 1:1 处理，不劣于旧版显示。 */
     val ratio: Float
         get() = if (width > 0 && height > 0) width.toFloat() / height else 1f
+
+    /** 音频/文档类下载：无位图可解，列表按类型图标呈现。 */
+    val isAudio: Boolean get() = mimeType.startsWith("audio")
 }
 
 object DownloadHelper {
 
+    /** 下载按扩展名分流到 Images/Audio/Downloads 三个集合（与 DownloadManager 写入侧对应）。 */
+    private val COLLECTION_QUERIES = listOf(
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI to Environment.DIRECTORY_PICTURES,
+        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI to Environment.DIRECTORY_MUSIC,
+        (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI to Environment.DIRECTORY_DOWNLOADS
+        } else null)
+    ).filterNotNull()
+
     suspend fun getDownloadedImages(context: Context): List<DownloadedItem> = withContext(Dispatchers.IO) {
         val items = mutableListOf<DownloadedItem>()
         try {
-            val relativeLocation = Environment.DIRECTORY_PICTURES + File.separator + "FurFlix"
-            
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val projection = arrayOf(
-                    MediaStore.Images.Media._ID,
-                    MediaStore.Images.Media.DISPLAY_NAME,
-                    MediaStore.Images.Media.WIDTH,
-                    MediaStore.Images.Media.HEIGHT
+                    MediaStore.MediaColumns._ID,
+                    MediaStore.MediaColumns.DISPLAY_NAME,
+                    MediaStore.MediaColumns.MIME_TYPE,
+                    MediaStore.MediaColumns.WIDTH,
+                    MediaStore.MediaColumns.HEIGHT
                 )
-                val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
-                val selectionArgs = arrayOf("%$relativeLocation%")
-                val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
-
-                context.contentResolver.query(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    projection,
-                    selection,
-                    selectionArgs,
-                    sortOrder
-                )?.use { cursor ->
-                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-                    val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-                    val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
-                    val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idColumn)
-                        val name = cursor.getString(nameColumn) ?: ""
-                        val contentUri = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
-                        items.add(
-                            DownloadedItem(
-                                contentUri,
-                                name,
-                                width = cursor.getInt(widthColumn),
-                                height = cursor.getInt(heightColumn)
+                for ((collection, rootDir) in COLLECTION_QUERIES) {
+                    val relativeLocation = rootDir + File.separator + "FurFlix"
+                    val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
+                    val selectionArgs = arrayOf("%$relativeLocation%")
+                    val sortOrder = "${MediaStore.MediaColumns.DATE_ADDED} DESC"
+                    context.contentResolver.query(
+                        collection,
+                        projection,
+                        selection,
+                        selectionArgs,
+                        sortOrder
+                    )?.use { cursor ->
+                        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                        val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+                        val mimeColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+                        val widthColumn = cursor.getColumnIndex(MediaStore.MediaColumns.WIDTH)
+                        val heightColumn = cursor.getColumnIndex(MediaStore.MediaColumns.HEIGHT)
+                        while (cursor.moveToNext()) {
+                            val id = cursor.getLong(idColumn)
+                            val name = cursor.getString(nameColumn) ?: ""
+                            val contentUri = Uri.withAppendedPath(collection, id.toString())
+                            items.add(
+                                DownloadedItem(
+                                    contentUri,
+                                    name,
+                                    width = if (widthColumn >= 0) cursor.getInt(widthColumn) else 0,
+                                    height = if (heightColumn >= 0) cursor.getInt(heightColumn) else 0,
+                                    mimeType = cursor.getString(mimeColumn) ?: ""
+                                )
                             )
-                        )
+                        }
                     }
                 }
             } else {
-                val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "FurFlix")
-                if (dir.exists()) {
+                // pre-Q：扫描各公共目录的 FurFlix 子目录；位图只对图片量尺寸
+                for (rootDir in listOf(Environment.DIRECTORY_PICTURES, Environment.DIRECTORY_MUSIC, Environment.DIRECTORY_DOWNLOADS)) {
+                    val dir = File(Environment.getExternalStoragePublicDirectory(rootDir), "FurFlix")
+                    if (!dir.exists()) continue
                     dir.listFiles()?.sortedByDescending { it.lastModified() }?.forEach { file ->
-                        // pre-Q 没有 MediaStore 宽高可查，解码时只量尺寸不加载像素
                         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                         BitmapFactory.decodeFile(file.absolutePath, bounds)
                         items.add(
@@ -77,7 +94,8 @@ object DownloadHelper {
                                 Uri.fromFile(file),
                                 file.name,
                                 width = bounds.outWidth,
-                                height = bounds.outHeight
+                                height = bounds.outHeight,
+                                mimeType = guessMimeFromName(file.name)
                             )
                         )
                     }
@@ -88,7 +106,21 @@ object DownloadHelper {
         }
         items
     }
-    
+
+    private fun guessMimeFromName(name: String): String {
+        val ext = name.substringAfterLast('.', "").lowercase()
+        return when (ext) {
+            "mp3" -> "audio/mpeg"
+            "m4a" -> "audio/mp4"
+            "ogg" -> "audio/ogg"
+            "wav" -> "audio/wav"
+            "flac" -> "audio/flac"
+            "aac" -> "audio/aac"
+            "mid", "midi" -> "audio/midi"
+            else -> ""
+        }
+    }
+
     fun deleteImage(context: Context, uri: Uri): Boolean {
         return try {
             var deleted = false
@@ -116,7 +148,7 @@ object DownloadHelper {
     private fun queryDisplayName(context: Context, uri: Uri): String? = try {
         if (uri.scheme == "content") {
             context.contentResolver.query(
-                uri, arrayOf(MediaStore.Images.Media.DISPLAY_NAME), null, null, null
+                uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null
             )?.use { cursor ->
                 if (cursor.moveToFirst()) cursor.getString(0) else null
             }

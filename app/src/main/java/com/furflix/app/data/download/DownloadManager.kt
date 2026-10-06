@@ -74,7 +74,26 @@ object DownloadManager {
 
     private const val USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36"
     private const val REFERER = "https://www.furaffinity.net/"
-    private val KNOWN_EXTS = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp")
+    private val IMAGE_EXTS = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp")
+    // FA 音频作品（Music/Podcast 类）与文档类：MediaStore 需按类型分流，不能全按图片落库
+    private val AUDIO_EXTS = setOf("mp3", "m4a", "ogg", "wav", "flac", "aac", "mid", "midi")
+    private val DOC_EXTS = setOf("txt", "pdf", "doc", "docx", "rtf", "swf")
+    private val KNOWN_EXTS = IMAGE_EXTS + AUDIO_EXTS + DOC_EXTS
+
+    /** 扩展名 → MediaStore 集合：Q+ 按类型插入 Images/Audio/Downloads。 */
+    @android.annotation.RequiresApi(android.os.Build.VERSION_CODES.Q)
+    private fun mediaCollectionFor(ext: String): android.net.Uri = when {
+        ext in AUDIO_EXTS -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        ext in IMAGE_EXTS -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        else -> MediaStore.Downloads.EXTERNAL_CONTENT_URI
+    }
+
+    /** 扩展名 → 落盘子目录（pre-Q 与 RELATIVE_PATH 首段共用）。 */
+    private fun envDirFor(ext: String): String = when {
+        ext in AUDIO_EXTS -> Environment.DIRECTORY_MUSIC
+        ext in IMAGE_EXTS -> Environment.DIRECTORY_PICTURES
+        else -> Environment.DIRECTORY_DOWNLOADS
+    }
 
     init {
         scope.launch {
@@ -227,9 +246,9 @@ object DownloadManager {
                     val contentValues = ContentValues().apply {
                         put(MediaStore.MediaColumns.DISPLAY_NAME, finalName)
                         put(MediaStore.MediaColumns.MIME_TYPE, mimeFor(ext))
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, relativePathQ(folderPref))
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, relativePathQ(folderPref, ext))
                     }
-                    val uri = ctx.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                    val uri = ctx.contentResolver.insert(mediaCollectionFor(ext), contentValues)
                         ?: throw Exception("MediaStore insert failed")
                     insertedUri = uri
                     ctx.contentResolver.openOutputStream(uri)?.use { os ->
@@ -242,7 +261,7 @@ object DownloadManager {
                     val baseDir = when {
                         folderPref.startsWith("Downloads") -> Environment.DIRECTORY_DOWNLOADS
                         folderPref.startsWith("DCIM") -> Environment.DIRECTORY_DCIM
-                        else -> Environment.DIRECTORY_PICTURES
+                        else -> envDirFor(ext)
                     }
                     val subName = if (folderPref.contains("/")) folderPref.substringAfter("/") else "FurFlix"
                     val dir = File(Environment.getExternalStoragePublicDirectory(baseDir), subName)
@@ -300,7 +319,7 @@ object DownloadManager {
         val fromUrl = url.substringBefore('?').substringAfterLast('.', "").lowercase()
         if (fromUrl in KNOWN_EXTS) return fromUrl
         val fromType = contentType
-            ?.takeIf { it.substringBefore('/') == "image" }
+            ?.takeIf { it.substringBefore('/') == "image" || it.substringBefore('/') == "audio" || it.substringBefore('/') == "text" || it.substringBefore('/') == "application" }
             ?.substringAfter('/')?.substringBefore(';')?.lowercase()
         return if (fromType in KNOWN_EXTS) fromType!! else "jpg"
     }
@@ -310,31 +329,55 @@ object DownloadManager {
         "png" -> "image/png"
         "webp" -> "image/webp"
         "bmp" -> "image/bmp"
+        "mp3" -> "audio/mpeg"
+        "m4a" -> "audio/mp4"
+        "ogg" -> "audio/ogg"
+        "wav" -> "audio/wav"
+        "flac" -> "audio/flac"
+        "aac" -> "audio/aac"
+        "mid", "midi" -> "audio/midi"
+        "txt" -> "text/plain"
+        "pdf" -> "application/pdf"
+        "doc" -> "application/msword"
+        "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        "rtf" -> "application/rtf"
+        "swf" -> "application/x-shockwave-flash"
         else -> "image/jpeg"
     }
 
-    private fun relativePathQ(folderPref: String): String =
-        if (folderPref.isNotEmpty()) {
+    private fun relativePathQ(folderPref: String, ext: String): String {
+        val root = envDirFor(ext)
+        return if (folderPref.isNotEmpty()) {
             val parts = folderPref.split("/")
             if (parts.size > 1) parts[0] + "/" + parts.drop(1).joinToString("/")
-            else Environment.DIRECTORY_PICTURES + "/" + folderPref
+            else root + "/" + folderPref
         } else {
-            Environment.DIRECTORY_PICTURES + "/FurFlix"
+            root + "/FurFlix"
         }
+    }
 
     private fun alreadyDownloaded(ctx: Context, fileName: String): Boolean = try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ctx.contentResolver.query(
+            // 下载按扩展名分流到 Images/Audio/Downloads 三个集合，查重须覆盖全部
+            val collections = listOf(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                arrayOf(MediaStore.MediaColumns._ID),
-                "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
-                arrayOf(fileName),
-                null
-            )?.use { it.count > 0 } ?: false
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            )
+            collections.any { uri ->
+                ctx.contentResolver.query(
+                    uri,
+                    arrayOf(MediaStore.MediaColumns._ID),
+                    "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
+                    arrayOf(fileName),
+                    null
+                )?.use { it.count > 0 } ?: false
+            }
         } else {
-            @Suppress("DEPRECATION")
-            val pictures = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "FurFlix")
-            File(pictures, fileName).exists()
+            // pre-Q：按扩展名落在对应公共目录的 FurFlix 子目录
+            val ext = fileName.substringAfterLast('.', "").lowercase()
+            val dir = File(Environment.getExternalStoragePublicDirectory(envDirFor(ext)), "FurFlix")
+            File(dir, fileName).exists()
         }
     } catch (_: Exception) {
         false

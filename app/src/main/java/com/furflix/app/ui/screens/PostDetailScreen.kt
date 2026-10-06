@@ -102,6 +102,7 @@ import com.furflix.app.ui.components.ZoomableImageViewer
 import com.furflix.app.ui.components.StoryReader
 import com.furflix.app.ui.components.FlashPlayerViewer
 import com.furflix.app.ui.components.GifFrameViewer
+import com.furflix.app.ui.components.AudioHeroContent
 import com.furflix.app.ui.theme.*
 import com.furflix.app.viewmodel.MainViewModel
 import dev.chrisbanes.haze.HazeState
@@ -594,9 +595,10 @@ fun PostDetailScreen(
                 }
             }
 
-            // Full-screen viewers: Flash → Ruffle WebView；GIF → 逐帧播放器；其余 → 缩放查看器
+            // Full-screen viewers: Flash → Ruffle WebView；GIF → 逐帧播放器；其余 → 缩放查看器；
+            // 音频作品在主媒体区内嵌播放，无全屏查看器
             val zoomSubmission = submission
-            if (showZoom && zoomSubmission?.fullImageUrl?.isNotEmpty() == true) {
+            if (showZoom && zoomSubmission?.fullImageUrl?.isNotEmpty() == true && !isAudioSubmission(zoomSubmission)) {
                 when {
                     zoomSubmission.fileExt == "swf" || zoomSubmission.fileType.equals("Flash", true) -> {
                         FlashPlayerViewer(
@@ -652,6 +654,15 @@ private fun TwoPaneHeroImage(
             flashHeight = sub.flashHeight,
             modifier = modifier,
             onPlayClick = onImageClick
+        )
+        return
+    }
+    // Music/音频：主媒体区内嵌播放器（fullImageUrl 的兜底值是音频直链，不能当图渲染）
+    if (isAudioSubmission(sub)) {
+        AudioHeroContent(
+            audioUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
+            coverUrl = placeholderUrl,
+            modifier = modifier
         )
         return
     }
@@ -729,6 +740,14 @@ private fun TwoPaneHeroImage(
 // Hero image with gradient fade + rating badge
 // -----------------------------------------------------------------------------------------
 
+/** 音频作品（FA Music/Podcast 类）：详情页以 <audio> 直链渲染，必须走播放器而非图片渲染。 */
+private val AUDIO_EXTS = setOf("mp3", "m4a", "ogg", "wav", "flac", "aac", "mid", "midi")
+
+private fun isAudioSubmission(sub: Submission): Boolean =
+    sub.fileExt.lowercase() in AUDIO_EXTS ||
+        sub.fileType.equals("Music", ignoreCase = true) ||
+        sub.fileType.equals("Podcast", ignoreCase = true)
+
 @Composable
 private fun HeroImage(
     sub: Submission,
@@ -743,6 +762,15 @@ private fun HeroImage(
             flashHeight = sub.flashHeight,
             modifier = Modifier.fillMaxWidth(),
             onPlayClick = onImageClick
+        )
+        return
+    }
+    // Music/音频：主媒体区内嵌播放器（fullImageUrl 的兜底值是音频直链，不能当图渲染）
+    if (isAudioSubmission(sub)) {
+        AudioHeroContent(
+            audioUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
+            coverUrl = placeholderUrl,
+            modifier = Modifier.fillMaxWidth()
         )
         return
     }
