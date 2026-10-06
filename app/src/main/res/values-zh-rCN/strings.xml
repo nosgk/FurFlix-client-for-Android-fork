@@ -385,6 +385,8 @@
     <string name="empty_watchers">没有粉丝。</string>
     <string name="empty_folder">文件夹是空的。</string>
     <string name="empty_scraps">草稿箱是空的。</string>
+    <!-- 访客门页:所有者将页面设为仅注册用户可见 -->
+    <string name="error_login_required_view">该内容仅登录用户可见，请先在设置页登录后查看。</string>
     <string name="error_watch_toggle_failed">关注状态切换失败。</string>
     <string name="user_unfollow">取消关注</string>
     <string name="user_unfollow_confirm">不再关注 %s?</string>
