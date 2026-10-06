@@ -103,7 +103,10 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (showSplash) {
-                    SplashScreen(onSplashFinished = { showSplash = false })
+                    SplashScreen(
+                        onSplashFinished = { showSplash = false },
+                        repository = repository
+                    )
                 } else {
                     Surface(
                         modifier = Modifier.fillMaxSize(),

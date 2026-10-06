@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -12,8 +13,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.Icon
@@ -28,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -35,9 +40,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.furflix.app.R
 import com.furflix.app.ui.components.Particle
 import com.furflix.app.ui.theme.Cyan
 import com.furflix.app.ui.theme.Pink
@@ -45,11 +52,13 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.random.Random
 
 @Composable
 fun SplashScreen(
-    onSplashFinished: () -> Unit
+    onSplashFinished: () -> Unit,
+    repository: com.furflix.app.data.repository.FurRepository? = null
 ) {
     val pawScaleAnim = remember { Animatable(0f) }
     val pawBounceY = remember { Animatable(0f) }
@@ -58,6 +67,11 @@ fun SplashScreen(
 
     var showLandingBurst by remember { mutableStateOf(false) }
     val landingBurstProgress = remember { Animatable(0f) }
+
+    // 今日站点横幅：先查当日缓存（秒回），未命中再抓首页解析；
+    // 动画照常进行，横幅在展示窗口内到达则淡入并小幅延长启动页
+    var bannerUrl by remember { mutableStateOf<String?>(null) }
+    var bannerFetchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     val density = LocalDensity.current
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -77,6 +91,12 @@ fun SplashScreen(
     }
 
     LaunchedEffect(Unit) {
+        if (repository != null) {
+            bannerFetchJob = launch {
+                val url = repository.loadSiteBanner() ?: repository.refreshSiteBanner()
+                if (!url.isNullOrEmpty()) bannerUrl = url
+            }
+        }
         pawScaleAnim.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 350f))
         glowAlpha = 0.6f
         delay(250)
@@ -92,6 +112,14 @@ fun SplashScreen(
         }
         pawBounceY.animateTo(0f, tween(200, easing = FastOutSlowInEasing))
         delay(660)
+        // 横幅展示窗口：最多再等 700ms（缓存命中时瞬时完成）；出现后停留 500ms，
+        // 抓取失败/超时不阻塞启动（启动页总延长 ≤1.2s）
+        bannerFetchJob?.let { job ->
+            withTimeoutOrNull(700) { job.join() }
+        }
+        if (bannerUrl != null) {
+            delay(500)
+        }
         onSplashFinished()
     }
 
@@ -147,6 +175,26 @@ fun SplashScreen(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.alpha(titleAlpha)
+            )
+        }
+
+        // 今日站点横幅（FA site-banner，1850x300）：底部圆角卡淡入
+        bannerUrl?.let { url ->
+            val bannerAlpha by animateFloatAsState(
+                targetValue = if (bannerUrl != null) 1f else 0f,
+                label = "bannerAlpha"
+            )
+            coil3.compose.AsyncImage(
+                model = url,
+                contentDescription = stringResource(R.string.cd_site_banner),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 24.dp)
+                    .fillMaxWidth()
+                    .height(72.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .alpha(bannerAlpha),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
             )
         }
     }
