@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.furflix.app.data.model.Submission
@@ -92,6 +93,7 @@ class FurRepository(private val context: Context) {
     private val SEARCH_VIEW_MODE_KEY = stringPreferencesKey("search_view_mode")
     private val SITE_BANNER_URL_KEY = stringPreferencesKey("site_banner_url")
     private val SITE_BANNER_DATE_KEY = stringPreferencesKey("site_banner_date")
+    private val IMAGE_CACHE_LIMIT_KEY = longPreferencesKey("image_cache_limit_bytes")
 
         @Volatile
         private var INSTANCE: FurRepository? = null
@@ -652,9 +654,30 @@ class FurRepository(private val context: Context) {
         context.dataStore.edit { prefs -> prefs[SEARCH_VIEW_MODE_KEY] = mode.id }
     }
 
-    // --- 站点今日横幅（启动页展示；URL 当日有效，隔日重取） ---
+    // --- 图片磁盘缓存配额（设置→存储管理；Coil LRU 在配额内自动末尾淘汰） ---
 
-    suspend fun loadSiteBanner(): String? {
+    /** 默认不设绝对上限，跟随可用空间百分比（与历史行为一致） */
+    const val IMAGE_CACHE_LIMIT_DEFAULT = -1L
+    val IMAGE_CACHE_LIMIT_CHOICES = listOf(
+        512L * 1024 * 1024,
+        1024L * 1024 * 1024,
+        2L * 1024 * 1024 * 1024,
+        4L * 1024 * 1024 * 1024,
+        8L * 1024 * 1024 * 1024
+    )
+
+    val imageCacheLimitFlow: kotlinx.coroutines.flow.Flow<Long> = context.dataStore.data.map { prefs ->
+        prefs[IMAGE_CACHE_LIMIT_KEY] ?: IMAGE_CACHE_LIMIT_DEFAULT
+    }
+
+    suspend fun saveImageCacheLimit(bytes: Long) {
+        val valid = bytes == IMAGE_CACHE_LIMIT_DEFAULT || bytes in IMAGE_CACHE_LIMIT_CHOICES
+        context.dataStore.edit { prefs ->
+            prefs[IMAGE_CACHE_LIMIT_KEY] = if (valid) bytes else IMAGE_CACHE_LIMIT_DEFAULT
+        }
+    }
+
+    // --- 站点今日横幅（启动页展示；URL 当日有效，隔日重取） ---    suspend fun loadSiteBanner(): String? {
         val prefs = context.dataStore.data.first()
         val url = prefs[SITE_BANNER_URL_KEY] ?: return null
         val date = prefs[SITE_BANNER_DATE_KEY] ?: return null

@@ -13,6 +13,14 @@ object ImageLoaderFactory {
 
     private var imageLoader: ImageLoader? = null
 
+    /**
+     * 图片磁盘缓存配额（字节），-1 = 跟随可用空间百分比（Coil 默认 25%）。
+     * 构建期读定：设置页改配额后经"清空重建"路径生效（变更时清空缓存是一次性
+     * 动作，改上限属低频操作）；日常超限由 Coil LRU 在配额内自动末尾淘汰。
+     */
+    @Volatile
+    var diskCacheLimitBytes: Long = -1L
+
     fun getInstance(context: Context): ImageLoader {
         return imageLoader ?: createLoader(context).also { imageLoader = it }
     }
@@ -84,7 +92,10 @@ object ImageLoaderFactory {
             .diskCache(
                 DiskCache.Builder()
                     .directory(context.cacheDir.resolve("image_cache").absolutePath.toPath())
-                    .maxSizePercent(0.25)
+                    .apply {
+                        if (diskCacheLimitBytes > 0) maxSizeBytes(diskCacheLimitBytes)
+                        else maxSizePercent(0.25)
+                    }
                     // Coil 3 网络层默认即不尊重 Cache-Control 头（新鲜度由内存缓存承担），
                     // 重复浏览直接命中磁盘缓存：减少反复拉取与快速滑动的反复解码
                     .build()

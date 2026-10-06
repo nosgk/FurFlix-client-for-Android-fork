@@ -2,6 +2,7 @@ package com.furflix.app.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -71,6 +72,12 @@ fun StorageScreen(
         }
     }
 
+    // 本地缓存上限：图片磁盘缓存的存储配额（Coil LRU 配额内自动末尾淘汰）
+    val cacheLimit by repository.imageCacheLimitFlow.collectAsState(
+        initial = FurRepository.IMAGE_CACHE_LIMIT_DEFAULT
+    )
+    var showCacheLimitDialog by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) { viewModel.refreshCacheSize() }
 
     // Toast 文案在组合期解析（LocalContext.getString 非配置感知，lint 会报错）
@@ -105,6 +112,18 @@ fun StorageScreen(
         ) {
             SettingsSectionHeader(stringResource(R.string.settings_storage))
             SettingsGroupCard {
+                SettingsRow(
+                    icon = Icons.Default.DataUsage,
+                    iconColor = Color(0xFF8BC34A),
+                    title = stringResource(R.string.settings_cache_limit),
+                    subtitle = if (cacheLimit == FurRepository.IMAGE_CACHE_LIMIT_DEFAULT) {
+                        stringResource(R.string.settings_cache_limit_auto)
+                    } else {
+                        stringResource(R.string.settings_cache_limit_value, formatBytes(cacheLimit))
+                    },
+                    onClick = { showCacheLimitDialog = true }
+                )
+                SettingsDivider()
                 SettingsRow(
                     icon = Icons.Default.DeleteSweep,
                     iconColor = Color(0xFFFF5252),
@@ -177,5 +196,62 @@ fun StorageScreen(
                 fontWeight = FontWeight.Normal
             )
         }
+    }
+
+    if (showCacheLimitDialog) {
+        val limitChoices = buildList {
+            add(FurRepository.IMAGE_CACHE_LIMIT_DEFAULT to stringResource(R.string.settings_cache_limit_auto))
+            addAll(FurRepository.IMAGE_CACHE_LIMIT_CHOICES.map { bytes ->
+                bytes to formatBytes(bytes)
+            })
+        }
+        AlertDialog(
+            onDismissRequest = { showCacheLimitDialog = false },
+            title = { Text(stringResource(R.string.settings_cache_limit)) },
+            text = {
+                Column {
+                    limitChoices.forEach { (bytes, label) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showCacheLimitDialog = false
+                                    if (bytes != cacheLimit) {
+                                        scope.launch {
+                                            repository.saveImageCacheLimit(bytes)
+                                            com.furflix.app.ui.components.ImageLoaderFactory.diskCacheLimitBytes = bytes
+                                            viewModel.clearImageCache()
+                                        }
+                                    }
+                                }
+                                .padding(vertical = 10.dp)
+                        ) {
+                            RadioButton(
+                                selected = bytes == cacheLimit,
+                                onClick = null
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (bytes == cacheLimit) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.settings_cache_limit_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCacheLimitDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
     }
 }

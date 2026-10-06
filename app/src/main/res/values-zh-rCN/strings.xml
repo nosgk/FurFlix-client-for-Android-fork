@@ -137,6 +137,12 @@
     <!-- Settings General -->
     <string name="settings_image_cache">图片缓存</string>
     <string name="settings_clearing">清理中…</string>
+    <!-- Local image disk cache quota (Storage Management) -->
+    <string name="settings_cache_limit">本地缓存上限</string>
+    <string name="settings_cache_limit_auto">自动(可用空间 25%)</string>
+    <!-- %1$s = 格式化后的字节大小 -->
+    <string name="settings_cache_limit_value">上限 %1$s</string>
+    <string name="settings_cache_limit_note">更改上限会清空并重建图片缓存;超过上限后自动从最旧的缓存文件开始淘汰。</string>
     <string name="settings_storage_management">存储管理</string>
     <string name="settings_storage_management_desc">缓存与本地数据占用明细</string>
     <string name="storage_search_history">搜索历史</string>

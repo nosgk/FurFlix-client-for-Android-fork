@@ -132,6 +132,12 @@
     <!-- Settings General -->
     <string name="settings_image_cache">Image Cache</string>
     <string name="settings_clearing">Clearing…</string>
+    <!-- Local image disk cache quota (Storage Management) -->
+    <string name="settings_cache_limit">Local Cache Limit</string>
+    <string name="settings_cache_limit_auto">Auto (25% of free space)</string>
+    <!-- %1$s = formatted byte size -->
+    <string name="settings_cache_limit_value">Up to %1$s</string>
+    <string name="settings_cache_limit_note">Changing the limit clears and rebuilds the image cache. Beyond the limit, the oldest cached files are evicted automatically.</string>
     <string name="settings_storage_management">Storage Management</string>
     <string name="settings_storage_management_desc">Cache and local data usage</string>
     <string name="storage_search_history">Search History</string>
