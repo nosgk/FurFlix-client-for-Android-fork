@@ -34,8 +34,10 @@ object FurAffinityScraper {
 
     private val cookieManager = CookieManager.getInstance()
 
+    // PC UA：FA 按 UA/指纹区分呈现，移动 UA 曾加剧“仅注册用户”门页与移动端形态分歧；
+    // 改用桌面 Chrome UA 与浏览器实测样本保持一致（解析规则全部按桌面主题校准）
     private const val USER_AGENT =
-        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
     const val FA_BASE = "https://www.furaffinity.net"
 
