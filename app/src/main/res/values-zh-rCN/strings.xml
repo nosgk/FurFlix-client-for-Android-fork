@@ -165,6 +165,15 @@
     <!-- 浏览历史子栏目:作品/用户 -->
     <string name="history_tab_submissions">作品</string>
     <string name="history_tab_users">用户</string>
+    <!-- 收藏夹子栏目:我的收藏/别人的收藏夹 -->
+    <string name="profile_my_favorites">我的收藏</string>
+    <string name="profile_others_favorites">别人的收藏夹</string>
+    <string name="empty_others_favorites">还没有收藏别人的收藏夹。</string>
+    <!-- 用户页收藏 tab:收藏/取消 TA 的收藏夹 -->
+    <string name="fav_collection_add">收藏 TA 的收藏夹</string>
+    <string name="fav_collection_remove">已收藏 · 点按移除</string>
+    <string name="toast_others_fav_added">已收藏到别人的收藏夹</string>
+    <string name="toast_others_fav_removed">已从别人的收藏夹移除</string>
     <!-- 用户页信息标签(交易/接稿状态、浏览/日志数) -->
     <string name="profile_trades">交易</string>
     <string name="profile_commissions">接稿</string>
