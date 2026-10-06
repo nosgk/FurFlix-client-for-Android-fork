@@ -264,6 +264,22 @@
     <string name="filter_time_3y">3 年</string>
     <string name="filter_time_5y">5 年</string>
     <string name="filter_time_all">全部时间</string>
+    <string name="filter_time_90d">90 天</string>
+
+    <string name="filter_species">物种</string>
+    <!-- 搜索语法速查(FA 原生 Lucene 系操作符,源自 /help/#search) -->
+    <string name="search_syntax_title">搜索语法</string>
+    <string name="search_syntax_intro">匹配标题、描述、文件名、关键词与上传者账号名;不区分大小写;字段搜索为精确匹配。</string>
+    <string name="search_syntax_and">foo bar — 同时包含全部词(AND)</string>
+    <string name="search_syntax_or">foo | bar — 任一命中(OR)</string>
+    <string name="search_syntax_not">foo -bar — 排除 bar</string>
+    <string name="search_syntax_group">fox &amp; (box | socks) — 括号分组</string>
+    <string name="search_syntax_phrase">\"quick brown fox\" — 按顺序的精确短语</string>
+    <string name="search_syntax_order">quick &lt;&lt; brown &lt;&lt; fox — 按此顺序出现</string>
+    <string name="search_syntax_proximity">\"quick brown fox\"~3 — 相互间隔不超过 3 词</string>
+    <string name="search_syntax_quorum">\"a b c\"/2 — 至少命中列出的 2 个词</string>
+    <string name="search_syntax_fields">@title @message @keywords @lower — 限定单一字段(精确匹配)</string>
+    <string name="search_syntax_multi">@(title,keywords) fox — 同时搜多个字段</string>
 
     <string name="filter_content_type">内容类型</string>
     <string name="filter_type_art">绘画</string>
@@ -331,6 +347,9 @@
     <string name="post_tags">标签</string>
     <string name="post_no_description">暂无简介</string>
     <string name="post_no_comments">暂无评论</string>
+    <!-- 作品文件查看器(PDF 内嵌渲染/文档卡) -->
+    <string name="pdf_load_failed">PDF 加载失败,点按重试</string>
+    <string name="doc_download_hint">从下方工具栏下载后,用任意文档应用打开</string>
     <!-- 详情页信息芯片与详细信息 tab 共用的元数据标签;取值本身是站点抓取的英文原文,仅标签翻译 -->
     <string name="meta_category">分类</string>
     <string name="meta_species">种类</string>
