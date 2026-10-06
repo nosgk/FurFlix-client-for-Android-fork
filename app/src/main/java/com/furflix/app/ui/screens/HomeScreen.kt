@@ -134,7 +134,7 @@ fun HomeScreen(
     val selectedTab by viewModel.selectedTab.collectAsState()
     val hasSearched by viewModel.hasSearched.collectAsState()
     val recentSearches by viewModel.recentSearches.collectAsState()
-    val quickPresets by viewModel.quickPresets.collectAsState()
+    val searchPresets by viewModel.searchPresets.collectAsState()
     // 收藏夹页(page 3)的下拉刷新走 WatchlistViewModel,复位条件要一并看它的加载态
     val watchlistIsLoading by watchlistViewModel.isLoading.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -171,6 +171,16 @@ fun HomeScreen(
     val viewMode = pendingViewMode ?: persistedViewMode
     LaunchedEffect(persistedViewMode) {
         if (pendingViewMode == persistedViewMode) pendingViewMode = null
+    }
+
+    // 搜索结果视图（紧凑/瀑布流/大图/列表）：搜索页独立偏好，乐观覆盖同 viewMode
+    val persistedSearchView by repository.searchViewModeFlow.collectAsState(
+        initial = com.furflix.app.data.model.SearchResultView.MASONRY
+    )
+    var pendingSearchView by remember { mutableStateOf<com.furflix.app.data.model.SearchResultView?>(null) }
+    val searchView = pendingSearchView ?: persistedSearchView
+    LaunchedEffect(persistedSearchView) {
+        if (pendingSearchView == persistedSearchView) pendingSearchView = null
     }
 
     // 缩略图标题开关（'T' 图标）为全局偏好：“我的”页收藏/历史栏目同源生效；
@@ -663,8 +673,19 @@ fun HomeScreen(
                         }
                     }
                     2 -> {
-                        val isList = viewMode == GalleryViewMode.LIST
-                        val isMasonry = viewMode == GalleryViewMode.MASONRY
+                        // 搜索结果视图参数：紧凑=自适应多列无标题 / 瀑布流=跟随全局 / 大图=2 列带标题 / 列表
+                        val isList = searchView == com.furflix.app.data.model.SearchResultView.LIST
+                        val isMasonry = searchView == com.furflix.app.data.model.SearchResultView.MASONRY
+                        val searchColumnsPref = when (searchView) {
+                            com.furflix.app.data.model.SearchResultView.COMPACT -> 0
+                            com.furflix.app.data.model.SearchResultView.LARGE -> 2
+                            else -> gridColumnsPref
+                        }
+                        val searchShowTitles = when (searchView) {
+                            com.furflix.app.data.model.SearchResultView.COMPACT -> false
+                            com.furflix.app.data.model.SearchResultView.LARGE -> true
+                            else -> showTitles
+                        }
                         val gridPadding = if (isList) 12.dp else 6.dp
                         val itemSpacing = if (isList) 12.dp else 4.dp
                         val searchGridState = rememberLazyGridState()
@@ -672,7 +693,7 @@ fun HomeScreen(
                         var isHeaderVisible by remember { mutableStateOf(true) }
 
                         // Header visibility tracks whichever list owns the scroll.
-                        LaunchedEffect(searchStaggeredState, viewMode) {
+                        LaunchedEffect(searchStaggeredState, searchView) {
                             if (!isMasonry) return@LaunchedEffect
                             var prevOffset = searchStaggeredState.firstVisibleItemScrollOffset
                             var prevIndex = searchStaggeredState.firstVisibleItemIndex
@@ -690,7 +711,7 @@ fun HomeScreen(
                                 }
                         }
 
-                        LaunchedEffect(searchGridState, viewMode) {
+                        LaunchedEffect(searchGridState, searchView) {
                             if (isMasonry) return@LaunchedEffect
                             var prevOffset = searchGridState.firstVisibleItemScrollOffset
                             var prevIndex = searchGridState.firstVisibleItemIndex
@@ -784,6 +805,12 @@ fun HomeScreen(
                                     onFilterChange = { newFilters ->
                                         draftFilters = newFilters
                                         viewModel.updateSearchFilters(newFilters)
+                                    },
+                                    searchView = searchView,
+                                    onToggleSearchView = {
+                                        val next = searchView.next()
+                                        pendingSearchView = next
+                                        coroutineScope.launch { repository.saveSearchViewMode(next) }
                                     }
                                 )
                             }
@@ -842,13 +869,21 @@ fun HomeScreen(
                             InlineSearchFilters(
                                 filters = draftFilters,
                                 onFiltersChanged = { draftFilters = it },
-                                onClear = { draftFilters = com.furflix.app.data.model.SearchFilters() }
+                                onClear = { draftFilters = com.furflix.app.data.model.SearchFilters() },
+                                query = currentSearchQuery,
+                                onRunQuery = { q ->
+                                    focusManager.clearFocus()
+                                    viewModel.loadSearch(q)
+                                },
+                                onSavePreset = { name ->
+                                    viewModel.addSearchPreset(name, currentSearchQuery, draftFilters)
+                                }
                             )
                         }
 
                         if (!hasSearched) {
-                            // Quick presets — saved tag queries, one tap replays them
-                            if (quickPresets.isNotEmpty()) {
+                            // Search presets — full (query + filters) snapshots, one tap replays
+                            if (searchPresets.isNotEmpty()) {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -865,16 +900,11 @@ fun HomeScreen(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        quickPresets.forEach { preset ->
-                                            val displayPreset = if (preset.startsWith("@keywords ")) {
-                                                preset.removePrefix("@keywords ")
-                                                    .split(" ").filter { it.isNotEmpty() }
-                                                    .joinToString(" ") { "#$it" }
-                                            } else preset
+                                        searchPresets.forEach { preset ->
                                             Surface(
                                                 shape = RoundedCornerShape(16.dp),
                                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                                onClick = { viewModel.loadSearch(preset) }
+                                                onClick = { viewModel.loadSearch(preset.query, preset.filters) }
                                             ) {
                                                 Row(
                                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -888,13 +918,13 @@ fun HomeScreen(
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
                                                     Text(
-                                                        text = displayPreset,
+                                                        text = preset.name,
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = DarkOnSurface
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
                                                     IconButton(
-                                                        onClick = { viewModel.removeQuickPreset(preset) },
+                                                        onClick = { viewModel.removeSearchPreset(preset) },
                                                         modifier = Modifier.size(16.dp)
                                                     ) {
                                                         Icon(
@@ -1079,7 +1109,7 @@ fun HomeScreen(
                 selectionActive = pageSelectionActive,
                 isSelected = pageSelectionActive && selection.ids.contains(submission.id),
                 onLongClick = { SelectionStore.toggle(pageSource, submission.id) },
-                                            showTitle = showTitles,
+                                            showTitle = searchShowTitles,
                                             compact = true,
                                             ratio = submission.thumbnailWidthOnHeightRatio,
                                             stats = cardStats[submission.id],
@@ -1120,7 +1150,7 @@ fun HomeScreen(
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
                                 LazyVerticalGrid(
                                     modifier = Modifier.fillMaxSize(),
-                                    columns = galleryGridCells(gridColumnsPref, isList),
+                                    columns = galleryGridCells(searchColumnsPref, isList),
                                     state = searchGridState,
                                     contentPadding = PaddingValues(
                                         start = gridPadding,
@@ -1149,7 +1179,7 @@ fun HomeScreen(
                 selectionActive = pageSelectionActive,
                 isSelected = pageSelectionActive && selection.ids.contains(submission.id),
                 onLongClick = { SelectionStore.toggle(pageSource, submission.id) },
-                                            showTitle = showTitles,
+                                            showTitle = searchShowTitles,
                                             compact = !isList,
                                             stats = cardStats[submission.id],
                                             onAuthorClick = { onNavigateToUser(it) }
@@ -1270,694 +1300,6 @@ fun HomeScreen(
             }
         }
     }
-}
-
-@Composable
-@OptIn(ExperimentalLayoutApi::class)
-fun SearchBar(
-    query: String = "",
-    onSearch: (String) -> Unit,
-    onFilterClick: () -> Unit = {},
-    activeFilterCount: Int = 0,
-    isFilterOpen: Boolean = false,
-    tagSuggestions: List<String> = emptyList(),
-    onTypingWordChanged: (String) -> Unit = {}
-) {
-    // 上一轮查询解析出的标签；新词搜索时若无本轮新增，则不再自动带入旧标签
-    val inheritedTags = remember(query) {
-        Regex("@keywords\\s+(\\S+)").findAll(query).map { it.groupValues[1] }.toList()
-    }
-    var tags by remember(query) {
-        mutableStateOf(inheritedTags)
-    }
-    var text by remember(query) { 
-        mutableStateOf(
-            "\u200B" + query.replace(Regex("@keywords\\s+\\S+"), "").trim().replace(Regex("\\s+"), " ")
-        )
-    }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val scrollState = rememberScrollState()
-    val focusRequester = remember { FocusRequester() }
-    
-    androidx.compose.runtime.LaunchedEffect(text, tags.size) {
-        scrollState.animateScrollTo(scrollState.maxValue)
-    }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
-            shape = RoundedCornerShape(16.dp),
-            color = CardBackground,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-            shadowElevation = 8.dp,
-            tonalElevation = 4.dp
-        ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.Search,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 8.dp)
-                    .horizontalScroll(scrollState)
-                    .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        focusRequester.requestFocus()
-                        keyboardController?.show()
-                    },
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                tags.forEach { tag ->
-                    val excluded = tag.startsWith("!")
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (excluded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    ) {
-                        Row(
-                            // Tap flips the polarity in place (chip stays put);
-                            // the trailing × removes it entirely.
-                            modifier = Modifier
-                                .clickable { tags = toggleTagExclusion(tags, tag) }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = tag.removePrefix("!"),
-                                color = DarkSurface,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                textDecoration = if (excluded) TextDecoration.LineThrough else null
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = stringResource(R.string.cd_remove),
-                                modifier = Modifier
-                                    .size(14.dp)
-                                    .clickable { tags = tags - tag },
-                                tint = DarkSurface
-                            )
-                        }
-                    }
-                }
-                
-                androidx.compose.foundation.text.BasicTextField(
-                    value = text,
-                    onValueChange = { newText ->
-                        if (!newText.startsWith("\u200B")) {
-                            // Backspace was pressed on the empty field
-                            if (tags.isNotEmpty()) {
-                                tags = tags.dropLast(1)
-                            }
-                            text = "\u200B"
-                            return@BasicTextField
-                        }
-                        
-                        if (newText.endsWith(" ")) {
-                            val words = newText.removePrefix("\u200B").split(" ")
-                            val lastWord = words.dropLast(1).lastOrNull()
-                            if (lastWord != null && lastWord.startsWith("#") && lastWord.length > 1) {
-                                tags = addTagToken(tags, lastWord.removePrefix("#"))
-                                text = "\u200B" + newText.removePrefix("\u200B").substring(0, newText.removePrefix("\u200B").lastIndexOf(lastWord))
-                                return@BasicTextField
-                            }
-                        }
-                        text = newText
-                        
-                        val words = newText.removePrefix("\u200B").split(" ")
-                        val currentWord = words.lastOrNull() ?: ""
-                        if (currentWord.startsWith("#")) {
-                            onTypingWordChanged(currentWord.removePrefix("#"))
-                        } else {
-                            onTypingWordChanged(currentWord)
-                        }
-                    },
-                    modifier = Modifier
-                        .focusRequester(focusRequester)
-                        .defaultMinSize(minWidth = 60.dp)
-                        .padding(vertical = 4.dp),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(
-                        onSearch = {
-                            var finalText = text.removePrefix("\u200B").trim()
-                            val words = finalText.split(" ")
-                            val lastWord = words.lastOrNull()
-                            if (lastWord != null && lastWord.startsWith("#") && lastWord.length > 1) {
-                                tags = addTagToken(tags, lastWord.removePrefix("#"))
-                                finalText = finalText.substring(0, finalText.lastIndexOf(lastWord)).trim()
-                                text = "\u200B" + finalText
-                            }
-
-                            // 输入新词搜索 = 全新查询：上一轮遗留的标签不再自动带入
-                            //（本轮通过 #词/建议点选新加的标签除外，保留组合意图）
-                            if (finalText.isNotEmpty() && tags == inheritedTags) {
-                                tags = emptyList()
-                            }
-
-                            val finalQuery = buildString {
-                                append(finalText)
-                                if (tags.isNotEmpty()) {
-                                    if (isNotEmpty()) append(" ")
-                                    // Single @keywords group so "!tag" exclusions
-                                    // apply within the same set as the includes.
-                                    append("@keywords ")
-                                    append(tags.joinToString(" "))
-                                }
-                            }
-                            if (finalQuery.isNotBlank()) {
-                                onSearch(finalQuery.trim())
-                                keyboardController?.hide()
-                            }
-                        }
-                    ),
-                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-                    decorationBox = { innerTextField ->
-                        if (text == "\u200B" && tags.isEmpty()) {
-                            Text(stringResource(R.string.search_hint), color = MutedText, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        innerTextField()
-                    }
-                )
-                
-                DropdownMenu(
-                    expanded = tagSuggestions.isNotEmpty(),
-                    onDismissRequest = { onTypingWordChanged("") },
-                    properties = androidx.compose.ui.window.PopupProperties(focusable = false),
-                    modifier = Modifier.background(DarkSurface).heightIn(max = 250.dp)
-                ) {
-                    tagSuggestions.forEach { suggestion ->
-                        DropdownMenuItem(
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            text = { 
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                ) {
-                                    Text(
-                                        "#$suggestion", 
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                        color = DarkSurface, 
-                                        style = MaterialTheme.typography.bodyMedium, 
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            },
-                            onClick = {
-                                tags = addTagToken(tags, suggestion)
-                                val words = text.removePrefix("\u200B").split(" ").toMutableList()
-                                if (words.isNotEmpty()) {
-                                    words.removeAt(words.lastIndex)
-                                }
-                                text = "\u200B" + words.joinToString(" ") + (if (words.isNotEmpty()) " " else "")
-                                onTypingWordChanged("")
-                            }
-                        )
-                    }
-                }
-            }
-
-
-            
-            Box {
-                IconButton(onClick = onFilterClick, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        if (isFilterOpen) Icons.Default.KeyboardArrowUp else Icons.Default.FilterList,
-                        contentDescription = stringResource(R.string.cd_filters),
-                        tint = if (activeFilterCount > 0 || isFilterOpen) MaterialTheme.colorScheme.primary else MutedText
-                    )
-                }
-                if (activeFilterCount > 0) {
-                    Surface(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .align(Alignment.TopEnd)
-                            .offset(x = 2.dp, y = (-2).dp),
-                        shape = RoundedCornerShape(9.dp),
-                        color = MaterialTheme.colorScheme.primary
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = activeFilterCount.toString(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = DarkSurface,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
-}
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun InlineFiltersRow(
-    filters: com.furflix.app.data.model.SearchFilters,
-    onFilterChange: (com.furflix.app.data.model.SearchFilters) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        InlineDropdown(
-            label = FA_CATEGORIES.firstOrNull { it.first == filters.category }?.second ?: "All",
-            isDefault = filters.category == 0,
-            options = FA_CATEGORIES,
-            onSelect = { onFilterChange(filters.copy(category = it)) },
-            modifier = Modifier.weight(1f)
-        )
-        InlineDropdown(
-            label = FA_ART_TYPES.firstOrNull { it.first == filters.artType }?.second ?: "All",
-            isDefault = filters.artType == 0,
-            options = FA_ART_TYPES,
-            onSelect = { onFilterChange(filters.copy(artType = it)) },
-            modifier = Modifier.weight(1f)
-        )
-        InlineGenderDropdown(
-            label = FA_GENDER_OPTIONS.firstOrNull { it.first == filters.gender }?.second ?: "Any",
-            isDefault = filters.gender.isEmpty(),
-            options = FA_GENDER_OPTIONS,
-            onSelect = { onFilterChange(filters.copy(gender = it)) },
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun InlineDropdown(
-    label: String,
-    isDefault: Boolean,
-    options: List<Pair<Int, String>>,
-    onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Box(modifier = modifier) {
-        Surface(
-            onClick = { expanded = true },
-            shape = RoundedCornerShape(8.dp),
-            color = DarkSurfaceVariant,
-            border = BorderStroke(
-                1.dp,
-                if (isDefault) BorderDark else MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isDefault) MutedText else MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                )
-                Spacer(modifier = Modifier.width(2.dp))
-                Icon(
-                    Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                    tint = if (isDefault) MutedText else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = DarkSurfaceVariant,
-            border = BorderStroke(1.dp, BorderDark)
-        ) {
-            options.forEach { (value, name) ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            name,
-                            color = if (value == 0 && options[0].first == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    onClick = { onSelect(value); expanded = false }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun InlineGenderDropdown(
-    label: String,
-    isDefault: Boolean,
-    options: List<Pair<String, String>>,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Box(modifier = modifier) {
-        Surface(
-            onClick = { expanded = true },
-            shape = RoundedCornerShape(8.dp),
-            color = DarkSurfaceVariant,
-            border = BorderStroke(
-                1.dp,
-                if (isDefault) BorderDark else MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isDefault) MutedText else MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                )
-                Spacer(modifier = Modifier.width(2.dp))
-                Icon(
-                    Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                    tint = if (isDefault) MutedText else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = DarkSurfaceVariant,
-            border = BorderStroke(1.dp, BorderDark)
-        ) {
-            options.forEach { (value, name) ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            name,
-                            color = if (value.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    onClick = { onSelect(value); expanded = false }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun FilterDropdownRow(
-    title: String,
-    currentValueLabel: String,
-    options: List<Pair<String, String>>,
-    onSelect: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = true }
-                .padding(vertical = 12.dp, horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(currentValueLabel, style = MaterialTheme.typography.bodyMedium, color = MutedText)
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = MutedText,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = DarkSurfaceVariant,
-            border = BorderStroke(1.dp, BorderDark),
-            modifier = Modifier.fillMaxWidth(0.6f)
-        ) {
-            options.forEach { (value, label) ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            label,
-                            color = if (label == currentValueLabel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    onClick = {
-                        onSelect(value)
-                        expanded = false
-                    }
-                )
-            }
-        }
-        HorizontalDivider(color = BorderDark, thickness = 1.dp)
-    }
-}
-
-@Composable
-fun ExpandableFilterRow(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(modifier = Modifier.animateContentSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
-                .padding(vertical = 12.dp, horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-            Icon(
-                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                contentDescription = null,
-                tint = MutedText,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        if (expanded) {
-            Box(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp, start = 4.dp, end = 4.dp)) {
-                content()
-            }
-        }
-        HorizontalDivider(color = BorderDark, thickness = 1.dp)
-    }
-}
-
-@Composable
-fun InlineSearchFilters(
-    filters: com.furflix.app.data.model.SearchFilters,
-    onFiltersChanged: (com.furflix.app.data.model.SearchFilters) -> Unit,
-    onClear: () -> Unit
-) {
-
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = CardBackground,
-        border = BorderStroke(1.dp, BorderDark)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 550.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.search_filters),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                TextButton(onClick = onClear, modifier = Modifier.height(24.dp), contentPadding = PaddingValues(0.dp)) {
-                    Text(stringResource(R.string.search_clear_all), color = SubtleGray, style = MaterialTheme.typography.labelMedium)
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 1. Rating
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FAFilterChip(modifier = Modifier.padding(horizontal = 4.dp), label = stringResource(R.string.filter_general), selected = filters.ratingGeneral) { onFiltersChanged(filters.copy(ratingGeneral = !filters.ratingGeneral)) }
-                FAFilterChip(modifier = Modifier.padding(horizontal = 4.dp), label = stringResource(R.string.filter_mature), selected = filters.ratingMature) { onFiltersChanged(filters.copy(ratingMature = !filters.ratingMature)) }
-                FAFilterChip(modifier = Modifier.padding(horizontal = 4.dp), label = stringResource(R.string.filter_adult), selected = filters.ratingAdult) { onFiltersChanged(filters.copy(ratingAdult = !filters.ratingAdult)) }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 2. Match Mode
-            val modes = listOf("all" to stringResource(R.string.filter_require_all), "any" to stringResource(R.string.filter_require_any), "extended" to stringResource(R.string.filter_advanced))
-            FilterDropdownRow(
-                title = stringResource(R.string.filter_match_mode),
-                currentValueLabel = modes.firstOrNull { it.first == filters.mode }?.second ?: stringResource(R.string.filter_advanced),
-                options = modes,
-                onSelect = { onFiltersChanged(filters.copy(mode = it)) }
-            )
-
-            // 3. Sort By
-            val sortOptions = listOf("date" to stringResource(R.string.filter_sort_date), "relevancy" to stringResource(R.string.filter_sort_relevancy), "popularity" to stringResource(R.string.filter_sort_popularity))
-            FilterDropdownRow(
-                title = stringResource(R.string.filter_order_by),
-                currentValueLabel = sortOptions.firstOrNull { it.first == filters.orderBy }?.second ?: stringResource(R.string.filter_sort_date),
-                options = sortOptions,
-                onSelect = { onFiltersChanged(filters.copy(orderBy = it)) }
-            )
-
-            // 4. Order Direction
-            val orderDirs = listOf("desc" to stringResource(R.string.filter_dir_desc), "asc" to stringResource(R.string.filter_dir_asc))
-            FilterDropdownRow(
-                title = stringResource(R.string.filter_sort_direction),
-                currentValueLabel = orderDirs.firstOrNull { it.first == filters.orderDirection }?.second ?: stringResource(R.string.filter_dir_desc),
-                options = orderDirs,
-                onSelect = { onFiltersChanged(filters.copy(orderDirection = it)) }
-            )
-
-            // 5. Time Range — 值必须是 FA 原生枚举（1week/1month 是无效值，2026-10-07 表单实测）
-            val timeRanges = listOf(
-                "1day" to stringResource(R.string.filter_time_1d),
-                "3days" to stringResource(R.string.filter_time_3d),
-                "7days" to stringResource(R.string.filter_time_1w),
-                "30days" to stringResource(R.string.filter_time_1m),
-                "90days" to stringResource(R.string.filter_time_90d),
-                "1year" to stringResource(R.string.filter_time_1y),
-                "3years" to stringResource(R.string.filter_time_3y),
-                "5years" to stringResource(R.string.filter_time_5y),
-                "all" to stringResource(R.string.filter_time_all)
-            )
-            FilterDropdownRow(
-                title = stringResource(R.string.filter_time_range),
-                currentValueLabel = timeRanges.firstOrNull { it.first == filters.range }?.second ?: stringResource(R.string.filter_time_all),
-                options = timeRanges,
-                onSelect = { onFiltersChanged(filters.copy(range = it)) }
-            )
-
-            // 6. Content Type
-            ExpandableFilterRow(title = stringResource(R.string.filter_content_type)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FAFilterChip(label = stringResource(R.string.filter_type_art), selected = filters.typeArt) { onFiltersChanged(filters.copy(typeArt = !filters.typeArt)) }
-                    FAFilterChip(label = stringResource(R.string.filter_type_flash), selected = filters.typeFlash) { onFiltersChanged(filters.copy(typeFlash = !filters.typeFlash)) }
-                    FAFilterChip(label = stringResource(R.string.filter_type_photo), selected = filters.typePhoto) { onFiltersChanged(filters.copy(typePhoto = !filters.typePhoto)) }
-                    FAFilterChip(label = stringResource(R.string.filter_type_music), selected = filters.typeMusic) { onFiltersChanged(filters.copy(typeMusic = !filters.typeMusic)) }
-                    FAFilterChip(label = stringResource(R.string.filter_type_story), selected = filters.typeStory) { onFiltersChanged(filters.copy(typeStory = !filters.typeStory)) }
-                    FAFilterChip(label = stringResource(R.string.filter_type_poetry), selected = filters.typePoetry) { onFiltersChanged(filters.copy(typePoetry = !filters.typePoetry)) }
-                }
-            }
-
-            // 7. Species（FA 原生物种下拉，App 以 0=未设置（不发键）对应 FA 的省略）
-            val speciesOptions = remember {
-                listOf("0" to "All") + com.furflix.app.data.FA_SPECIES.map { it.first.toString() to it.second }
-            }
-            FilterDropdownRow(
-                title = stringResource(R.string.filter_species),
-                currentValueLabel = speciesOptions.firstOrNull { it.first == filters.species.toString() }?.second ?: "All",
-                options = speciesOptions,
-                onSelect = { onFiltersChanged(filters.copy(species = it.toIntOrNull() ?: 0)) }
-            )
-
-            // 8. 搜索语法速查：FA 原生 Lucene 系操作符（/help/#search）
-            var showSyntax by remember { mutableStateOf(false) }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showSyntax = !showSyntax }
-                    .padding(vertical = 12.dp, horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(R.string.search_syntax_title), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                Icon(
-                    imageVector = if (showSyntax) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = MutedText,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            HorizontalDivider(color = BorderDark, thickness = 1.dp)
-            if (showSyntax) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = 8.dp, bottom = 10.dp)
-                ) {
-                    Text(stringResource(R.string.search_syntax_intro), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_and), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_or), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_not), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_group), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_phrase), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_order), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_proximity), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_quorum), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_fields), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Text(stringResource(R.string.search_syntax_multi), style = MaterialTheme.typography.bodySmall, color = MutedText)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FAFilterChip(
-    label: String,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        modifier = modifier,
-        label = { Text(label) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primary,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-            containerColor = Color.White.copy(alpha = 0.05f),
-            labelColor = MutedText
-        ),
-        border = FilterChipDefaults.filterChipBorder(
-            borderColor = Color.White.copy(alpha = 0.06f),
-            selectedBorderColor = MaterialTheme.colorScheme.primary,
-            enabled = true,
-            selected = selected
-        )
-    )
 }
 
 @Composable

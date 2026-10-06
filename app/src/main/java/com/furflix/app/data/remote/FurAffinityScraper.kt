@@ -367,33 +367,50 @@ object FurAffinityScraper {
         }
     }
 
+    /**
+     * 今日站点横幅：任意主页面页头 site-banner 的图片地址（每日更换，1850x300，
+     * 形如 //d.furaffinity.net/media/banners/modern/20261005-eeeevio.jpg）。
+     * 返回补全协议后的 https URL；拿不到返回 null（调用方静默降级）。
+     */
+    suspend fun fetchSiteBannerUrl(): String? = withContext(Dispatchers.IO) {
+        try {
+            val doc = fetchDocument("$FA_BASE/")
+            val src = doc.selectFirst("site-banner img")?.attr("src")
+                ?: doc.selectFirst("img[usemap*=banner-map]")?.attr("src")
+            src?.takeIf { it.isNotBlank() }?.let { if (it.startsWith("//")) "https:$it" else it }
+        } catch (e: Exception) {
+            Log.e("FurScraper", "fetchSiteBannerUrl error: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * 搜索（FA 原生 /search/ 表单，2026-10 实测字段全集见 SearchFilters）。
+     * 异常不吞：网络失败如实上抛，由 ViewModel 呈现错误态，
+     * 避免把"请求失败"误渲染成"无结果"。
+     */
     suspend fun search(query: String, page: Int = 1, filters: com.furflix.app.data.model.SearchFilters = com.furflix.app.data.model.SearchFilters()): List<Submission> =
         withContext(Dispatchers.IO) {
-            try {
-                // Deterministic form: q/page/perpage first, then the filter map
-                // in declaration order (see SearchFilters.buildSearchForm).
-                val formBuilder = okhttp3.FormBody.Builder()
-                filters.buildSearchForm(query, page).forEach { (key, value) ->
-                    formBuilder.add(key, value)
-                }
-                
-                val forceNsfw = filters.ratingAdult || filters.ratingMature
-                val doc = postDocument("$FA_BASE/search/", formBuilder.build(), forceNsfw)
-                
-                // Pagination is handled by passing the correct page number,
-                // but we can check if a "Next" button exists to know if there are more results.
-                val hasNext = doc.select("button[name=page]").any { it.text().contains("Next", ignoreCase = true) }
-                if (!hasNext && doc.select("form[action^=/search/]").isNotEmpty()) {
-                    searchNextUrl = null
-                } else {
-                    searchNextUrl = "has_next" // dummy value so the ViewModel knows there's more
-                }
-                
-                parseSearchResults(doc)
-            } catch (e: Exception) {
-                Log.e("FurScraper", "search error: ${e.message}", e)
-                emptyList()
+            // Deterministic form: q/page/perpage first, then the filter map
+            // in declaration order (see SearchFilters.buildSearchForm).
+            val formBuilder = okhttp3.FormBody.Builder()
+            filters.buildSearchForm(query, page).forEach { (key, value) ->
+                formBuilder.add(key, value)
             }
+
+            val forceNsfw = filters.ratingAdult || filters.ratingMature
+            val doc = postDocument("$FA_BASE/search/", formBuilder.build(), forceNsfw)
+
+            // Pagination is handled by passing the correct page number,
+            // but we can check if a "Next" button exists to know if there are more results.
+            val hasNext = doc.select("button[name=page]").any { it.text().contains("Next", ignoreCase = true) }
+            if (!hasNext && doc.select("form[action^=/search/]").isNotEmpty()) {
+                searchNextUrl = null
+            } else {
+                searchNextUrl = "has_next" // dummy value so the ViewModel knows there's more
+            }
+
+            parseSearchResults(doc)
         }
 
     suspend fun getSubmissionDetails(submissionId: String, loadStoryText: Boolean = true): Submission? =

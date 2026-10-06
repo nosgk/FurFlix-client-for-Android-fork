@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.furflix.app.R
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.repository.FurRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +45,11 @@ class TagSearchViewModel(
 
     private var tagSearchJob: kotlinx.coroutines.Job? = null
 
+    // ── 搜索请求生命周期：唯一 Job + 递增代次号，旧请求取消、过期回包丢弃 ──
+    private var searchJob: kotlinx.coroutines.Job? = null
+    private var loadMoreJob: kotlinx.coroutines.Job? = null
+    private var searchGeneration = 0
+
     private var currentPage = 1
     private var hasMore = true
 
@@ -51,32 +57,42 @@ class TagSearchViewModel(
         loadSearch()
     }
 
-    fun loadSearch(newQuery: String = _searchQuery.value) {
-        if (_isLoading.value) return
+    fun loadSearch(newQuery: String = _searchQuery.value, filters: com.furflix.app.data.model.SearchFilters? = null) {
+        if (filters != null) _searchFilters.value = filters
+        if (newQuery != _searchQuery.value) _searchQuery.value = newQuery
         val trimmed = newQuery.trim()
         if (trimmed.isNotEmpty()) {
             viewModelScope.launch {
                 repository.addRecentSearch(trimmed)
             }
         }
-        _searchQuery.value = newQuery
         currentPage = 1
         hasMore = true
-        viewModelScope.launch {
+
+        searchJob?.cancel()
+        loadMoreJob?.cancel()
+        val gen = ++searchGeneration
+        searchJob = viewModelScope.launch {
             _submissions.value = emptyList()
             _isLoading.value = true
             _errorMessage.value = null
             try {
                 val result = repository.search(newQuery, currentPage, _searchFilters.value)
-                _submissions.value = result
-                if (result.isEmpty()) {
-                    _errorMessage.value = getApplication<Application>().getString(R.string.empty_search_results)
+                if (gen == searchGeneration) {
+                    _submissions.value = result
+                    if (result.isEmpty()) {
+                        _errorMessage.value = getApplication<Application>().getString(R.string.empty_search_results)
+                    }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("TagSearchVM", "loadSearch error", e)
-                _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
+                if (gen == searchGeneration) {
+                    _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
+                }
             }
-            _isLoading.value = false
+            if (gen == searchGeneration) _isLoading.value = false
         }
     }
 
@@ -85,33 +101,71 @@ class TagSearchViewModel(
         loadSearch(_searchQuery.value)
     }
 
+    /** 筛选变更触发的重搜：防抖合并连续调整。 */
+    fun updateSearchFilters(filters: com.furflix.app.data.model.SearchFilters) {
+        _searchFilters.value = filters
+        searchJob?.cancel()
+        loadMoreJob?.cancel()
+        val gen = ++searchGeneration
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_RELOAD_DEBOUNCE_MS)
+            currentPage = 1
+            hasMore = true
+            _submissions.value = emptyList()
+            _isLoading.value = true
+            _errorMessage.value = null
+            try {
+                val result = repository.search(_searchQuery.value, 1, filters)
+                if (gen == searchGeneration) {
+                    _submissions.value = result
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("TagSearchVM", "filter reload error", e)
+            }
+            if (gen == searchGeneration) _isLoading.value = false
+        }
+    }
+
     fun loadMore() {
         if (!hasMore || _isLoadingMore.value || _isLoading.value) return
-        viewModelScope.launch {
+        if (searchJob?.isActive == true) return
+        loadMoreJob?.cancel()
+        val gen = searchGeneration
+        val filters = _searchFilters.value
+        val pageSize = filters.perpage
+        loadMoreJob = viewModelScope.launch {
             _isLoadingMore.value = true
             try {
                 currentPage++
-                val result = repository.search(_searchQuery.value, currentPage, _searchFilters.value)
+                val result = repository.search(_searchQuery.value, currentPage, filters)
+                if (gen != searchGeneration) {
+                    currentPage--
+                    return@launch
+                }
                 if (result.isEmpty()) {
                     hasMore = false
+                    currentPage--
                 } else {
                     val currentIds = _submissions.value.map { it.id }.toSet()
                     val newItems = result.filter { it.id !in currentIds }
                     if (newItems.isEmpty()) {
                         hasMore = false
+                        currentPage--
                     } else {
                         _submissions.value = _submissions.value + newItems
+                        hasMore = result.size >= pageSize
                     }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("TagSearchVM", "loadMore error", e)
+                currentPage--
             }
             _isLoadingMore.value = false
         }
-    }
-
-    fun updateSearchFilters(filters: com.furflix.app.data.model.SearchFilters) {
-        _searchFilters.value = filters
     }
 
     fun fetchTagSuggestions(prefix: String) {
@@ -121,12 +175,17 @@ class TagSearchViewModel(
             return
         }
         tagSearchJob = viewModelScope.launch {
+            delay(300) // Debounce 300ms
             _tagSuggestions.value = repository.searchTags(prefix)
         }
     }
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    companion object {
+        private const val SEARCH_RELOAD_DEBOUNCE_MS = 450L
     }
 
     class Factory(

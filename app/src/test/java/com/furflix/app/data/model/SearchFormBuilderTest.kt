@@ -75,4 +75,50 @@ class SearchFormBuilderTest {
             SearchFilters(range = "1week").buildSearchForm("q", 1).first { it.first == "range" }.second
         )
     }
+
+    @Test
+    fun `manual range emits range_from and range_to date pairs`() {
+        // 2026-10-07 /search/ 实测：range=manual + range_from/range_to（yyyy-MM-dd）服务端生效
+        val form = SearchFilters(
+            range = "manual",
+            rangeFrom = "2026-09-01",
+            rangeTo = "2026-10-07"
+        ).buildSearchForm("q", 1)
+        assertEquals("manual", form.first { it.first == "range" }.second)
+        assertEquals("2026-09-01", form.first { it.first == "range_from" }.second)
+        assertEquals("2026-10-07", form.first { it.first == "range_to" }.second)
+        // 非 manual 时不得携带日期对
+        val keys = SearchFilters().buildSearchForm("q", 1).map { it.first }
+        assertFalse("range_from" in keys)
+        assertFalse("range_to" in keys)
+    }
+
+    @Test
+    fun `genders are merged into the keywords group like FA site JS`() {
+        // gender 复选框无表单参数：站点 gender_checkboxes_search.js 把所选性别
+        // 并进 @keywords 组，这里保持同一语义
+        val filters = SearchFilters(keywords = listOf("cute"), genders = listOf("male", "female"))
+        assertEquals("@keywords cute male female", filters.buildKeywordQuery(""))
+        assertEquals("fox @keywords cute male female", filters.buildKeywordQuery("fox"))
+        val keys = filters.buildSearchForm("q", 1).map { it.first }
+        assertFalse("gender" in keys)
+    }
+
+    @Test
+    fun `genders-only search still sends the group as q`() {
+        assertEquals("@keywords male", SearchFilters(genders = listOf("male")).buildSearchForm("", 1)[0].second)
+    }
+
+    @Test
+    fun `perpage is clamped to FA native choices`() {
+        assertEquals("24", SearchFilters(perpage = 10).buildSearchForm("q", 1)[2].second)
+        assertEquals("72", SearchFilters(perpage = 999).buildSearchForm("q", 1)[2].second)
+        assertEquals("48", SearchFilters(perpage = 48).buildSearchForm("q", 1)[2].second)
+    }
+
+    @Test
+    fun `browse map keeps single-select gender from the first choice`() {
+        val map = SearchFilters(genders = listOf("male", "female")).toBrowseQueryMap()
+        assertEquals("male", map["gender"])
+    }
 }

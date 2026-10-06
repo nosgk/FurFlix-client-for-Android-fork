@@ -73,6 +73,10 @@ class FurRepository(private val context: Context) {
     private val DOWNLOAD_FOLDER_KEY = stringPreferencesKey("download_folder")
     private val LAST_SEARCH_FILTERS_KEY = stringPreferencesKey("last_search_filters")
     private val QUICK_PRESETS_KEY = stringPreferencesKey("quick_presets")
+    private val SEARCH_PRESETS_KEY = stringPreferencesKey("search_presets_v2")
+    private val SEARCH_VIEW_MODE_KEY = stringPreferencesKey("search_view_mode")
+    private val SITE_BANNER_URL_KEY = stringPreferencesKey("site_banner_url")
+    private val SITE_BANNER_DATE_KEY = stringPreferencesKey("site_banner_date")
 
         @Volatile
         private var INSTANCE: FurRepository? = null
@@ -556,19 +560,74 @@ class FurRepository(private val context: Context) {
     }
 
     /**
-     * 快捷预设：保存的搜索查询（标签长按菜单保存，如 "@keywords fox"），
-     * 搜索页可一键重放。与最近搜索同款 "|||" 分隔；调用方负责上限。
+     * 完整检索预设（名称 + 查询词 + 筛选快照，JSON 单键，上限由调用方控制）。
+     * 新键缺失时回读旧版 quick_presets 纯查询词列表并映射为预设（首次保存后
+     * 即走新键，旧键保留不写）。
      */
-    val quickPresetsFlow: kotlinx.coroutines.flow.Flow<List<String>> = context.dataStore.data.map { prefs ->
-        val raw = prefs[QUICK_PRESETS_KEY] ?: ""
-        if (raw.isNotEmpty()) raw.split("|||").filter { it.isNotEmpty() } else emptyList()
-    }
+    val searchPresetsFlow: kotlinx.coroutines.flow.Flow<List<com.furflix.app.data.model.SearchPreset>> =
+        context.dataStore.data.map { prefs ->
+            val raw = prefs[SEARCH_PRESETS_KEY]
+            if (raw != null) {
+                try {
+                    filterJson.decodeFromString(
+                        kotlinx.serialization.builtins.ListSerializer(com.furflix.app.data.model.SearchPreset.serializer()),
+                        raw
+                    )
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            } else {
+                (prefs[QUICK_PRESETS_KEY] ?: "")
+                    .split("|||").filter { it.isNotEmpty() }
+                    .map { com.furflix.app.data.model.SearchPreset(name = it, query = it) }
+            }
+        }
 
-    suspend fun saveQuickPresets(presets: List<String>) {
+    suspend fun saveSearchPresets(presets: List<com.furflix.app.data.model.SearchPreset>) {
         context.dataStore.edit { prefs ->
-            prefs[QUICK_PRESETS_KEY] = presets.joinToString("|||")
+            prefs[SEARCH_PRESETS_KEY] =
+                filterJson.encodeToString(
+                    kotlinx.serialization.builtins.ListSerializer(com.furflix.app.data.model.SearchPreset.serializer()),
+                    presets
+                )
         }
     }
+
+    /** 搜索结果视图偏好（紧凑/瀑布流/大图/列表，独立于全局画廊视图）。 */
+    val searchViewModeFlow: kotlinx.coroutines.flow.Flow<com.furflix.app.data.model.SearchResultView> =
+        context.dataStore.data.map { prefs ->
+            com.furflix.app.data.model.SearchResultView.fromId(prefs[SEARCH_VIEW_MODE_KEY])
+        }
+
+    suspend fun saveSearchViewMode(mode: com.furflix.app.data.model.SearchResultView) {
+        context.dataStore.edit { prefs -> prefs[SEARCH_VIEW_MODE_KEY] = mode.id }
+    }
+
+    // --- 站点今日横幅（启动页展示；URL 当日有效，隔日重取） ---
+
+    suspend fun loadSiteBanner(): String? {
+        val prefs = context.dataStore.data.first()
+        val url = prefs[SITE_BANNER_URL_KEY] ?: return null
+        val date = prefs[SITE_BANNER_DATE_KEY] ?: return null
+        return if (date == todayStamp()) url else null
+    }
+
+    suspend fun saveSiteBanner(url: String) {
+        context.dataStore.edit { prefs ->
+            prefs[SITE_BANNER_URL_KEY] = url
+            prefs[SITE_BANNER_DATE_KEY] = todayStamp()
+        }
+    }
+
+    /** 当日缓存未命中时抓首页解析 site-banner；失败返回 null（静默降级）。 */
+    suspend fun refreshSiteBanner(): String? {
+        val url = FurAffinityScraper.fetchSiteBannerUrl() ?: return null
+        saveSiteBanner(url)
+        return url
+    }
+
+    private fun todayStamp(): String =
+        java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
 
     suspend fun loadLastSearchFilters(): com.furflix.app.data.model.SearchFilters? {
         val prefs = context.dataStore.data.first()

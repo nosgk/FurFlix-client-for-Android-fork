@@ -15,6 +15,11 @@
     <!-- Content descriptions -->
     <string name="cd_download">Download</string>
     <string name="cd_share">Share</string>
+    <string name="cd_search_view_compact">Compact grid view</string>
+    <string name="cd_search_view_masonry">Masonry view</string>
+    <string name="cd_search_view_large">Large grid view</string>
+    <string name="cd_search_view_list">List view</string>
+    <string name="cd_site_banner">Fur Affinity daily banner</string>
 
     <!-- Search -->
 
@@ -257,8 +262,14 @@
     <string name="filter_time_3y">3 Years</string>
     <string name="filter_time_5y">5 Years</string>
     <string name="filter_time_all">All Time</string>
+    <!-- FA manual range: range=manual + range_from/range_to (yyyy-MM-dd) -->
+    <string name="filter_time_custom">Custom range</string>
+    <string name="filter_time_from">From</string>
+    <string name="filter_time_to">To</string>
 
     <string name="filter_species">Species</string>
+    <string name="filter_species_search">Type to filter…</string>
+    <string name="filter_species_narrow">Keep typing to see more</string>
     <!-- Search syntax cheat sheet (FA native Lucene-style operators, from /help/#search) -->
     <string name="search_syntax_title">Search syntax</string>
     <string name="search_syntax_intro">Matches titles, descriptions, filenames, keywords and the uploader\'s account name. Case-insensitive. Field searches are exact matches.</string>
@@ -281,6 +292,21 @@
     <string name="filter_type_story">Story</string>
     <string name="filter_type_poetry">Poetry</string>
 
+    <!-- Gender chips: merged into the @keywords group, mirroring FA site JS -->
+    <string name="filter_gender">Gender</string>
+    <string name="filter_gender_male">Male</string>
+    <string name="filter_gender_female">Female</string>
+    <string name="filter_gender_trans_male">Trans Male</string>
+    <string name="filter_gender_trans_female">Trans Female</string>
+    <string name="filter_gender_intersex">Intersex</string>
+    <string name="filter_gender_non_binary">Non-Binary</string>
+
+    <!-- Merged sort presets (order-by × order-direction) for the quick row -->
+    <string name="filter_sort_recent">Newest first</string>
+    <string name="filter_sort_oldest">Oldest first</string>
+    <string name="filter_sort_popular">Most popular</string>
+    <string name="filter_perpage">Results per page</string>
+
     
     <string name="profile_following_list">Following</string>
     <string name="profile_followers_list">Followers</string>
@@ -299,6 +325,8 @@
     <string name="tag_action_copy">Copy tag</string>
     <string name="toast_tag_copied">Tag copied</string>
     <string name="toast_preset_saved">Saved to quick presets</string>
+    <string name="search_save_preset">Save search as preset</string>
+    <string name="search_preset_name">Preset name</string>
     
     <string name="profile_about">About me</string>
     <string name="profile_show_more">Show more</string>

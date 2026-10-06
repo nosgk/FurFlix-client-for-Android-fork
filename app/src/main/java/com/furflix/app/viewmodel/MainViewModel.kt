@@ -52,8 +52,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _recentSearches = MutableStateFlow<List<String>>(emptyList())
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
 
-    private val _quickPresets = MutableStateFlow<List<String>>(emptyList())
-    val quickPresets: StateFlow<List<String>> = _quickPresets.asStateFlow()
+    private val _searchPresets = MutableStateFlow<List<com.furflix.app.data.model.SearchPreset>>(emptyList())
+    val searchPresets: StateFlow<List<com.furflix.app.data.model.SearchPreset>> = _searchPresets.asStateFlow()
 
     private val _searchFilters = MutableStateFlow(com.furflix.app.data.model.SearchFilters())
     val searchFilters: StateFlow<com.furflix.app.data.model.SearchFilters> = _searchFilters.asStateFlow()
@@ -96,24 +96,64 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun clearTagSuggestions() {
-        searchTagsJob?.cancel()
-        _tagSuggestions.value = emptyList()
-    }
-
     private val _nsfwEnabled = MutableStateFlow(true)
     val nsfwEnabled: StateFlow<Boolean> = _nsfwEnabled.asStateFlow()
 
     private val _downloadFolder = MutableStateFlow("")
     val downloadFolder: StateFlow<String> = _downloadFolder.asStateFlow()
 
+    // ── 搜索请求生命周期 ──
+    // 每次搜索持有唯一 Job 与递增代次号：旧请求被 cancel，迟到的回包按代次
+    // 丢弃——杜绝网络异步延迟/回包乱序/状态残留导致的历史搜索词与当前结果
+    // 交叉混淆；筛选连续调整走防抖合并，只发最后一次查询。
+    private var searchJob: kotlinx.coroutines.Job? = null
+    private var keywordCountsJob: kotlinx.coroutines.Job? = null
+    private var loadMoreJob: kotlinx.coroutines.Job? = null
+    private var searchGeneration = 0
+
     fun updateSearchFilters(filters: com.furflix.app.data.model.SearchFilters) {
         _searchFilters.value = filters
-        val hasKeywords = filters.keywords.isNotEmpty()
-        if (_searchQuery.value.isNotEmpty() || hasKeywords || _selectedTab.value == 2) {
-            loadSearch(_searchQuery.value)
-        } else if (_selectedTab.value == 0) {
+        if (_searchQuery.value.isNotEmpty() || filters.hasKeywords || _selectedTab.value == 2) {
+            scheduleSearchReload()
+        }
+    }
+
+    /** 筛选变更触发的重搜：防抖合并，仅最后一次调整真正发起请求。 */
+    fun scheduleSearchReload() {
+        searchJob?.cancel()
+        keywordCountsJob?.cancel()
+        loadMoreJob?.cancel()
+        val gen = ++searchGeneration
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_RELOAD_DEBOUNCE_MS)
+            searchOnce(_searchQuery.value, _searchFilters.value, gen)
+        }
+    }
+
+    private suspend fun searchOnce(query: String, filters: com.furflix.app.data.model.SearchFilters, gen: Int) {
+        _searchSubmissions.value = emptyList()
+        _isLoading.value = true
+        _errorMessage.value = null
+        // 分词计数独立 Job（不阻塞 loadMore 对搜索 Job 的 isActive 判定），随代次取消
+        keywordCountsJob?.cancel()
+        keywordCountsJob = viewModelScope.launch { loadKeywordCounts(query, filters, gen) }
+        try {
+            val result = repository.search(query, 1, filters)
+            if (gen != searchGeneration) return // 过期回包：不落结果集
+            _searchSubmissions.value = result
+            prefetchSubmissionStats(result.map { it.id })
+            // An empty result is the empty state, not an error — the screen
+            // renders its "no results" branch without an error banner.
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (gen == searchGeneration) {
+                _errorMessage.value = getApplication<Application>().getString(
+                    R.string.error_generic, e.message ?: ""
+                )
             }
+        }
+        if (gen == searchGeneration) _isLoading.value = false
     }
 
     private val _selectedTab = MutableStateFlow(0)
@@ -215,18 +255,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 快捷预设上限：新的在前，去重后截断 */
-    fun addQuickPreset(query: String) {
-        val trimmed = query.trim()
-        if (trimmed.isEmpty()) return
+    /** 完整检索预设（名称+查询词+筛选快照）：新的在前，按内容去重，上限 20。 */
+    fun addSearchPreset(name: String, query: String, filters: com.furflix.app.data.model.SearchFilters) {
+        val trimmedQuery = query.trim()
+        val resolvedName = name.trim().ifEmpty { trimmedQuery }
+        if (resolvedName.isEmpty()) return
         viewModelScope.launch {
-            repository.saveQuickPresets((listOf(trimmed) + _quickPresets.value).distinct().take(12))
+            repository.saveSearchPresets(
+                (listOf(com.furflix.app.data.model.SearchPreset(resolvedName, trimmedQuery, filters)) + _searchPresets.value)
+                    .distinctBy { it.query to it.filters }
+                    .take(20)
+            )
         }
     }
 
-    fun removeQuickPreset(query: String) {
+    fun removeSearchPreset(preset: com.furflix.app.data.model.SearchPreset) {
         viewModelScope.launch {
-            repository.saveQuickPresets(_quickPresets.value - query)
+            repository.saveSearchPresets(_searchPresets.value - preset)
         }
     }
 
@@ -254,6 +299,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         const val TAB_LATEST = 1
         const val TAB_SEARCH = 2
         const val TAB_WATCHLIST = 3
+
+        /** 筛选连续调整的防抖窗口：最后一次调整后 450ms 才真正发请求。 */
+        private const val SEARCH_RELOAD_DEBOUNCE_MS = 450L
     }
 
     init {
@@ -289,8 +337,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         viewModelScope.launch {
-            repository.quickPresetsFlow.collect {
-                _quickPresets.value = it
+            repository.searchPresetsFlow.collect {
+                _searchPresets.value = it
             }
         }
         viewModelScope.launch {
@@ -542,15 +590,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** 分词计数：-1 = 抓取中，-2 = 失败；空 map = 不展示。 */
     val searchKeywordCounts: StateFlow<Map<String, Int>> = _searchKeywordCounts.asStateFlow()
 
-    private fun loadKeywordCounts(query: String) {
-        // 分词 = 输入框词 + 筛选面板关键词；`@keywords` 是组语法标记不是搜索词，
+    private fun loadKeywordCounts(query: String, filters: com.furflix.app.data.model.SearchFilters, gen: Int) {
+        // 分词 = 输入框词 + 筛选面板关键词/性别；`@keywords` 是组语法标记不是搜索词，
         // `!` 排除极性对计数无意义，按词本身计
         val tokens = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() && it != "@keywords" }
-        val words = (tokens + _searchFilters.value.keywords)
+        val words = (tokens + filters.keywords + filters.genders)
             .map { it.removePrefix("!") }
             .filter { it.isNotBlank() }
             .distinct()
-        if (words.size < 2 || words.size > 4) {
+        if (words.size < 2 || words.size > 4 || gen != searchGeneration) {
             _searchKeywordCounts.value = emptyMap()
             return
         }
@@ -559,19 +607,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             words.forEach { word ->
                 launch {
                     try {
-                        val result = repository.search(word, 1, _searchFilters.value)
-                        _searchKeywordCounts.value = _searchKeywordCounts.value + (word to result.size)
+                        val result = repository.search(word, 1, filters)
+                        if (gen == searchGeneration) {
+                            _searchKeywordCounts.value = _searchKeywordCounts.value + (word to result.size)
+                        }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (_: Exception) {
-                        _searchKeywordCounts.value = _searchKeywordCounts.value + (word to -2)
+                        if (gen == searchGeneration) {
+                            _searchKeywordCounts.value = _searchKeywordCounts.value + (word to -2)
+                        }
                     }
                 }
             }
         }
     }
 
-    fun loadSearch(query: String) {
+    /**
+     * 发起一次全新搜索：原子替换 (查询词, 筛选)，取消旧请求，
+     * 旧回包按代次号丢弃——单次查询逻辑独立闭环。
+     */
+    fun loadSearch(query: String, filters: com.furflix.app.data.model.SearchFilters? = null) {
+        if (filters != null) _searchFilters.value = filters
         val currentFilters = _searchFilters.value
-        if (query.isBlank() && currentFilters.keywords.isEmpty()) return
+        if (query.isBlank() && !currentFilters.hasKeywords) return
         _searchQuery.value = query
         _hasSearched.value = true
         searchPage = 1
@@ -581,6 +640,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val itemsToAdd = mutableListOf<String>()
         if (trimmed.isNotEmpty()) itemsToAdd.add(trimmed)
         itemsToAdd.addAll(currentFilters.keywords)
+        itemsToAdd.addAll(currentFilters.genders)
 
         // Remember the filter set for the next launch (prefills the panels only;
         // nothing is auto-researched on startup).
@@ -594,25 +654,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        viewModelScope.launch {
-            _searchSubmissions.value = emptyList()
-            _isLoading.value = true
-            _errorMessage.value = null
-            try {
-                val result = repository.search(query, searchPage, currentFilters)
-                _searchSubmissions.value = result
-                prefetchSubmissionStats(result.map { it.id })
-                // An empty result is the empty state, not an error — the screen
-                // renders its "no results" branch without an error banner.
-            } catch (e: Exception) {
-                _errorMessage.value = getApplication<Application>().getString(
-                    R.string.error_generic, e.message ?: ""
-                )
-            }
-            _isLoading.value = false
+        searchJob?.cancel()
+        keywordCountsJob?.cancel()
+        loadMoreJob?.cancel()
+        val gen = ++searchGeneration
+        searchJob = viewModelScope.launch {
+            searchOnce(query, currentFilters, gen)
         }
-        // 多词搜索时逐词并行抓取计数（首页抓取数口径，见 RFC §11/C9）
-        loadKeywordCounts(query)
     }
 
     fun loadWatchlist() {
@@ -639,7 +687,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadMore() {
         if (_isLoadingMore.value) return
         _isLoadingMore.value = true
-        viewModelScope.launch {
+        loadMoreJob?.cancel()
+        val gen = searchGeneration
+        val searchFilters = _searchFilters.value
+        loadMoreJob = viewModelScope.launch {
             try {
                 val (page, result) = when (_selectedTab.value) {
                     TAB_BROWSE -> {
@@ -654,8 +705,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     TAB_SEARCH -> {
                         if (!searchHasMore) { _isLoadingMore.value = false; return@launch }
+                        // 新搜索仍在途（或已被替换）：绝不把旧页追加进新结果集
+                        if (searchJob?.isActive == true || gen != searchGeneration) {
+                            _isLoadingMore.value = false; return@launch
+                        }
                         searchPage++
-                        searchPage to repository.search(_searchQuery.value, searchPage, _searchFilters.value)
+                        searchPage to repository.search(_searchQuery.value, searchPage, searchFilters)
                     }
                     else -> {
                         if (!browseHasMore) { _isLoadingMore.value = false; return@launch }
@@ -688,11 +743,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     TAB_SEARCH -> {
+                        if (gen != searchGeneration) {
+                            // 请求在途期间发生了新搜索：丢弃旧页并回滚页码
+                            searchPage--
+                            _isLoadingMore.value = false
+                            return@launch
+                        }
                         val unique = result.filter { r -> _searchSubmissions.value.none { it.id == r.id } }
                         // Full page = possibly more pages; a short page means the
                         // site has no more to give, so don't burn one more request
                         // just to learn that.
-                        searchHasMore = result.size >= com.furflix.app.data.SEARCH_PAGE_SIZE && unique.isNotEmpty()
+                        searchHasMore = result.size >= searchFilters.perpage && unique.isNotEmpty()
                         if (unique.isNotEmpty()) {
                             _searchSubmissions.value = _searchSubmissions.value + unique
                             prefetchSubmissionStats(unique.map { it.id })

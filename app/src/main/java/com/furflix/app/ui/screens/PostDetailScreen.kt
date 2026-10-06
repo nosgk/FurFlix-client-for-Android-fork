@@ -408,7 +408,12 @@ fun PostDetailScreen(
                                         tags = sub.tags,
                                         onTagClick = onTagClick,
                                         onTagAppend = onTagAppend,
-                                        onTagSavePreset = { viewModel.addQuickPreset("@keywords $it") }
+                                        onTagSavePreset = {
+                                            // 标签长按保存：查询词固定为该标签组，沿用当前筛选快照
+                                            viewModel.addSearchPreset(
+                                                "", "@keywords $it", viewModel.searchFilters.value
+                                            )
+                                        }
                                     )
                                 }
                             }

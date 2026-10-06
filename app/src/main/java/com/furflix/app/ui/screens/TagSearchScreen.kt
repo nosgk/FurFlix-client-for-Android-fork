@@ -35,7 +35,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.furflix.app.R
-import com.furflix.app.data.model.GalleryViewMode
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.LoadingMoreFooter
 import com.furflix.app.ui.components.PawPullRefreshBox
@@ -67,8 +66,13 @@ fun TagSearchScreen(
 
     val context = LocalContext.current
     val repository = remember { FurRepository.getInstance(context) }
-    // 画廊三视图与全局共用（网格/瀑布流/列表），列数偏好同源
-    val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
+    val coroutineScope = rememberCoroutineScope()
+    // 搜索结果视图与首页搜索 tab 共用同一偏好（紧凑/瀑布流/大图/列表）
+    val searchView by repository.searchViewModeFlow.collectAsState(
+        initial = com.furflix.app.data.model.SearchResultView.MASONRY
+    )
+    var pendingSearchView by remember { mutableStateOf<com.furflix.app.data.model.SearchResultView?>(null) }
+    val effectiveSearchView = pendingSearchView ?: searchView
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
 
     // 画廊卡片统计浮层预热：列表新增条目静默回填三项统计与文件类型徽标（共享预热器）
@@ -149,6 +153,12 @@ fun TagSearchScreen(
                     onFilterChange = { newFilters ->
                         draftFilters = newFilters
                         viewModel.updateSearchFilters(newFilters)
+                    },
+                    searchView = effectiveSearchView,
+                    onToggleSearchView = {
+                        val next = effectiveSearchView.next()
+                        pendingSearchView = next
+                        coroutineScope.launch { repository.saveSearchViewMode(next) }
                     }
                 )
 
@@ -192,7 +202,12 @@ fun TagSearchScreen(
                     InlineSearchFilters(
                         filters = draftFilters,
                         onFiltersChanged = { draftFilters = it },
-                        onClear = { draftFilters = com.furflix.app.data.model.SearchFilters() }
+                        onClear = { draftFilters = com.furflix.app.data.model.SearchFilters() },
+                        query = searchQuery,
+                        onRunQuery = { q -> viewModel.loadSearch(q) },
+                        onSavePreset = { name ->
+                            mainViewModel.addSearchPreset(name, searchQuery, draftFilters)
+                        }
                     )
                 }
 
@@ -252,17 +267,22 @@ fun TagSearchScreen(
                         selectionActive = selectionActive,
                         isSelected = selectionActive && selection.ids.contains(submission.id),
                         onLongClick = { com.furflix.app.data.selection.SelectionStore.toggle(pageSource, submission.id) },
-                        showTitle = viewMode == GalleryViewMode.GRID,
-                        compact = viewMode != GalleryViewMode.LIST,
-                        ratio = if (viewMode == GalleryViewMode.MASONRY) submission.thumbnailWidthOnHeightRatio else 0f,
+                        showTitle = when (effectiveSearchView) {
+                            com.furflix.app.data.model.SearchResultView.COMPACT -> false
+                            else -> true
+                        },
+                        compact = effectiveSearchView != com.furflix.app.data.model.SearchResultView.LIST,
+                        ratio = if (effectiveSearchView == com.furflix.app.data.model.SearchResultView.MASONRY) {
+                            submission.thumbnailWidthOnHeightRatio
+                        } else 0f,
                         stats = cardStats[submission.id],
                         onAuthorClick = { onNavigateToUser(it) }
                     )
                 }
 
-                Crossfade(targetState = viewMode, animationSpec = tween(300), label = "tagViewMode") { mode ->
+                Crossfade(targetState = effectiveSearchView, animationSpec = tween(300), label = "tagViewMode") { mode ->
                     when (mode) {
-                        GalleryViewMode.MASONRY -> {
+                        com.furflix.app.data.model.SearchResultView.MASONRY -> {
                             val staggeredState = rememberLazyStaggeredGridState()
                             LazyVerticalStaggeredGrid(
                                 columns = masonryGridCells(gridColumnsPref),
@@ -297,7 +317,7 @@ fun TagSearchScreen(
                                 }
                             }
                         }
-                        GalleryViewMode.LIST -> {
+                        com.furflix.app.data.model.SearchResultView.LIST -> {
                             val listState = rememberLazyListState()
                             LazyColumn(
                                 state = listState,
@@ -330,7 +350,12 @@ fun TagSearchScreen(
                             val gridState = rememberLazyGridState()
                             LazyVerticalGrid(
                                 modifier = Modifier.fillMaxSize(),
-                                columns = galleryGridCells(gridColumnsPref, isList = false),
+                                // 紧凑 = 自适应多列（160dp 下限），大图 = 固定 2 列
+                                columns = if (mode == com.furflix.app.data.model.SearchResultView.LARGE) {
+                                    GridCells.Fixed(2)
+                                } else {
+                                    galleryGridCells(0)
+                                },
                                 state = gridState,
                                 contentPadding = PaddingValues(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 86.dp),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),

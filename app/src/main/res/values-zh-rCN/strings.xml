@@ -19,6 +19,11 @@
     <!-- Content descriptions -->
     <string name="cd_download">下载</string>
     <string name="cd_share">分享</string>
+    <string name="cd_search_view_compact">紧凑网格视图</string>
+    <string name="cd_search_view_masonry">瀑布流视图</string>
+    <string name="cd_search_view_large">大图网格视图</string>
+    <string name="cd_search_view_list">列表视图</string>
+    <string name="cd_site_banner">Fur Affinity 今日横幅</string>
 
     <!-- Search -->
 
@@ -265,8 +270,14 @@
     <string name="filter_time_5y">5 年</string>
     <string name="filter_time_all">全部时间</string>
     <string name="filter_time_90d">90 天</string>
+    <!-- FA manual 范围:range=manual + range_from/range_to(yyyy-MM-dd) -->
+    <string name="filter_time_custom">自定义范围</string>
+    <string name="filter_time_from">起始日期</string>
+    <string name="filter_time_to">结束日期</string>
 
     <string name="filter_species">物种</string>
+    <string name="filter_species_search">键入以筛选…</string>
+    <string name="filter_species_narrow">继续键入查看更多</string>
     <!-- 搜索语法速查(FA 原生 Lucene 系操作符,源自 /help/#search) -->
     <string name="search_syntax_title">搜索语法</string>
     <string name="search_syntax_intro">匹配标题、描述、文件名、关键词与上传者账号名;不区分大小写;字段搜索为精确匹配。</string>
@@ -289,6 +300,21 @@
     <string name="filter_type_story">小说</string>
     <string name="filter_type_poetry">诗歌</string>
 
+    <!-- 性别复选:并进 @keywords 组,与 FA 站点 JS 语义一致 -->
+    <string name="filter_gender">性别</string>
+    <string name="filter_gender_male">公</string>
+    <string name="filter_gender_female">母</string>
+    <string name="filter_gender_trans_male">跨性别公</string>
+    <string name="filter_gender_trans_female">跨性别母</string>
+    <string name="filter_gender_intersex">间性</string>
+    <string name="filter_gender_non_binary">非二元</string>
+
+    <!-- 合并的排序预设(排序依据 × 方向),供快捷行使用 -->
+    <string name="filter_sort_recent">最新在前</string>
+    <string name="filter_sort_oldest">最早在前</string>
+    <string name="filter_sort_popular">最热门</string>
+    <string name="filter_perpage">每页结果数</string>
+
 
     <string name="profile_following_list">正在关注</string>
     <string name="profile_followers_list">关注者</string>
@@ -307,6 +333,8 @@
     <string name="tag_action_copy">复制标签</string>
     <string name="toast_tag_copied">标签已复制</string>
     <string name="toast_preset_saved">已加入快捷预设</string>
+    <string name="search_save_preset">保存检索为预设</string>
+    <string name="search_preset_name">预设名称</string>
 
     <string name="profile_about">个人简介</string>
     <string name="profile_show_more">展开更多</string>
