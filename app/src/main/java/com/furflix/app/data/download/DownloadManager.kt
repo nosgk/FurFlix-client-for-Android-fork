@@ -81,7 +81,7 @@ object DownloadManager {
     private val KNOWN_EXTS = IMAGE_EXTS + AUDIO_EXTS + DOC_EXTS
 
     /** 扩展名 → MediaStore 集合：Q+ 按类型插入 Images/Audio/Downloads。 */
-    @android.annotation.RequiresApi(android.os.Build.VERSION_CODES.Q)
+    @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.Q)
     private fun mediaCollectionFor(ext: String): android.net.Uri = when {
         ext in AUDIO_EXTS -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         ext in IMAGE_EXTS -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
