@@ -28,11 +28,14 @@ object ImageLoaderFactory {
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            // 连接池保活对齐并发上限：快速滑动/回滚时 t.furaffinity.net 的空闲
+            // 连接仍在池内，省去反复 TCP+TLS 握手（首字节可提前数百毫秒）
+            .connectionPool(okhttp3.ConnectionPool(16, 5, TimeUnit.MINUTES))
             // 画廊缩略图几乎全在 t.furaffinity.net 单一 host：OkHttp 默认每 host
-            // 5 并发会让首屏互相排队，提到 12 保障当前浏览画面优先吃满带宽
+            // 5 并发会让首屏互相排队，提到 16 保障当前浏览画面优先吃满带宽
             .dispatcher(okhttp3.Dispatcher().apply {
-                maxRequests = 48
-                maxRequestsPerHost = 12
+                maxRequests = 64
+                maxRequestsPerHost = 16
             })
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
@@ -70,7 +73,9 @@ object ImageLoaderFactory {
             }
             .memoryCache {
                 coil3.memory.MemoryCache.Builder()
-                    .maxSizePercent(context, 0.25)
+                    // 25% → 30%：回滚已看过画面更多直接命中内存（零解码零 IO），
+                    // 网格/瀑布流反复扫动的场景收益明显
+                    .maxSizePercent(context, 0.30)
                     .build()
             }
             .diskCache(
