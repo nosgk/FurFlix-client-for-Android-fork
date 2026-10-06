@@ -65,6 +65,12 @@ fun SettingsScreen(
     val displayPath = downloadPath.ifEmpty { "Pictures/FurFlix" }
     var showDownloadFolderDialog by remember { mutableStateOf(false) }
 
+    // 下载方式：copy = 复制详情页正式载入的文件；original = 下载原图原件
+    val downloadMethod by repository2.downloadMethodFlow.collectAsState(
+        initial = com.furflix.app.data.repository.FurRepository.DOWNLOAD_METHOD_COPY
+    )
+    var showDownloadMethodDialog by remember { mutableStateOf(false) }
+
     var showLanguageDialog by remember { mutableStateOf(false) }
     val appLocales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
     val currentLanguageCode = appLocales[0]?.language
@@ -196,6 +202,20 @@ fun SettingsScreen(
                         subtitle = displayPath,
                         onClick = { showDownloadFolderDialog = true }
                     )
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = Icons.Default.FileCopy,
+                        iconColor = Color(0xFF03A9F4),
+                        title = stringResource(R.string.settings_download_method),
+                        subtitle = stringResource(
+                            if (downloadMethod == com.furflix.app.data.repository.FurRepository.DOWNLOAD_METHOD_ORIGINAL) {
+                                R.string.settings_download_method_original
+                            } else {
+                                R.string.settings_download_method_copy
+                            }
+                        ),
+                        onClick = { showDownloadMethodDialog = true }
+                    )
                 }
 
                 // --- About Group ---
@@ -287,6 +307,91 @@ fun SettingsScreen(
                                 )
                                 if (isSelected) {
                                     Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDownloadMethodDialog) {
+        Dialog(onDismissRequest = { showDownloadMethodDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        DialogIconTile(icon = Icons.Default.FileCopy, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            stringResource(R.string.settings_download_method),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            com.furflix.app.data.repository.FurRepository.DOWNLOAD_METHOD_COPY to R.string.settings_download_method_copy_desc,
+                            com.furflix.app.data.repository.FurRepository.DOWNLOAD_METHOD_ORIGINAL to R.string.settings_download_method_original_desc
+                        ).forEach { (method, descRes) ->
+                            val isSelected = downloadMethod == method
+                            val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                            val borderColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                            val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(bgColor)
+                                    .border(1.dp, borderColor, RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        scope2.launch { repository2.saveDownloadMethod(method) }
+                                        showDownloadMethodDialog = false
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    if (method == com.furflix.app.data.repository.FurRepository.DOWNLOAD_METHOD_ORIGINAL) {
+                                        Icons.Default.Download
+                                    } else {
+                                        Icons.Default.FileCopy
+                                    },
+                                    contentDescription = null,
+                                    tint = textColor,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        stringResource(
+                                            if (method == com.furflix.app.data.repository.FurRepository.DOWNLOAD_METHOD_ORIGINAL) {
+                                                R.string.settings_download_method_original
+                                            } else {
+                                                R.string.settings_download_method_copy
+                                            }
+                                        ),
+                                        color = textColor,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        stringResource(descRes),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (isSelected) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }

@@ -42,6 +42,19 @@ class FurRepository(private val context: Context) {
         const val DETAIL_SPLIT_MIN = 50
         const val DETAIL_SPLIT_MAX = 75
 
+        /**
+         * 下载方式取值（downloadMethodFlow）：
+         * copy = 复制详情页正式载入的展示文件（缓存命中零网络，与所看即所得一致）；
+         * original = 下载原图（d.furaffinity.net 原件，展示文件是它的站点压缩/转码版）。
+         */
+        const val DOWNLOAD_METHOD_COPY = "copy"
+        const val DOWNLOAD_METHOD_ORIGINAL = "original"
+
+        /** 详情页画质档位（detailImageQualityFlow）：AUTO 跟随布局约束；其余为最长边像素上限；ORIGINAL 不限。 */
+        const val DETAIL_QUALITY_AUTO = 0
+        const val DETAIL_QUALITY_ORIGINAL = -1
+        val DETAIL_QUALITY_TIERS = listOf(1080, 1440, 2160)
+
         /** 关注卡片背景来源取值（watchlistBannerSourceFlow） */
         const val WATCHLIST_BANNER_SOURCE_BANNER = "banner"
         const val WATCHLIST_BANNER_SOURCE_LATEST = "latest_thumb"
@@ -71,6 +84,8 @@ class FurRepository(private val context: Context) {
         private val BLOCKED_ARTISTS_KEY = stringPreferencesKey("blocked_artists")
         private val NSFW_ENABLED_KEY = booleanPreferencesKey("nsfw_enabled")
     private val DOWNLOAD_FOLDER_KEY = stringPreferencesKey("download_folder")
+    private val DOWNLOAD_METHOD_KEY = stringPreferencesKey("download_method")
+    private val DETAIL_IMAGE_QUALITY_KEY = intPreferencesKey("detail_image_quality")
     private val LAST_SEARCH_FILTERS_KEY = stringPreferencesKey("last_search_filters")
     private val QUICK_PRESETS_KEY = stringPreferencesKey("quick_presets")
     private val SEARCH_PRESETS_KEY = stringPreferencesKey("search_presets_v2")
@@ -545,6 +560,36 @@ class FurRepository(private val context: Context) {
 
     suspend fun saveDownloadFolder(uriString: String) {
         context.dataStore.edit { prefs -> prefs[DOWNLOAD_FOLDER_KEY] = uriString }
+    }
+
+    /**
+     * 下载方式：copy（默认）= 复制详情页正式载入的文件，所看即所得；
+     * original = 下载原图原件（文件更大的原始上传，不受站点展示转码影响）。
+     */
+    val downloadMethodFlow: kotlinx.coroutines.flow.Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[DOWNLOAD_METHOD_KEY] ?: DOWNLOAD_METHOD_COPY
+    }
+
+    suspend fun saveDownloadMethod(method: String) {
+        context.dataStore.edit { prefs ->
+            prefs[DOWNLOAD_METHOD_KEY] =
+                if (method == DOWNLOAD_METHOD_ORIGINAL) DOWNLOAD_METHOD_ORIGINAL else DOWNLOAD_METHOD_COPY
+        }
+    }
+
+    /** 详情页画质档位（最长边像素上限；AUTO 跟随显示，ORIGINAL 不限解码尺寸）。 */
+    val detailImageQualityFlow: kotlinx.coroutines.flow.Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[DETAIL_IMAGE_QUALITY_KEY] ?: DETAIL_QUALITY_AUTO
+    }
+
+    suspend fun saveDetailImageQuality(tier: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[DETAIL_IMAGE_QUALITY_KEY] = when (tier) {
+                DETAIL_QUALITY_ORIGINAL -> DETAIL_QUALITY_ORIGINAL
+                in DETAIL_QUALITY_TIERS -> tier
+                else -> DETAIL_QUALITY_AUTO
+            }
+        }
     }
 
     // --- Last search filters (JSON in a single key; unknown fields are

@@ -112,7 +112,7 @@ fun StoryReader(sub: Submission) {
 }
 
 @Composable
-private fun StoryReaderHeader(
+fun StoryReaderHeader(
     entries: List<TranslationEntry>,
     paragraphCount: Int,
     prefs: TranslationUiPrefs,
@@ -203,7 +203,7 @@ private fun StoryReaderHeader(
 }
 
 @Composable
-private fun StoryParagraph(
+fun StoryParagraph(
     paragraph: String,
     entries: List<TranslationEntry>,
     prefs: TranslationUiPrefs
@@ -251,7 +251,7 @@ private fun StoryParagraph(
 }
 
 /** 句子切分：句末标点（含中文标点）后的空白处断开；无标点长段保持单句。 */
-private fun splitSentences(text: String): List<String> =
+fun splitSentences(text: String): List<String> =
     text.split(Regex("(?<=[.!?…。！？])\\s+"))
         .map { it.trim() }
         .filter { it.isNotBlank() }

@@ -89,8 +89,17 @@ fun ZoomableImageViewer(
             }
     ) {
         val retryState = rememberRetryImageState(imageUrl)
+        // 全屏缩放查看器同样吃详情页画质档位：原图档下放大不糊
+        val detailQuality = LocalDetailImageQuality.current
         RetrySubcomposeAsyncImage(
             state = retryState,
+            requestSize = when {
+                detailQuality == com.furflix.app.data.repository.FurRepository.DETAIL_QUALITY_ORIGINAL ->
+                    coil3.size.Size.ORIGINAL
+                detailQuality != com.furflix.app.data.repository.FurRepository.DETAIL_QUALITY_AUTO ->
+                    coil3.size.Size(detailQuality, detailQuality)
+                else -> null
+            },
             contentDescription = stringResource(R.string.cd_artwork),
             contentScale = ContentScale.Fit,
             modifier = Modifier

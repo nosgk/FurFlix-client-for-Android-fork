@@ -178,10 +178,17 @@ object DownloadManager {
             var workUrl = task.url
             var author = task.author
             var title = task.title
+            val method = FurRepository.getInstance(ctx).downloadMethodFlow.first()
             if (workUrl.isEmpty()) {
                 val sub = FurRepository.getInstance(ctx).getSubmission(task.submissionId)
                     ?: throw Exception("Detail unavailable")
-                workUrl = sub.fullImageUrl
+                // 下载方式分流：original = d.furaffinity.net 原件（无下载锚点回落展示文件）；
+                // copy = 详情页正式载入的展示文件
+                workUrl = if (method == FurRepository.DOWNLOAD_METHOD_ORIGINAL) {
+                    sub.fileUrl.ifEmpty { sub.fullImageUrl }
+                } else {
+                    sub.fullImageUrl
+                }
                 author = sub.author
                 title = sub.title
                 if (workUrl.isEmpty()) throw Exception("No full image URL")
@@ -192,6 +199,36 @@ object DownloadManager {
                         title = title,
                         fileName = buildFileName(title, task.submissionId, workUrl)
                     )
+                }
+            }
+            val folderPref = FurRepository.getInstance(ctx).downloadFolderFlow.first()
+
+            // 复制模式零网络快速路径：详情页已把同 URL 文件载入 Coil 磁盘缓存，
+            // 命中即直接复制字节落盘（与屏幕所见逐字节一致）；未命中（批量下载/
+            // 缓存被清）回落下方网络流。原图模式不查缓存。
+            if (method == FurRepository.DOWNLOAD_METHOD_COPY) {
+                val cachedBytes = readImageCacheBytes(ctx, workUrl)
+                if (cachedBytes != null && cachedBytes.isNotEmpty()) {
+                    val ext = resolveExtension(workUrl, null)
+                    val baseName = if (task.kind == DownloadKind.PARSE_THEN_DOWNLOAD) {
+                        buildFileName(title, task.submissionId, workUrl)
+                    } else {
+                        task.fileName
+                    }
+                    val finalName = renameWithExtension(baseName, ext)
+                    update(task.id) {
+                        it.copy(
+                            fileName = finalName,
+                            bytes = cachedBytes.size.toLong(),
+                            totalBytes = cachedBytes.size.toLong()
+                        )
+                    }
+                    persistStream(ctx, ext, finalName, folderPref) { os -> os.write(cachedBytes) }
+                    writeMeta(ctx, task.submissionId, author, title)
+                    update(task.id) { it.copy(status = DownloadStatus.COMPLETED, speedBps = 0) }
+                    toast(ctx, ctx.getString(R.string.toast_download_saved, finalName))
+                    _refreshSignal.emit(Unit)
+                    return
                 }
             }
 
@@ -241,38 +278,10 @@ object DownloadManager {
                     }
                 }
 
-                val folderPref = FurRepository.getInstance(ctx).downloadFolderFlow.first()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val contentValues = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, finalName)
-                        put(MediaStore.MediaColumns.MIME_TYPE, mimeFor(ext))
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, relativePathQ(folderPref, ext))
+                insertedUri = persistStream(ctx, ext, finalName, folderPref) { os ->
+                    body.byteStream().use { input ->
+                        input.copyTo(os)
                     }
-                    val uri = ctx.contentResolver.insert(mediaCollectionFor(ext), contentValues)
-                        ?: throw Exception("MediaStore insert failed")
-                    insertedUri = uri
-                    ctx.contentResolver.openOutputStream(uri)?.use { os ->
-                        body.byteStream().use { input ->
-                            input.copyTo(os)
-                        }
-                    } ?: throw Exception("Output stream unavailable")
-                } else {
-                    @Suppress("DEPRECATION")
-                    val baseDir = when {
-                        folderPref.startsWith("Downloads") -> Environment.DIRECTORY_DOWNLOADS
-                        folderPref.startsWith("DCIM") -> Environment.DIRECTORY_DCIM
-                        else -> envDirFor(ext)
-                    }
-                    val subName = if (folderPref.contains("/")) folderPref.substringAfter("/") else "FurFlix"
-                    val dir = File(Environment.getExternalStoragePublicDirectory(baseDir), subName)
-                    dir.mkdirs()
-                    val file = File(dir, finalName)
-                    FileOutputStream(file).use { fos ->
-                        body.byteStream().use { input ->
-                            input.copyTo(fos)
-                        }
-                    }
-                    android.media.MediaScannerConnection.scanFile(ctx, arrayOf(file.absolutePath), arrayOf(mimeFor(ext)), null)
                 }
 
                 writeMeta(ctx, task.submissionId, author, title)
@@ -281,12 +290,72 @@ object DownloadManager {
                 _refreshSignal.emit(Unit)
             }
         } catch (e: Exception) {
-            // 失败清理：避免留下 MediaStore 空壳条目
+            // 失败清理：避免留下 MediaStore 空壳条目（persistStream 自身已兜一层）
             insertedUri?.let { uri ->
                 runCatching { ctx.contentResolver.delete(uri, null, null) }
             }
             update(task.id) { it.copy(status = DownloadStatus.FAILED, speedBps = 0, error = e.message ?: "Unknown") }
             toast(ctx, ctx.getString(R.string.toast_download_failed, e.message ?: ""))
+        }
+    }
+
+    /**
+     * 复制模式专用：读 Coil 磁盘缓存里同 URL 的字节（详情页正式载入过即命中）。
+     * 缓存实现细节任何一步异常都视为未命中，回落网络流。
+     */
+    private fun readImageCacheBytes(ctx: Context, url: String): ByteArray? = runCatching {
+        com.furflix.app.ui.components.ImageLoaderFactory.getInstance(ctx)
+            .diskCache?.openSnapshot(url)?.let { snapshot ->
+                try {
+                    okio.FileSystem.SYSTEM.source(snapshot.data).buffer().use { it.readByteArray() }
+                } finally {
+                    runCatching { snapshot.close() }
+                }
+            }
+    }.getOrNull()
+
+    /**
+     * 落盘：Q+ 按扩展名插入 MediaStore 对应集合后写入；pre-Q 写公共目录的
+     * FurFlix 子目录并触发媒体扫描。写入失败时撤回已插入的 MediaStore 条目，
+     * 返回插入的 Uri（pre-Q 与文件路径无 Uri 返回 null）。
+     */
+    private inline fun persistStream(
+        ctx: Context,
+        ext: String,
+        finalName: String,
+        folderPref: String,
+        writer: (java.io.OutputStream) -> Unit
+    ): android.net.Uri? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, finalName)
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeFor(ext))
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePathQ(folderPref, ext))
+            }
+            val uri = ctx.contentResolver.insert(mediaCollectionFor(ext), contentValues)
+                ?: throw Exception("MediaStore insert failed")
+            try {
+                ctx.contentResolver.openOutputStream(uri)?.use { os -> writer(os) }
+                    ?: throw Exception("Output stream unavailable")
+            } catch (e: Exception) {
+                runCatching { ctx.contentResolver.delete(uri, null, null) }
+                throw e
+            }
+            return uri
+        } else {
+            @Suppress("DEPRECATION")
+            val baseDir = when {
+                folderPref.startsWith("Downloads") -> Environment.DIRECTORY_DOWNLOADS
+                folderPref.startsWith("DCIM") -> Environment.DIRECTORY_DCIM
+                else -> envDirFor(ext)
+            }
+            val subName = if (folderPref.contains("/")) folderPref.substringAfter("/") else "FurFlix"
+            val dir = File(Environment.getExternalStoragePublicDirectory(baseDir), subName)
+            dir.mkdirs()
+            val file = File(dir, finalName)
+            FileOutputStream(file).use { fos -> writer(fos) }
+            android.media.MediaScannerConnection.scanFile(ctx, arrayOf(file.absolutePath), arrayOf(mimeFor(ext)), null)
+            return null
         }
     }
 

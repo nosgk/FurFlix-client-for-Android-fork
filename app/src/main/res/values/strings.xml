@@ -76,6 +76,10 @@
     <string name="settings_thumbnail_quality">Thumbnail Quality</string>
     <!-- FA CDN serves pixel tiers 200-600; Auto negotiates by displayed size -->
     <string name="settings_thumbnail_quality_desc">CDN tier in px; Auto fits the displayed size</string>
+    <!-- Detail-page artwork quality: resolution cap in px; Original lifts the cap entirely -->
+    <string name="settings_detail_quality">Detail Page Quality</string>
+    <string name="settings_detail_quality_desc">Resolution cap for the detail artwork and zoom viewer; Original decodes at full resolution</string>
+    <string name="settings_detail_quality_original">Original</string>
     <!-- Text size multiplies the system font scale; 1.0 = follow system -->
     <string name="settings_text_size">Text size</string>
     <string name="settings_text_size_desc">Multiplies the system font scale</string>
@@ -139,6 +143,12 @@
     <string name="storage_history_cleared">Search history cleared</string>
     <string name="storage_browse_data_cleared">Viewing history &amp; stats cleared</string>
     <string name="settings_downloads_folder">Downloads Folder</string>
+    <!-- Download method: copy the displayed file vs fetch the d.furaffinity.net original -->
+    <string name="settings_download_method">Download Method</string>
+    <string name="settings_download_method_copy">Copy displayed file</string>
+    <string name="settings_download_method_copy_desc">Save the exact file the detail page loaded — cache hit means zero re-download</string>
+    <string name="settings_download_method_original">Download original</string>
+    <string name="settings_download_method_original_desc">Fetch the original upload from d.furaffinity.net</string>
     <string name="settings_filters_content">Filters &amp; Content</string>
     <string name="settings_filters_desc">Content hiding and blacklists.</string>
     <string name="settings_language">Language</string>
@@ -221,6 +231,19 @@
     <!-- %1$d = done count, %2$d = total units -->
     <string name="story_translating_progress">Translating %1$d/%2$d</string>
     <string name="story_hide_translations">Hide translations</string>
+    <!-- Full-screen document viewer (txt/docx/odt/rtf "store" submissions) -->
+    <string name="doc_open_viewer">Read document</string>
+    <string name="cd_document_find">Find in document</string>
+    <string name="cd_document_copy_all">Copy full text</string>
+    <string name="document_find_hint">Find in document…</string>
+    <string name="document_find_prev">Previous match</string>
+    <string name="document_find_next">Next match</string>
+    <string name="document_load_failed">Failed to load document</string>
+    <string name="document_unsupported">This format can\'t be opened in the built-in viewer. Download it below and open with any document app.</string>
+    <!-- %1$d = embedded image count -->
+    <string name="document_media_count">%1$d embedded images</string>
+    <string name="toast_copied_to_clipboard">Copied to clipboard</string>
+    <string name="toast_document_full_copied">Full text copied</string>
     <!-- Comment threading -->
     <string name="comments_replies_count">%d replies</string>
     <string name="comments_parents_hidden">%d parent comments hidden</string>
@@ -321,6 +344,7 @@
     <string name="search_recent">Recent Searches</string>
     <string name="search_clear_recent">Clear</string>
     <string name="search_furaffinity">Search FurAffinity</string>
+    <!-- Server-side query stats (FA #query-stats): per-term hits + result window + time -->
 
     <!-- Quick presets & tag long-press actions -->
     <string name="search_presets">Quick Presets</string>

@@ -105,6 +105,7 @@ import com.furflix.app.ui.components.GifFrameViewer
 import com.furflix.app.ui.components.AudioHeroContent
 import com.furflix.app.ui.components.PdfHeroContent
 import com.furflix.app.ui.components.DocumentHeroContent
+import com.furflix.app.ui.components.DocumentViewerScreen
 import com.furflix.app.ui.theme.*
 import com.furflix.app.viewmodel.MainViewModel
 import dev.chrisbanes.haze.HazeState
@@ -213,6 +214,7 @@ fun PostDetailScreen(
         var scrollRootY by remember { mutableFloatStateOf(0f) }
         var tabsAnchorY by remember { mutableFloatStateOf(Float.NaN) }
         var showZoom by remember { mutableStateOf(false) }
+        var showDocumentViewer by remember { mutableStateOf(false) }
         val downloadTask by DownloadManager.tasks.collectAsState()
         val myDownloadTask = downloadTask.lastOrNull { it.submissionId == currentPostId }
         var downloadCompletedRecently by remember { mutableStateOf(false) }
@@ -469,7 +471,8 @@ fun PostDetailScreen(
                                 modifier = Modifier
                                     .weight(detailSplit.toFloat())
                                     .fillMaxHeight(),
-                                onImageClick = { showZoom = true }
+                                onImageClick = { showZoom = true },
+                                onOpenDocumentViewer = { showDocumentViewer = true }
                             )
                             detailBody(
                                 Modifier
@@ -486,7 +489,12 @@ fun PostDetailScreen(
                                 .onGloballyPositioned { scrollRootY = it.positionInRoot().y }
                         ) {
                             // ── Hero image ──────────────────────────────────────
-                            HeroImage(sub, placeholderUrl = listThumbnailUrl, onImageClick = { showZoom = true })
+                            HeroImage(
+                                sub,
+                                placeholderUrl = listThumbnailUrl,
+                                onImageClick = { showZoom = true },
+                                onOpenDocumentViewer = { showDocumentViewer = true }
+                            )
                             detailBody(Modifier)
                         }
                     }
@@ -586,11 +594,12 @@ fun PostDetailScreen(
                                     viewModel.toggleFavorite(currentPostId)
                                 }
                                 3 -> {
-                                    if (sub.fullImageUrl.isNotEmpty()) {
+                                    // 下载方式决定实际 URL（复制展示文件/下载原图），任务已按
+                                    // submissionId 归属本页；失败任务直接重试，不比 URL
+                                    if (sub.fullImageUrl.isNotEmpty() || sub.fileUrl.isNotEmpty()) {
                                         val failed = myDownloadTask?.takeIf { it.status == DownloadStatus.FAILED }
                                         when {
-                                            failed != null && failed.url == sub.fullImageUrl ->
-                                                DownloadManager.retry(failed.id)
+                                            failed != null -> DownloadManager.retry(failed.id)
                                             !downloadBusy -> viewModel.downloadImage(sub)
                                             else -> Unit
                                         }
@@ -603,11 +612,11 @@ fun PostDetailScreen(
             }
 
             // Full-screen viewers: Flash → Ruffle WebView；GIF → 逐帧播放器；其余 → 缩放查看器；
-            // 音频/PDF/文档在主媒体区内处理，无全屏图片查看器
+            // 音频/PDF/文档类在主媒体区内处理，无全屏图片查看器
             val zoomSubmission = submission
             if (showZoom && zoomSubmission?.fullImageUrl?.isNotEmpty() == true &&
                 !isAudioSubmission(zoomSubmission) && !isPdfSubmission(zoomSubmission) &&
-                !isDocumentSubmission(zoomSubmission)
+                !isStoreDocumentSubmission(zoomSubmission)
             ) {
                 when {
                     zoomSubmission.fileExt == "swf" || zoomSubmission.fileType.equals("Flash", true) -> {
@@ -641,6 +650,17 @@ fun PostDetailScreen(
                     }
                 }
             }
+
+            // 全屏文档查看器（txt/docx/odt/rtf）：覆盖详情页一切层级
+            val docSubmission = submission
+            if (showDocumentViewer && docSubmission != null && isStoreDocumentSubmission(docSubmission)) {
+                DocumentViewerScreen(
+                    title = docSubmission.title,
+                    fileUrl = docSubmission.fileUrl.ifEmpty { docSubmission.fullImageUrl },
+                    initialText = docSubmission.storyText,
+                    onClose = { showDocumentViewer = false }
+                )
+            }
         }
     }
 }
@@ -654,7 +674,8 @@ private fun TwoPaneHeroImage(
     sub: Submission,
     placeholderUrl: String?,
     modifier: Modifier = Modifier,
-    onImageClick: () -> Unit = {}
+    onImageClick: () -> Unit = {},
+    onOpenDocumentViewer: () -> Unit = {}
 ) {
     // Flash：海报 + 播放按钮，点击进 Ruffle 全屏层
     if (sub.fileExt == "swf" || sub.fileType.equals("Flash", true)) {
@@ -685,12 +706,13 @@ private fun TwoPaneHeroImage(
         )
         return
     }
-    // 文档类（doc/docx/rtf 等）：元信息卡 + 下载提示
-    if (isDocumentSubmission(sub)) {
+    // 文档类（doc/docx/rtf/odt/txt）：元信息卡 + 全屏文档查看器入口
+    if (isStoreDocumentSubmission(sub)) {
         DocumentHeroContent(
             fileName = sub.fileName.ifEmpty { sub.title },
             fileSize = sub.fileSize,
             coverUrl = placeholderUrl,
+            onOpenViewer = onOpenDocumentViewer,
             modifier = modifier
         )
         return
@@ -787,11 +809,18 @@ private val DOCUMENT_EXTS = setOf("doc", "docx", "rtf", "odt")
 private fun isDocumentSubmission(sub: Submission): Boolean =
     sub.fileExt.lowercase() in DOCUMENT_EXTS
 
+/** 文档/store 类全集：文档类型 + 纯文本（.txt 正文走阅读器，绝不能进图片解码器）。 */
+private val TEXT_DOC_EXTS = setOf("txt")
+
+private fun isStoreDocumentSubmission(sub: Submission): Boolean =
+    sub.fileExt.lowercase() in TEXT_DOC_EXTS || isDocumentSubmission(sub)
+
 @Composable
 private fun HeroImage(
     sub: Submission,
     placeholderUrl: String?,
-    onImageClick: () -> Unit = {}
+    onImageClick: () -> Unit = {},
+    onOpenDocumentViewer: () -> Unit = {}
 ) {
     // Flash：海报 + 播放按钮，点击进 Ruffle 全屏层
     if (sub.fileExt == "swf" || sub.fileType.equals("Flash", true)) {
@@ -822,12 +851,13 @@ private fun HeroImage(
         )
         return
     }
-    // 文档类（doc/docx/rtf 等）：元信息卡 + 下载提示
-    if (isDocumentSubmission(sub)) {
+    // 文档类（doc/docx/rtf/odt/txt）：元信息卡 + 全屏文档查看器入口
+    if (isStoreDocumentSubmission(sub)) {
         DocumentHeroContent(
             fileName = sub.fileName.ifEmpty { sub.title },
             fileSize = sub.fileSize,
             coverUrl = placeholderUrl,
+            onOpenViewer = onOpenDocumentViewer,
             modifier = Modifier.fillMaxWidth()
         )
         return

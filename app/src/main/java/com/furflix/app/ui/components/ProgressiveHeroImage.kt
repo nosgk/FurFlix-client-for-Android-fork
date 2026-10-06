@@ -65,6 +65,7 @@ fun ProgressiveImageContent(
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         val quality = LocalThumbnailQuality.current
+        val detailQuality = LocalDetailImageQuality.current
 
         // 占位 URL：按本盒物理像素与清晰度偏好协商（与卡片/预取同源机制），
         // 必须是真缩略档（@NNN-）且不等于原图，否则放弃占位。
@@ -97,6 +98,15 @@ fun ProgressiveImageContent(
 
         val retryState = rememberRetryImageState(fullUrl)
         RetrySubcomposeAsyncImage(
+            state = retryState,
+            requestSize = remember(detailQuality, maxWidth, maxHeight, density.density, ratio) {
+                when {
+                    detailQuality == com.furflix.app.data.repository.FurRepository.DETAIL_QUALITY_AUTO -> null
+                    detailQuality == com.furflix.app.data.repository.FurRepository.DETAIL_QUALITY_ORIGINAL ->
+                        coil3.size.Size.ORIGINAL
+                    else -> coil3.size.Size(detailQuality, detailQuality)
+                }
+            },
             state = retryState,
             modifier = imageModifier.then(
                 if (onImageClick != null) Modifier.clickable(onClick = onImageClick) else Modifier

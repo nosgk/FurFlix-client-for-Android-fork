@@ -22,6 +22,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -271,15 +272,17 @@ private fun PdfFailedState(coverUrl: String?, onRetry: () -> Unit) {
 }
 
 /**
- * 文档类作品（doc/docx/rtf/odt 等无系统渲染器的类型）：元信息卡 + 下载提示。
- * 文件内容本身交给底栏下载后由系统应用打开。
+ * 文档类作品（doc/docx/rtf/odt/txt 等类型）主媒体区：元信息卡 +
+ * [onOpenViewer] 非空时提供全屏文档查看器入口（自研查看器承担正文/翻译/
+ * 查找/复制/媒体图）；为空时仅下载提示，文件交给系统应用打开。
  */
 @Composable
 fun DocumentHeroContent(
     fileName: String,
     fileSize: String,
     coverUrl: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenViewer: (() -> Unit)? = null
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -348,6 +351,37 @@ fun DocumentHeroContent(
         if (fileSize.isNotEmpty()) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = fileSize, fontSize = 12.sp, color = SubtleGray)
+        }
+        if (onOpenViewer != null) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Surface(
+                onClick = onOpenViewer,
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                )
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.MenuBook,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(7.dp))
+                    Text(
+                        text = stringResource(R.string.doc_open_viewer),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
         Spacer(modifier = Modifier.height(10.dp))
         Text(

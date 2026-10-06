@@ -60,6 +60,7 @@ fun AppearanceSettingsScreen(
     val persistedViewMode by repository.viewModeFlow.collectAsState(initial = com.furflix.app.data.model.GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
     val thumbnailQuality by repository.thumbnailQualityFlow.collectAsState(initial = 0)
+    val detailImageQuality by repository.detailImageQualityFlow.collectAsState(initial = FurRepository.DETAIL_QUALITY_AUTO)
     val detailLayoutPref by repository.detailLayoutFlow.collectAsState(initial = FurRepository.DETAIL_LAYOUT_AUTO)
     val detailSplit by repository.detailSplitFlow.collectAsState(initial = FurRepository.DETAIL_SPLIT_DEFAULT)
     val textScale by repository.textScaleFlow.collectAsState(initial = 1f)
@@ -455,8 +456,55 @@ fun AppearanceSettingsScreen(
                 }
             }
 
-            // --- Text size (multiplies the system font scale) ---
+            // --- Detail page image quality (0 = follow display, -1 = original) ---
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.HighQuality, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.settings_detail_quality),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_detail_quality_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Auto → 各像素档 → 原图（不限解码尺寸）；像素档即最长边上限
+                val detailQualityOptions = listOf(
+                    stringResource(R.string.settings_thumb_quality_auto) to FurRepository.DETAIL_QUALITY_AUTO
+                ) + FurRepository.DETAIL_QUALITY_TIERS.map { tier -> "${tier}px" to tier } +
+                    listOf(stringResource(R.string.settings_detail_quality_original) to FurRepository.DETAIL_QUALITY_ORIGINAL)
+                detailQualityOptions.forEach { (name, tier) ->
+                    val isSelected = detailImageQuality == tier
+                    val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(bgColor)
+                            .clickable { scope.launch { repository.saveDetailImageQuality(tier) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(name, color = textColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // --- Text size (multiplies the system font scale) ---            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {

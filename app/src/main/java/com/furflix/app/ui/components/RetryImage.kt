@@ -99,6 +99,7 @@ fun RetrySubcomposeAsyncImage(
     contentDescription: String?,
     contentScale: ContentScale = ContentScale.Crop,
     crossfadeMs: Int = 300,
+    requestSize: coil3.size.Size? = null,
     onLoading: () -> Unit = {},
     onSuccess: () -> Unit = {},
     onSettledError: () -> Unit = {},
@@ -110,6 +111,11 @@ fun RetrySubcomposeAsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
             .data(state.effectiveUrl)
             .crossfade(crossfadeMs)
+            .apply {
+                // 详情页画质档位注入点：null = 默认按布局约束解码；
+                // Size.ORIGINAL = 不限解码尺寸（原图档）
+                if (requestSize != null) size(requestSize)
+            }
             .build(),
         imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
         contentDescription = contentDescription,

@@ -17,6 +17,7 @@ import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.data.remote.FaLink
 import com.furflix.app.data.remote.parseFaLink
 import com.furflix.app.data.repository.FurRepository
+import com.furflix.app.ui.components.LocalDetailImageQuality
 import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.screens.*
 import com.furflix.app.viewmodel.MainViewModel
@@ -94,12 +95,18 @@ fun FurFlixNavGraph(
         deepLinkUri.value = null
     }
 
-    // 缩略图清晰度偏好全树注入一次，卡片与预取经 LocalThumbnailQuality 读取
+    // 缩略图清晰度偏好全树注入一次，卡片与预取经 LocalThumbnailQuality 读取；
+    // 详情页画质档位同理注入（详情主图与全屏缩放查看器消费）
     val appContext = LocalContext.current.applicationContext
     val qualityFlow = remember { FurRepository.getInstance(appContext).thumbnailQualityFlow }
     val thumbnailQuality by qualityFlow.collectAsState(initial = DynamicThumbnail.TIER_AUTO)
+    val detailQualityFlow = remember { FurRepository.getInstance(appContext).detailImageQualityFlow }
+    val detailImageQuality by detailQualityFlow.collectAsState(initial = FurRepository.DETAIL_QUALITY_AUTO)
 
-    CompositionLocalProvider(LocalThumbnailQuality provides thumbnailQuality) {
+    CompositionLocalProvider(
+        LocalThumbnailQuality provides thumbnailQuality,
+        LocalDetailImageQuality provides detailImageQuality
+    ) {
         // CF 验证处理：抓取链路命中拦截时全局弹出（人工通过后抓取协程自动重试）
         val cfChallengeUrl by com.furflix.app.data.remote.CloudflareGate.challengeUrl.collectAsState()
         cfChallengeUrl?.let { challengeUrl ->

@@ -80,6 +80,10 @@
     <string name="settings_thumbnail_quality">缩略图清晰度</string>
     <!-- FA CDN 提供 200-600 像素五档;自动按显示尺寸协商档位 -->
     <string name="settings_thumbnail_quality_desc">档位即像素值;自动按显示尺寸协商</string>
+    <!-- 详情页画质:像素上限档;原图=不限解码尺寸 -->
+    <string name="settings_detail_quality">详情页画质</string>
+    <string name="settings_detail_quality_desc">详情主图与缩放查看器的分辨率上限;原图档全分辨率解码</string>
+    <string name="settings_detail_quality_original">原图</string>
     <!-- 文字缩放叠加在系统字体缩放之上;1.0 = 跟随系统 -->
     <string name="settings_text_size">文字大小</string>
     <string name="settings_text_size_desc">叠加在系统字体缩放之上</string>
@@ -144,6 +148,12 @@
     <string name="storage_history_cleared">搜索历史已清空</string>
     <string name="storage_browse_data_cleared">浏览历史与统计已清空</string>
     <string name="settings_downloads_folder">下载文件夹</string>
+    <!-- 下载方式:复制详情页已载入文件 / 下载原图原件 -->
+    <string name="settings_download_method">下载方式</string>
+    <string name="settings_download_method_copy">复制已载入文件</string>
+    <string name="settings_download_method_copy_desc">保存详情页正式载入的同一文件,缓存命中零重复下载</string>
+    <string name="settings_download_method_original">下载原图</string>
+    <string name="settings_download_method_original_desc">从 d.furaffinity.net 抓取上传原件</string>
     <string name="settings_filters_content">筛选与内容</string>
     <string name="settings_filters_desc">内容隐藏与黑名单。</string>
     <string name="settings_language">语言</string>
@@ -227,6 +237,19 @@
     <!-- %1$d = 已完成, %2$d = 总单元数 -->
     <string name="story_translating_progress">翻译中 %1$d/%2$d</string>
     <string name="story_hide_translations">隐藏译文</string>
+    <!-- 全屏文档查看器(txt/docx/odt/rtf 文档类作品) -->
+    <string name="doc_open_viewer">阅读文档</string>
+    <string name="cd_document_find">查找文档文字</string>
+    <string name="cd_document_copy_all">复制全文</string>
+    <string name="document_find_hint">在文档中查找…</string>
+    <string name="document_find_prev">上一个匹配</string>
+    <string name="document_find_next">下一个匹配</string>
+    <string name="document_load_failed">文档加载失败</string>
+    <string name="document_unsupported">该格式暂不支持内置查看,可从下方下载后用任意文档应用打开。</string>
+    <!-- %1$d = 内嵌图片数 -->
+    <string name="document_media_count">文档内嵌 %1$d 张图片</string>
+    <string name="toast_copied_to_clipboard">已复制到剪贴板</string>
+    <string name="toast_document_full_copied">已复制全文</string>
     <!-- 评论楼中楼 -->
     <string name="comments_replies_count">%d 条回复</string>
     <string name="comments_parents_hidden">已隐藏 %d 条父评论</string>
@@ -329,6 +352,7 @@
     <string name="search_recent">最近搜索</string>
     <string name="search_clear_recent">清除</string>
     <string name="search_furaffinity">搜索 FurAffinity</string>
+    <!-- 服务端检索统计(FA #query-stats):逐词命中 + 结果区间 + 耗时 -->
 
     <!-- 快捷预设与标签长按菜单 -->
     <string name="search_presets">快捷预设</string>

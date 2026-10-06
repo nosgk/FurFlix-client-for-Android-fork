@@ -804,17 +804,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * 下载一张原图：仅入队 DownloadManager（进度/速度/状态由任务流承载），
-     * 扩展名从 URL/响应推断，不再假设 .jpg。
+     * 下载一件作品：仅入队 DownloadManager（进度/速度/状态由任务流承载）。
+     * 下载方式分流：original = 下载原件（d.furaffinity.net，无下载锚点回落展示
+     * 文件）；copy（默认）= 复制详情页正式载入的展示文件。
      */
     fun downloadImage(sub: Submission) {
-        DownloadManager.enqueue(
-            context = getApplication(),
-            submissionId = sub.id,
-            url = sub.fullImageUrl,
-            author = sub.author,
-            title = sub.title
-        )
+        viewModelScope.launch {
+            val method = repository.downloadMethodFlow.first()
+            val url = if (method == FurRepository.DOWNLOAD_METHOD_ORIGINAL) {
+                sub.fileUrl.ifEmpty { sub.fullImageUrl }
+            } else {
+                sub.fullImageUrl
+            }
+            if (url.isEmpty()) return@launch
+            DownloadManager.enqueue(
+                context = getApplication(),
+                submissionId = sub.id,
+                url = url,
+                author = sub.author,
+                title = sub.title
+            )
+        }
     }
 
     fun logout() {
