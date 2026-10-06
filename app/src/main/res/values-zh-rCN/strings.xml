@@ -361,8 +361,12 @@
     <string name="toast_batch_favorite_failed">%1$d 项失败</string>
     <!-- %1$d = 删除历史条数 -->
     <string name="toast_history_removed">已删除 %1$d 条历史</string>
-    <!-- 用户页画廊文件夹 -->
+    <!-- 用户页画廊文件夹 / 画廊两个顶级分区(FA 主画廊与 Scraps) -->
     <string name="profile_gallery_folders">画廊文件夹</string>
+    <!-- FA 顶级分区:主画廊(成品作品集),与下方 Scraps 并列 -->
+    <string name="gallery_section_main">主画廊</string>
+    <!-- FA 站点术语 Scraps:草稿/废稿箱分区,社区惯译"草稿箱" -->
+    <string name="gallery_section_scraps">草稿箱</string>
     <!-- %1$d = 条目数 -->
     <string name="folder_item_count">%1$d 项</string>
     <!-- 空态 / 用户页错误(硬编码清退) -->
@@ -371,6 +375,7 @@
     <string name="empty_watching">没有关注任何人。</string>
     <string name="empty_watchers">没有粉丝。</string>
     <string name="empty_folder">文件夹是空的。</string>
+    <string name="empty_scraps">草稿箱是空的。</string>
     <string name="error_watch_toggle_failed">关注状态切换失败。</string>
     <string name="user_unfollow">取消关注</string>
     <string name="user_unfollow_confirm">不再关注 %s?</string>
