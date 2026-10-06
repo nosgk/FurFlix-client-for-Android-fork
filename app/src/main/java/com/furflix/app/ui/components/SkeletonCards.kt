@@ -116,7 +116,7 @@ fun SkeletonGrid(
         items((0 until itemCount).toList()) { index ->
             SkeletonCard(
                 ratio = SkeletonDefaults.ratios[index % SkeletonDefaults.ratios.size],
-                showTitle = showTitle
+                showText = showTitle
             )
         }
     }
