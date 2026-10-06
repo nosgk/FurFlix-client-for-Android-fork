@@ -208,6 +208,8 @@ class UserViewModel(
                         getApplication<Application>().getString(R.string.empty_gallery)
                     }
                 }
+            } catch (e: com.furflix.app.data.remote.GuestBlockedException) {
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_login_required_view)
             } catch (e: Exception) {
                 _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }
@@ -332,6 +334,8 @@ class UserViewModel(
                 val result = repository.getUserGalleryFolder(username, folder, folderPage)
                 _submissions.value = result
                 if (result.isEmpty()) _errorMessage.value = getApplication<Application>().getString(R.string.empty_folder)
+            } catch (e: com.furflix.app.data.remote.GuestBlockedException) {
+                _errorMessage.value = getApplication<Application>().getString(R.string.error_login_required_view)
             } catch (e: Exception) {
                 _errorMessage.value = getApplication<Application>().getString(R.string.error_generic, e.message ?: "")
             }

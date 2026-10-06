@@ -18,6 +18,13 @@ import org.jsoup.nodes.Element
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
+/**
+ * FA 的“仅注册用户可见”门页：所有者把用户页/画廊/Scraps 设为登录可见，
+ * 非浏览器指纹的请求未带有效会话时 FA 会返回 System Message 门页而非内容。
+ * 抛出后由 ViewModel 转成“登录后可见”提示，且不得写入任何分页/文件夹缓存。
+ */
+class GuestBlockedException(message: String = "Guest gate page") : Exception(message)
+
 object FurAffinityScraper {
 
     // Session cookies — keyed by name. Real FA auth cookies are named "a" and "b".
@@ -485,6 +492,7 @@ object FurAffinityScraper {
                 folderNextUrls["$username:${folder.id}"] ?: return@withContext emptyList()
             }
             val doc = fetchDocument(url, forceNsfw)
+            if (isGuestGate(doc)) throw GuestBlockedException()
             val nextA = doc.select("a").firstOrNull {
                 it.text().contains("Next", ignoreCase = true) && it.attr("href").contains("/gallery/", ignoreCase = true)
             }
@@ -509,6 +517,7 @@ object FurAffinityScraper {
                 galleryNextUrls[username] ?: return@withContext emptyList()
             }
             val doc = fetchDocument(url, forceNsfw)
+            if (isGuestGate(doc)) throw GuestBlockedException()
 
             // Gallery Folders 区块就在画廊页侧栏：page 1 顺手解析并缓存，
             // 用户页的文件夹栏目零额外请求取用
@@ -542,6 +551,8 @@ object FurAffinityScraper {
         userFoldersCache[username.lowercase()]?.let { return@withContext it }
         try {
             val doc = fetchDocument("$FA_BASE/gallery/$username/")
+            // 门页不得写入缓存：登录后（或下次会话）应重试真实页面
+            if (isGuestGate(doc)) throw GuestBlockedException()
             val folders = parseGalleryFolders(doc)
             userFoldersCache[username.lowercase()] = folders
             folders
@@ -564,6 +575,7 @@ object FurAffinityScraper {
                 scrapsNextUrls[username] ?: return@withContext emptyList()
             }
             val doc = fetchDocument(url, forceNsfw)
+            if (isGuestGate(doc)) throw GuestBlockedException()
 
             val nextA = doc.select("a").firstOrNull { it.text().contains("Next", ignoreCase = true) && it.attr("href").contains("/scraps/", ignoreCase = true) }
             if (nextA != null) {
@@ -585,6 +597,11 @@ object FurAffinityScraper {
             emptyList()
         }
     }
+
+    /** 门页识别：System Message 里“registered users only”是所有者隐私门的固定文案。 */
+    private fun isGuestGate(doc: org.jsoup.nodes.Document): Boolean =
+        doc.selectFirst(".redirect-message")?.text()
+            ?.contains("registered users only", ignoreCase = true) == true
 
     /**
      * 解析 /gallery/{user}/ 的 Gallery Folders 区块（现代用户页已不再内嵌该列表）。
@@ -618,8 +635,11 @@ object FurAffinityScraper {
             }
         }
         if (!sawAny) {
-            // 未知主题形态：整页兜底扫一遍 /folder/ 链接（退化为无分组平铺）
+            // 未知主题形态：整页兜底扫一遍 /folder/ 链接（退化为无分组平铺）。
+            // 文本本身是 URL/路径的锚点是导航残留而非文件夹，跳过
             for (a in doc.select("a[href*=/folder/]")) {
+                val text = a.text().trim()
+                if (text.isEmpty() || text.startsWith("/") || text.contains("://")) continue
                 val folder = parseFolderAnchor(a, "") ?: continue
                 if (folders.any { it.id == folder.id }) continue
                 folders.add(folder)
@@ -634,15 +654,17 @@ object FurAffinityScraper {
         val m = Regex("/gallery/([^/]+)/folder/(\\d+)/([^/?#]+)").find(hrefAttr) ?: return null
         val id = m.groupValues[2]
         val slug = m.groupValues[3]
-        // view 页结构：<strong>分组</strong> - <span>名</span>；画廊侧栏无 strong/span，名即链接文本
+        // view 页结构：<strong>分组</strong> - <span>名</span>；画廊侧栏无 strong/span，名即链接文本。
+        // 文本缺失或本身就是链接形态（URL/路径）时回落 slug 解码，杜绝把链接当名字展示
         val group = a.selectFirst("strong")?.text()?.trim()
             ?.takeIf { it.isNotEmpty() } ?: fallbackGroup
-        val name = a.selectFirst("span")?.text()?.trim()?.takeIf { it.isNotEmpty() }
-            ?: a.text().trim().ifBlank {
-                runCatching {
-                    java.net.URLDecoder.decode(slug.replace('-', ' ').replace('_', ' '), "UTF-8")
-                }.getOrDefault(slug)
-            }.ifBlank { slug }
+        val rawName = a.selectFirst("span")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+            ?: a.text().trim()
+        val name = if (rawName.isEmpty() || rawName.startsWith("/") || rawName.contains("://")) {
+            runCatching {
+                java.net.URLDecoder.decode(slug.replace('-', ' ').replace('_', ' '), "UTF-8")
+            }.getOrDefault(slug)
+        } else rawName
         val titleAttr = a.attr("title")
         val count = Regex("([\\d,]+)\\s*submissions", RegexOption.IGNORE_CASE).find(titleAttr)
             ?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()

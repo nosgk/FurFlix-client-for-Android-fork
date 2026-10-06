@@ -373,6 +373,8 @@
     <string name="empty_watchers">No watchers.</string>
     <string name="empty_folder">Folder is empty.</string>
     <string name="empty_scraps">No scraps submissions.</string>
+    <!-- Guest gate: owner restricted the page to registered users -->
+    <string name="error_login_required_view">This content is only visible to logged-in users. Log in on the Settings page to view it.</string>
     <string name="error_watch_toggle_failed">Failed to toggle watch status.</string>
     <string name="user_unfollow">Unfollow</string>
     <string name="user_unfollow_confirm">Stop watching %s?</string>
