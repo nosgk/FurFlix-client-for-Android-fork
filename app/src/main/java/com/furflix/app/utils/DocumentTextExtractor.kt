@@ -82,7 +82,13 @@ object DocumentTextExtractor {
         val paragraphs = if (xml != null) {
             val doc = Jsoup.parse(xml, "", Parser.xmlParser())
             doc.getElementsByTag("w:p")
-                .map { p -> p.getElementsByTag("w:t").joinToString("") { it.text() }.trim() }
+                // w:t 内文本用原始 TextNode 拼接：Element.text() 会规整空白，
+                // 跨 w:t 的词间空格（"Second " + "line"）会被裁掉粘连成 "Secondline"
+                .map { p ->
+                    p.getElementsByTag("w:t").joinToString("") { t ->
+                        t.textNodes().joinToString("") { n -> n.getWholeText() }
+                    }.trim()
+                }
                 .filter { it.isNotEmpty() }
         } else emptyList()
         return ParsedDocument(paragraphs, zipMediaEntries(entries, "word/media/"))

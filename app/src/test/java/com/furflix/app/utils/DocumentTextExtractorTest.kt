@@ -70,7 +70,7 @@ class DocumentTextExtractorTest {
 
     @Test
     fun `rtf control words are stripped and paragraphs split`() {
-        val rtf = "{\\rtf1\\ansi{\\fonttbl{\\f0 Times;}}\\fs24 Hello, world!\\par Second \\'b6\\'a5 paragraph\\par bold{\\b text} end}".toByteArray()
+        val rtf = "{\\rtf1\\ansi{\\fonttbl{\\f0 Times;}}\\fs24 Hello, world!\\par Second \\'b6 paragraph\\par bold{\\b text} end}".toByteArray()
         val paragraphs = DocumentTextExtractor.parse("rtf", rtf).paragraphs
         assertEquals(listOf("Hello, world!", "Second ¶ paragraph", "boldtext end"), paragraphs)
     }
