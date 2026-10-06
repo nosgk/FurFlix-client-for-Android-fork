@@ -121,6 +121,9 @@ object CardStatsPrefetcher {
             for (id in pendingIds) {
                 launch {
                     slots.withPermit {
+                        // 前后台联动：后台时暂停抓取（在途请求由网络层闸门托管），
+                        // 回前台自动续跑——预热不产生后台隐性流量
+                        com.furflix.app.data.lifecycle.AppLifecycleTracker.suspendUntilForeground()
                         try {
                             val sub = repository.getSubmission(id, loadStoryText = false)
                             if (sub != null) {

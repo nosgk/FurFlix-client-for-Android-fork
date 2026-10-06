@@ -1345,6 +1345,8 @@ fun NsfwTogglePill(
  * pre-composes the adjacent page, which would otherwise double the traffic.
  * Coil 3 dropped the request-priority API, so "first screen first" is
  * expressed by executing the first three requests before enqueueing the rest.
+ * 预取范围收紧到一屏余量（12 张）：可视区按需加载为主，预取只补首屏外
+ * 半屏余量；后台时段由网络层闸门统一拦停。
  */
 @Composable
 private fun MasonryPrefetchEffect(
@@ -1357,6 +1359,7 @@ private fun MasonryPrefetchEffect(
     val quality = LocalThumbnailQuality.current
     LaunchedEffect(submissions, active, laneCount, quality) {
         if (!active || submissions.isEmpty()) return@LaunchedEffect
+        if (!com.furflix.app.data.lifecycle.AppLifecycleTracker.isForeground.value) return@LaunchedEffect
         val dm = context.resources.displayMetrics
         val lanes = laneCount.coerceAtLeast(1)
         val laneWidthPx = (
@@ -1364,7 +1367,7 @@ private fun MasonryPrefetchEffect(
                 with(density) { 4.dp.toPx() } * (lanes - 1)
             ).coerceAtLeast(400f) / lanes
         val loader = ImageLoaderFactory.getInstance(context)
-        val requests = submissions.take(24).mapNotNull { sub ->
+        val requests = submissions.take(12).mapNotNull { sub ->
             val ratio = sub.thumbnailWidthOnHeightRatio
             if (ratio <= 0f || sub.thumbnailUrl.isEmpty()) return@mapNotNull null
             val heightPx = laneWidthPx / ratio

@@ -38,6 +38,13 @@ object ImageLoaderFactory {
                 maxRequestsPerHost = 16
             })
             .addInterceptor { chain ->
+                // 前后台联动闸门（必须最先挂）：退到后台时一切图片网络请求在
+                // 此阻塞等待回前台，杜绝后台预加载的隐性流量；内存/磁盘命中
+                // 不经过网络层，离线秒开与回滚复用完全不受影响。
+                com.furflix.app.data.lifecycle.AppLifecycleTracker.blockUntilForeground()
+                chain.proceed(chain.request())
+            }
+            .addInterceptor { chain ->
                 val cookiesStr = FurAffinityScraper.getCookiesString()
                 val request = chain.request().newBuilder()
                     .header("User-Agent", com.furflix.app.data.remote.UserAgent.desktop())

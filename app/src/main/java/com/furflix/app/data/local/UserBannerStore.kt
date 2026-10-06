@@ -55,6 +55,8 @@ class UserBannerStore private constructor(private val repository: FurRepository)
         scope.launch {
             mutex.withLock {
                 for (name in fresh) {
+                    // 前后台联动：后台时暂停预解析，回前台自动续跑
+                    com.furflix.app.data.lifecycle.AppLifecycleTracker.suspendUntilForeground()
                     val url = resolveBannerUrl(name)
                     if (url.isNotEmpty()) {
                         _banners.update { it + (name.lowercase() to url) }
