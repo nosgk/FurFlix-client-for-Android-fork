@@ -142,36 +142,42 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
             SettingsCard {
                 SwitchRow(
                     title = stringResource(R.string.translation_auto_cat_title),
+                    subtitle = stringResource(R.string.translation_auto_cat_subtitle),
                     checked = prefs.titleAuto,
                     onChecked = { scope.launch { settings.saveTitleAuto(it) } }
                 )
                 CardDivider()
                 SwitchRow(
                     title = stringResource(R.string.translation_auto_cat_description),
+                    subtitle = stringResource(R.string.translation_auto_cat_subtitle),
                     checked = prefs.descriptionAuto,
                     onChecked = { scope.launch { settings.saveDescriptionAuto(it) } }
                 )
                 CardDivider()
                 SwitchRow(
                     title = stringResource(R.string.translation_auto_cat_tag),
+                    subtitle = stringResource(R.string.translation_auto_cat_subtitle),
                     checked = prefs.tagsAuto,
                     onChecked = { scope.launch { settings.saveTagsAuto(it) } }
                 )
                 CardDivider()
                 SwitchRow(
                     title = stringResource(R.string.translation_auto_cat_comment),
+                    subtitle = stringResource(R.string.translation_auto_cat_subtitle),
                     checked = prefs.commentAuto,
                     onChecked = { scope.launch { settings.saveCommentAuto(it) } }
                 )
                 CardDivider()
                 SwitchRow(
                     title = stringResource(R.string.translation_auto_cat_profile),
+                    subtitle = stringResource(R.string.translation_auto_cat_subtitle),
                     checked = prefs.profileAuto,
                     onChecked = { scope.launch { settings.saveProfileAuto(it) } }
                 )
                 CardDivider()
                 SwitchRow(
                     title = stringResource(R.string.translation_auto_cat_journal),
+                    subtitle = stringResource(R.string.translation_auto_cat_subtitle),
                     checked = prefs.journalAuto,
                     onChecked = { scope.launch { settings.saveJournalAuto(it) } }
                 )

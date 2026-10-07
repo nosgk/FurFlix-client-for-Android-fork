@@ -536,6 +536,7 @@
     <string name="translation_enabled_desc">Show translate buttons</string>
     <!-- Per-category auto-translate switches (split from the former global toggle) -->
     <string name="translation_auto_section">Auto-translate</string>
+    <string name="translation_auto_cat_subtitle">Translate automatically when translation is enabled</string>
     <string name="translation_auto_cat_title">Post titles</string>
     <string name="translation_auto_cat_description">Descriptions</string>
     <string name="translation_auto_cat_tag">Tags</string>

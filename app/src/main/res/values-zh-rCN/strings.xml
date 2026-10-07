@@ -548,6 +548,7 @@
     <string name="translation_enabled_desc">显示翻译按钮</string>
     <!-- Per-category auto-translate switches (split from the former global toggle) -->
     <string name="translation_auto_section">自动翻译</string>
+    <string name="translation_auto_cat_subtitle">启用翻译后,该类内容自动翻译</string>
     <string name="translation_auto_cat_title">作品标题</string>
     <string name="translation_auto_cat_description">作品描述</string>
     <string name="translation_auto_cat_tag">标签</string>
