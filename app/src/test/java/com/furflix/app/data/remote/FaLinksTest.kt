@@ -87,7 +87,7 @@ class FaLinksTest {
 
     @Test
     fun `search deep link carries query and clamped filters`() {
-        val link = parseFaLink("https://www.furaffinity.net/search/@q=red+fox&order-by=date&perpage=100&rating-general=1")
+        val link = parseFaLink("https://www.furaffinity.net/search/?q=red+fox&order-by=date&perpage=100&rating-general=1")
             as? FaLink.Search ?: error("expected Search")
         assertEquals("red fox", link.query)
         assertEquals("date", link.filters.orderBy)
@@ -96,8 +96,16 @@ class FaLinksTest {
     }
 
     @Test
+    fun `search inline-at form also parses`() {
+        val link = parseFaLink("https://www.furaffinity.net/search/@q=fox&rating-general=1")
+            as? FaLink.Search ?: error("expected Search")
+        assertEquals("fox", link.query)
+        assertTrue(link.filters.ratingGeneral)
+    }
+
+    @Test
     fun `search link with rating key present but zero means explicit uncheck`() {
-        val link = parseFaLink("https://www.furaffinity.net/search/@q=fox&rating-general=0&rating-mature=0&rating-adult=0")
+        val link = parseFaLink("https://www.furaffinity.net/search/?q=fox&rating-general=0&rating-mature=0&rating-adult=0")
             as? FaLink.Search ?: error("expected Search")
         assertEquals("fox", link.query)
         assertTrue(!link.filters.ratingGeneral && !link.filters.ratingMature && !link.filters.ratingAdult)

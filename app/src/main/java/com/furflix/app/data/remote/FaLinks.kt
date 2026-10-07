@@ -93,8 +93,17 @@ private fun parseFaUrl(url: String): FaLink? {
             FaLink.Submission(segments[1])
         segments.size >= 2 && segments[0] in USER_SEGMENTS && segments[1].isNotBlank() ->
             FaLink.User(segments[1])
-        segments.isNotEmpty() && segments[0] == "search" ->
-            parseSearchDeepLink(query)
+        segments.isNotEmpty() && segments[0] == "search" -> {
+            // FA 现代搜索两种形态：/search/?q=...（标准 query）与
+            // /search/@q=...（@ 后内嵌同构参数串）；后者取 @ 后按 query 解析
+            val inlineRaw = match.groupValues[2].removePrefix("/search/")
+            val effective = when {
+                query.isNotBlank() -> query
+                inlineRaw.startsWith("@") -> "?" + inlineRaw.substring(1)
+                else -> ""
+            }
+            parseSearchDeepLink(effective)
+        }
         else -> null
     }
 }
