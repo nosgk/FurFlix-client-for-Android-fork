@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,6 +48,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,24 +56,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.furflix.app.R
+import com.furflix.app.data.local.DocFileCache
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.theme.DarkBackground
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.SubtleGray
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
 
 /**
  * PDF 作品主媒体区（FA 详情页无图可渲，仅 Download 直链）。
- * 原件缓存到 cacheDir 后用系统 PdfRenderer 逐页渲染，横向翻页；点按页外下载按钮由详情页底栏承担。
+ * 原件经 [DocFileCache] 缓存优先落盘（重开零下载，持久缓存由 CacheJanitor
+ * 修剪），系统 PdfRenderer 按视口分辨率逐页渲染 + 横向翻页；
+ * [onOpenViewer] 提供全屏查看器入口（缩放/跳页）。
  */
 @Composable
 fun PdfHeroContent(
     pdfUrl: String,
     coverUrl: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenViewer: (() -> Unit)? = null
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var attempt by remember { mutableIntStateOf(0) }
@@ -79,41 +83,38 @@ fun PdfHeroContent(
     var failed by remember { mutableStateOf(false) }
     var pageCount by remember { mutableIntStateOf(0) }
     var renderer by remember { mutableStateOf<PdfRenderer?>(null) }
-    var cacheFile by remember { mutableStateOf<File?>(null) }
 
     LaunchedEffect(pdfUrl, attempt) {
         loading = true
         failed = false
         renderer?.let { runCatching { it.close() } }
-        cacheFile?.delete()
         renderer = null
-        val bytes = FurRepository.getInstance(context).fetchSubmissionFile(pdfUrl)
-        if (bytes == null) {
+        // 缓存优先：DocFileCache 命中零下载，未命中抓取后持久落盘
+        val file = DocFileCache.obtain(context, pdfUrl, "pdf") {
+            FurRepository.getInstance(context).fetchSubmissionFile(pdfUrl)
+        }
+        if (file == null) {
             loading = false
             failed = true
             return@LaunchedEffect
         }
         try {
-            val file = File(context.cacheDir, "pdf_${pdfUrl.hashCode().toUInt()}.pdf")
-            withContext(Dispatchers.IO) {
-                FileOutputStream(file).use { it.write(bytes) }
-            }
             val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
             val r = PdfRenderer(pfd)
             renderer = r
-            cacheFile = file
             pageCount = r.pageCount
             loading = false
-        } catch (e: Exception) {
+        } catch (_: Exception) {
+            // 加密/损坏的 PDF：系统渲染器打不开
             loading = false
             failed = true
         }
     }
 
+    // 只关渲染器；缓存文件保留（持久缓存，重开零下载）
     DisposableEffect(pdfUrl) {
         onDispose {
             renderer?.let { runCatching { it.close() } }
-            cacheFile?.delete()
         }
     }
 
@@ -134,34 +135,75 @@ fun PdfHeroContent(
             failed -> PdfFailedState(coverUrl = coverUrl, onRetry = { attempt++ })
             renderer != null -> PdfPager(
                 renderer = renderer!!,
-                pageCount = pageCount
+                pageCount = pageCount,
+                onOpenViewer = onOpenViewer
             )
         }
     }
 }
 
 @Composable
-private fun PdfPager(renderer: PdfRenderer, pageCount: Int) {
+private fun PdfPager(
+    renderer: PdfRenderer,
+    pageCount: Int,
+    onOpenViewer: (() -> Unit)?
+) {
     val pagerState = rememberPagerState(pageCount = { pageCount })
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = DarkSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 12.dp)
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // 页码指示
-            Text(
-                text = "${pagerState.currentPage + 1} / $pageCount",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                modifier = Modifier.padding(vertical = 8.dp)
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // 渲染目标宽 = 盒子物理像素（钳制 720~1600）：视口清晰度与内存的平衡点
+        val targetWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
+            .toInt().coerceIn(720, 1600)
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = DarkSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // 页码指示
+                Text(
+                    text = "${pagerState.currentPage + 1} / $pageCount",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth()
+                ) { page ->
+                    PdfPageImage(renderer = renderer, page = page, targetWidthPx = targetWidthPx)
+                }
+            }
+        }
+    }
+    if (onOpenViewer != null) {
+        Spacer(modifier = Modifier.height(12.dp))
+        Surface(
+            onClick = onOpenViewer,
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
             )
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxWidth()
-            ) { page ->
-                PdfPageImage(renderer = renderer, page = page)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.MenuBook,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = stringResource(R.string.pdf_open_viewer),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
@@ -169,23 +211,24 @@ private fun PdfPager(renderer: PdfRenderer, pageCount: Int) {
 
 /** 单页位图：进入组合才渲染（PdfRenderer 非线程安全，串行加锁），离开即回收。 */
 @Composable
-private fun PdfPageImage(renderer: PdfRenderer, page: Int) {
+private fun PdfPageImage(renderer: PdfRenderer, page: Int, targetWidthPx: Int) {
     var bitmap by remember(page) { mutableStateOf<ImageBitmap?>(null) }
     var renderFailed by remember(page) { mutableStateOf(false) }
-    LaunchedEffect(page) {
+    LaunchedEffect(page, targetWidthPx) {
         bitmap = null
         renderFailed = false
         bitmap = withContext(Dispatchers.IO) {
             runCatching {
                 synchronized(renderer) {
                     renderer.openPage(page).use { p ->
-                        val scale = 2f
-                        val w = (p.width * scale).toInt().coerceAtLeast(1)
-                        val h = (p.height * scale).toInt().coerceAtLeast(1)
+                        // 按目标宽等比缩放（旧版固定 2x 不看视口，大页有 OOM 风险）
+                        val w = targetWidthPx.coerceAtLeast(1)
+                        val h = (p.height * w.toFloat() / p.width).toInt().coerceAtLeast(1)
                         Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { bmp ->
                             bmp.eraseColor(Color.White.toArgb())
                             p.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                        }.asImageBitmap()                    }
+                        }.asImageBitmap()
+                    }
                 }
             }.getOrNull()
         }

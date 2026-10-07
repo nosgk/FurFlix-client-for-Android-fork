@@ -90,6 +90,7 @@ import com.furflix.app.ui.screens.GlassActionBar
 import com.furflix.app.ui.screens.GlassActionItem
 import com.furflix.app.ui.components.Particle
 import com.furflix.app.ui.components.ProgressiveImageContent
+import com.furflix.app.ui.components.PdfViewerScreen
 import com.furflix.app.ui.components.HazeTopAppBar
 import com.furflix.app.ui.components.ImageLoaderFactory
 import com.furflix.app.data.local.DownloadHelper
@@ -215,6 +216,7 @@ fun PostDetailScreen(
         var tabsAnchorY by remember { mutableFloatStateOf(Float.NaN) }
         var showZoom by remember { mutableStateOf(false) }
         var showDocumentViewer by remember { mutableStateOf(false) }
+        var showPdfViewer by remember { mutableStateOf(false) }
         val downloadTask by DownloadManager.tasks.collectAsState()
         val myDownloadTask = downloadTask.lastOrNull { it.submissionId == currentPostId }
         var downloadCompletedRecently by remember { mutableStateOf(false) }
@@ -472,7 +474,8 @@ fun PostDetailScreen(
                                     .weight(detailSplit.toFloat())
                                     .fillMaxHeight(),
                                 onImageClick = { showZoom = true },
-                                onOpenDocumentViewer = { showDocumentViewer = true }
+                                onOpenDocumentViewer = { showDocumentViewer = true },
+                                onOpenPdfViewer = { showPdfViewer = true }
                             )
                             detailBody(
                                 Modifier
@@ -493,7 +496,8 @@ fun PostDetailScreen(
                                 sub,
                                 placeholderUrl = listThumbnailUrl,
                                 onImageClick = { showZoom = true },
-                                onOpenDocumentViewer = { showDocumentViewer = true }
+                                onOpenDocumentViewer = { showDocumentViewer = true },
+                                onOpenPdfViewer = { showPdfViewer = true }
                             )
                             detailBody(Modifier)
                         }
@@ -661,6 +665,16 @@ fun PostDetailScreen(
                     onClose = { showDocumentViewer = false }
                 )
             }
+
+            // 全屏 PDF 查看器（缩放/跳页/持久缓存）：覆盖详情页一切层级
+            val pdfSubmission = submission
+            if (showPdfViewer && pdfSubmission != null && isPdfSubmission(pdfSubmission)) {
+                PdfViewerScreen(
+                    pdfUrl = pdfSubmission.fileUrl.ifEmpty { pdfSubmission.fullImageUrl },
+                    title = pdfSubmission.title,
+                    onClose = { showPdfViewer = false }
+                )
+            }
         }
     }
 }
@@ -675,7 +689,8 @@ private fun TwoPaneHeroImage(
     placeholderUrl: String?,
     modifier: Modifier = Modifier,
     onImageClick: () -> Unit = {},
-    onOpenDocumentViewer: () -> Unit = {}
+    onOpenDocumentViewer: () -> Unit = {},
+    onOpenPdfViewer: () -> Unit = {}
 ) {
     // Flash：海报 + 播放按钮，点击进 Ruffle 全屏层
     if (sub.fileExt == "swf" || sub.fileType.equals("Flash", true)) {
@@ -697,12 +712,13 @@ private fun TwoPaneHeroImage(
         )
         return
     }
-    // PDF：原件抓取 + 系统 PdfRenderer 逐页渲染
+    // PDF：DocFileCache 缓存优先 + 系统渲染器逐页渲染 + 全屏查看器入口
     if (isPdfSubmission(sub)) {
         PdfHeroContent(
             pdfUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
             coverUrl = placeholderUrl,
-            modifier = modifier
+            modifier = modifier,
+            onOpenViewer = onOpenPdfViewer
         )
         return
     }
@@ -821,7 +837,8 @@ private fun HeroImage(
     sub: Submission,
     placeholderUrl: String?,
     onImageClick: () -> Unit = {},
-    onOpenDocumentViewer: () -> Unit = {}
+    onOpenDocumentViewer: () -> Unit = {},
+    onOpenPdfViewer: () -> Unit = {}
 ) {
     // Flash：海报 + 播放按钮，点击进 Ruffle 全屏层
     if (sub.fileExt == "swf" || sub.fileType.equals("Flash", true)) {
@@ -843,12 +860,13 @@ private fun HeroImage(
         )
         return
     }
-    // PDF：原件抓取 + 系统 PdfRenderer 逐页渲染
+    // PDF：DocFileCache 缓存优先 + 系统渲染器逐页渲染 + 全屏查看器入口
     if (isPdfSubmission(sub)) {
         PdfHeroContent(
             pdfUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
             coverUrl = placeholderUrl,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            onOpenViewer = onOpenPdfViewer
         )
         return
     }
