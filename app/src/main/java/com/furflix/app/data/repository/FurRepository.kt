@@ -56,6 +56,16 @@ class FurRepository(private val context: Context) {
         const val DETAIL_QUALITY_ORIGINAL = -1
         val DETAIL_QUALITY_TIERS = listOf(1080, 1440, 2160)
 
+        /** 图片磁盘缓存配额：默认跟随可用空间百分比（-1）；档位 512MB~8GB */
+        const val IMAGE_CACHE_LIMIT_DEFAULT = -1L
+        val IMAGE_CACHE_LIMIT_CHOICES = listOf(
+            512L * 1024 * 1024,
+            1024L * 1024 * 1024,
+            2L * 1024 * 1024 * 1024,
+            4L * 1024 * 1024 * 1024,
+            8L * 1024 * 1024 * 1024
+        )
+
         /** 关注卡片背景来源取值（watchlistBannerSourceFlow） */
         const val WATCHLIST_BANNER_SOURCE_BANNER = "banner"
         const val WATCHLIST_BANNER_SOURCE_LATEST = "latest_thumb"
@@ -659,16 +669,6 @@ class FurRepository(private val context: Context) {
 
     // --- 图片磁盘缓存配额（设置→存储管理；Coil LRU 在配额内自动末尾淘汰） ---
 
-    /** 默认不设绝对上限，跟随可用空间百分比（与历史行为一致） */
-    const val IMAGE_CACHE_LIMIT_DEFAULT = -1L
-    val IMAGE_CACHE_LIMIT_CHOICES = listOf(
-        512L * 1024 * 1024,
-        1024L * 1024 * 1024,
-        2L * 1024 * 1024 * 1024,
-        4L * 1024 * 1024 * 1024,
-        8L * 1024 * 1024 * 1024
-    )
-
     val imageCacheLimitFlow: kotlinx.coroutines.flow.Flow<Long> = context.dataStore.data.map { prefs ->
         prefs[IMAGE_CACHE_LIMIT_KEY] ?: IMAGE_CACHE_LIMIT_DEFAULT
     }
@@ -680,7 +680,9 @@ class FurRepository(private val context: Context) {
         }
     }
 
-    // --- 站点今日横幅（启动页展示；URL 当日有效，隔日重取） ---    suspend fun loadSiteBanner(): String? {
+    // --- 站点今日横幅（启动页展示；URL 当日有效，隔日重取） ---
+
+    suspend fun loadSiteBanner(): String? {
         val prefs = context.dataStore.data.first()
         val url = prefs[SITE_BANNER_URL_KEY] ?: return null
         val date = prefs[SITE_BANNER_DATE_KEY] ?: return null
