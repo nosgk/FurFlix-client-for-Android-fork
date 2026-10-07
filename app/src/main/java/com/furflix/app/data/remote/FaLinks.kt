@@ -110,8 +110,15 @@ private fun parseFaUrl(url: String): FaLink? {
 
 /** /search/ 深链：q 与筛选参数白名单解析；无 q 也接受（keywords 组可承载）。 */
 private fun parseSearchDeepLink(query: String): FaLink.Search? {
-    val q = queryParam(query, "q")?.trim() ?: ""
-    val filters = parseSearchFilters(query)
+    val raw = queryParam(query, "q")?.trim() ?: ""
+    var filters = parseSearchFilters(query)
+    // buildKeywordQuery 的逆变换：@keywords 组拆回 keywords/genders，恢复出与
+    // 站内发起时一致的筛选面板状态（双向同步的另一半）；无组时 q 原样
+    var q = raw
+    com.furflix.app.data.model.SearchFilters.splitKeywordQuery(raw)?.let { (base, keywords, genders) ->
+        q = base
+        filters = filters.copy(keywords = keywords, genders = genders)
+    }
     if (q.isEmpty() && !filters.hasKeywords) return null
     return FaLink.Search(q, filters)
 }

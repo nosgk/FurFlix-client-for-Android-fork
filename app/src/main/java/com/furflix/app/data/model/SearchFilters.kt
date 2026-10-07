@@ -157,5 +157,36 @@ data class SearchFilters(
         const val PERPAGE_MIN = 24
         const val PERPAGE_MAX = 72
         val PERPAGE_CHOICES = listOf(24, 48, 72)
+
+        /**
+         * [buildKeywordQuery] 的逆变换（extended 模式产物）：把 q 里的
+         * "@keywords 组" 拆回 (基查询, keywords, genders)。性别 token 按站点
+         * 词表精确匹配回填——2026-10-07 浏览器实测 FA 自己也把组回填进性别
+         * 复选框（?q=@keywords fox male 会勾上 male），此行为与站点语义一致。
+         * 无 @keywords 组（自由文本/all-any 模式）返回 null，q 不拆。
+         * 组 term 本身含空格或多词关键词在此形态下本就不可区分（空格连接），
+         * 按空格逐 token 拆分即其精确逆运算。
+         */
+        fun splitKeywordQuery(q: String): Triple<String, List<String>, List<String>>? {
+            val trimmed = q.trim()
+            val base: String
+            val groupTerms: List<String>
+            if (trimmed.startsWith("@keywords ")) {
+                base = ""
+                groupTerms = trimmed.removePrefix("@keywords ").split(' ').filter { it.isNotEmpty() }
+            } else {
+                val marker = " @keywords "
+                val idx = trimmed.lastIndexOf(marker)
+                if (idx < 0) return null
+                base = trimmed.take(idx)
+                groupTerms = trimmed.substring(idx + marker.length).split(' ').filter { it.isNotEmpty() }
+            }
+            if (groupTerms.isEmpty()) return null
+            val genderValues = com.furflix.app.data.FA_GENDER_OPTIONS
+                .map { it.first }.filter { it.isNotEmpty() }.toSet()
+            val genders = groupTerms.filter { it in genderValues }
+            val keywords = groupTerms.filter { it !in genderValues }
+            return Triple(base, keywords, genders)
+        }
     }
 }
