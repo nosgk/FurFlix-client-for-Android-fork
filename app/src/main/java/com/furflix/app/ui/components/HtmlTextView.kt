@@ -23,6 +23,7 @@ import com.furflix.app.data.remote.FaLink
 import com.furflix.app.data.remote.parseFaLink
 import com.furflix.app.ui.theme.LinkColor
 import coil3.asDrawable
+import coil3.request.allowHardware
 import kotlinx.coroutines.launch
 import kotlin.math.min
 
