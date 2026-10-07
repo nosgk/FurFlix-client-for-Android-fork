@@ -1085,8 +1085,10 @@ object FurAffinityScraper {
         } else favUrlAttr
 
         var fullImageUrl = ""
+        // .submission-writing img：文档类（story/poetry/pdf 等）详情页无 #page-submission，
+        // FA 把文档封面缩略图（*.thumbnail.*.gif）放在 writing 区块，直链打开时封面不再落空
         val mainImg =
-            doc.selectFirst("#page-submission img, .submission-image img, .submission-body img")
+            doc.selectFirst("#page-submission img, .submission-image img, .submission-body img, .submission-writing img")
         if (mainImg != null) {
             fullImageUrl = mainImg.attr("src").ifEmpty { mainImg.attr("data-src") }
             if (fullImageUrl.isNotEmpty() && !fullImageUrl.startsWith("http")) {

@@ -430,9 +430,8 @@
     <string name="post_tags">Tags</string>
     <string name="post_no_description">No description</string>
     <string name="post_no_comments">No comments yet</string>
-    <!-- Submission file viewers (PDF inline / document card) -->
+    <!-- Submission file viewers (full-screen PDF viewer / document card) -->
     <string name="pdf_load_failed">PDF failed to load — tap to retry</string>
-    <string name="pdf_open_viewer">Open full-screen viewer</string>
     <string name="doc_download_hint">Download from the toolbar below, then open with any document app</string>
     <!-- Meta labels also used by the info chips on the detail page -->
     <string name="meta_category">Category</string>

@@ -439,9 +439,8 @@
     <string name="post_tags">标签</string>
     <string name="post_no_description">暂无简介</string>
     <string name="post_no_comments">暂无评论</string>
-    <!-- 作品文件查看器(PDF 内嵌渲染/文档卡) -->
+    <!-- 作品文件查看器(全屏 PDF 查看器/文档卡) -->
     <string name="pdf_load_failed">PDF 加载失败,点按重试</string>
-    <string name="pdf_open_viewer">打开全屏查看器</string>
     <string name="doc_download_hint">从下方工具栏下载后,用任意文档应用打开</string>
     <!-- 详情页信息芯片与详细信息 tab 共用的元数据标签;取值本身是站点抓取的英文原文,仅标签翻译 -->
     <string name="meta_category">分类</string>

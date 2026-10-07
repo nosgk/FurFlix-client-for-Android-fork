@@ -8,7 +8,7 @@ import kotlin.concurrent.thread
  * 每进程启动时在后台线程跑一次；单项失败互相隔离（runCatching）。
  *
  * 覆盖面：
- *  - 旧版 PdfHeroContent 的临时整页文件（pdf_<hash>.pdf，已由 [DocFileCache]
+ *  - 旧版 PDF 内联渲染的临时整页文件（pdf_<hash>.pdf，已由 [DocFileCache]
  *    持久缓存接管，残留一律为碎片）；
  *  - cacheDir 下超过 24h 的 .tmp 半截写盘文件；
  *  - 文档持久缓存的 TTL 与总量配额修剪。

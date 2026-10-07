@@ -104,7 +104,6 @@ import com.furflix.app.ui.components.StoryReader
 import com.furflix.app.ui.components.FlashPlayerViewer
 import com.furflix.app.ui.components.GifFrameViewer
 import com.furflix.app.ui.components.AudioHeroContent
-import com.furflix.app.ui.components.PdfHeroContent
 import com.furflix.app.ui.components.DocumentHeroContent
 import com.furflix.app.ui.components.DocumentViewerScreen
 import com.furflix.app.ui.theme.*
@@ -744,13 +743,16 @@ private fun TwoPaneHeroImage(
         )
         return
     }
-    // PDF：DocFileCache 缓存优先 + 系统渲染器逐页渲染 + 全屏查看器入口
+    // PDF：同其它 store 文档一致——不自动载入原件，封面 + 「阅读文档」进全屏 PDF 查看器
     if (isPdfSubmission(sub)) {
-        PdfHeroContent(
-            pdfUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
-            coverUrl = placeholderUrl,
-            modifier = modifier,
-            onOpenViewer = onOpenPdfViewer
+        DocumentHeroContent(
+            fileName = sub.fileName.ifEmpty { sub.title },
+            fileSize = sub.fileSize,
+            coverUrl = docCoverUrl(sub, placeholderUrl),
+            onOpenViewer = onOpenPdfViewer,
+            badgeLabel = "PDF",
+            badgeIcon = Icons.Default.PictureAsPdf,
+            modifier = modifier
         )
         return
     }
@@ -759,7 +761,7 @@ private fun TwoPaneHeroImage(
         DocumentHeroContent(
             fileName = sub.fileName.ifEmpty { sub.title },
             fileSize = sub.fileSize,
-            coverUrl = placeholderUrl,
+            coverUrl = docCoverUrl(sub, placeholderUrl),
             onOpenViewer = onOpenDocumentViewer,
             modifier = modifier
         )
@@ -848,7 +850,7 @@ private fun isAudioSubmission(sub: Submission): Boolean =
         sub.fileType.equals("Music", ignoreCase = true) ||
         sub.fileType.equals("Podcast", ignoreCase = true)
 
-/** PDF 文档（FA Story/Poetry 类可上传 pdf 原件）：详情页无图，仅 Download 直链。 */
+/** PDF 文档（FA Story/Poetry 类可上传 pdf 原件）：与其它文档类同待遇，不自动载入。 */
 private fun isPdfSubmission(sub: Submission): Boolean =
     sub.fileExt.equals("pdf", ignoreCase = true)
 
@@ -863,6 +865,17 @@ private val TEXT_DOC_EXTS = setOf("txt")
 
 private fun isStoreDocumentSubmission(sub: Submission): Boolean =
     sub.fileExt.lowercase() in TEXT_DOC_EXTS || isDocumentSubmission(sub)
+
+/**
+ * 文档类封面：列表携带的缩略图优先；直链打开时用详情解析出的文档封面
+ * 缩略图（FA 把 .submission-writing 里的封面配给 thumbnailUrl）。
+ * thumbnailUrl 的兜底值可能是原件直链（PDF/RTF 字节，不能当图渲染），需排除。
+ */
+private fun docCoverUrl(sub: Submission, listThumbnailUrl: String?): String? =
+    listThumbnailUrl?.takeIf { it.isNotEmpty() }
+        ?: sub.thumbnailUrl.takeIf {
+            it.isNotEmpty() && !it.equals(sub.fileUrl, ignoreCase = true)
+        }
 
 @Composable
 private fun HeroImage(
@@ -892,13 +905,16 @@ private fun HeroImage(
         )
         return
     }
-    // PDF：DocFileCache 缓存优先 + 系统渲染器逐页渲染 + 全屏查看器入口
+    // PDF：同其它 store 文档一致——不自动载入原件，封面 + 「阅读文档」进全屏 PDF 查看器
     if (isPdfSubmission(sub)) {
-        PdfHeroContent(
-            pdfUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
-            coverUrl = placeholderUrl,
-            modifier = Modifier.fillMaxWidth(),
-            onOpenViewer = onOpenPdfViewer
+        DocumentHeroContent(
+            fileName = sub.fileName.ifEmpty { sub.title },
+            fileSize = sub.fileSize,
+            coverUrl = docCoverUrl(sub, placeholderUrl),
+            onOpenViewer = onOpenPdfViewer,
+            badgeLabel = "PDF",
+            badgeIcon = Icons.Default.PictureAsPdf,
+            modifier = Modifier.fillMaxWidth()
         )
         return
     }
@@ -907,7 +923,7 @@ private fun HeroImage(
         DocumentHeroContent(
             fileName = sub.fileName.ifEmpty { sub.title },
             fileSize = sub.fileSize,
-            coverUrl = placeholderUrl,
+            coverUrl = docCoverUrl(sub, placeholderUrl),
             onOpenViewer = onOpenDocumentViewer,
             modifier = Modifier.fillMaxWidth()
         )
