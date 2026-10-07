@@ -1391,6 +1391,10 @@ object FurAffinityScraper {
 
         // Profile bio text — .userpage-profile, keeping <br> line breaks via marker chars
         val profileEl = doc.selectFirst(".userpage-profile")
+        // 富文本 HTML（iconusername 内联头像/bbcode），BioCard 富渲染用；
+        // 站内相对链接须在抽取前绝对化（HtmlTextView 的 parseFaLink 才能站内路由）
+        profileEl?.select("a[href^=\"/\"]")?.forEach { it.attr("href", "$FA_BASE${it.attr("href")}") }
+        val profileTextHtml = profileEl?.html()?.trim() ?: ""
         profileEl?.select("br")?.forEach { it.after(org.jsoup.nodes.TextNode("")) }
         val profileText = (profileEl?.text() ?: "")
             .replace("", "\n")
@@ -1500,6 +1504,7 @@ object FurAffinityScraper {
             isWatching = isWatching,
             watchUrl = watchUrl,
             profileText = profileText,
+            profileTextHtml = profileTextHtml,
             galleryCount = galleryCount,
             favoritesCount = favoritesCount,
             watchersCount = watchersCount,

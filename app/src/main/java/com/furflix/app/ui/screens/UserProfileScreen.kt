@@ -77,11 +77,15 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.text.TextStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.furflix.app.translate.data.TranslationCategory
+import com.furflix.app.translate.data.TranslationDisplayMode
 import com.furflix.app.translate.ui.TranslatableAutoEffect
 import com.furflix.app.translate.ui.TranslatableText
+import com.furflix.app.translate.ui.TranslationCaption
 import com.furflix.app.translate.ui.TranslationIconButton
+import com.furflix.app.translate.ui.TranslationUiState
 import com.furflix.app.translate.ui.rememberTranslationEntry
 import com.furflix.app.translate.ui.rememberTranslationPrefs
+import com.furflix.app.translate.ui.translationErrorText
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -409,7 +413,11 @@ fun UserProfileScreen(
                         }
                         if (profile.profileText.isNotBlank()) {
                             item(key = "bio", span = StaggeredGridItemSpan.FullLine) {
-                                BioCard(text = profile.profileText, modifier = Modifier.padding(horizontal = 16.dp))
+                                BioCard(
+                                    text = profile.profileText,
+                                    html = profile.profileTextHtml,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
                             }
                         }
                         val hasChips = profile.species.isNotBlank() ||
@@ -1431,12 +1439,20 @@ private fun StatDivider() {
 // -----------------------------------------------------------------------------------------
 
 @Composable
-private fun BioCard(text: String, modifier: Modifier = Modifier) {
+private fun BioCard(text: String, html: String = "", modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
-    var hasOverflow by remember { mutableStateOf(false) }
+    var translatedOverflow by remember { mutableStateOf(false) }
     val translationPrefs = rememberTranslationPrefs()
     val entry = rememberTranslationEntry(text, text, TranslationCategory.USER_PROFILE)
     TranslatableAutoEffect(entry, translationPrefs)
+    val state by entry.state.collectAsStateWithLifecycle()
+    val mode = translationPrefs.displayMode(TranslationCategory.USER_PROFILE)
+    // 富文本（HtmlTextView）给不出"已溢出"信号：按长度阈值近似判断折叠需求
+    val htmlOverflow = remember(html, text) { html.length > 240 || text.length > 240 }
+    // 纯文本回落：无富文本 HTML 时把换行转 <br>
+    val bioHtml = html.ifBlank {
+        text.replace("&", "&amp;").replace("<", "&lt;").replace("\n", "<br>")
+    }
 
     Column(
         modifier = modifier
@@ -1444,7 +1460,7 @@ private fun BioCard(text: String, modifier: Modifier = Modifier) {
             .clip(RoundedCornerShape(20.dp))
             .background(DarkSurface)
             .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-            .clickable { if (hasOverflow || expanded) expanded = !expanded }
+            .clickable { if (htmlOverflow || translatedOverflow || expanded) expanded = !expanded }
             .animateContentSize()
             .padding(16.dp)
     ) {
@@ -1466,17 +1482,41 @@ private fun BioCard(text: String, modifier: Modifier = Modifier) {
             TranslationIconButton(entry = entry, enabled = translationPrefs.enabled)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        TranslatableText(
-            entry = entry,
-            prefs = translationPrefs,
-            style = TextStyle(fontSize = 13.sp, lineHeight = 19.sp, color = DarkOnSurface),
-            maxLines = if (expanded) Int.MAX_VALUE else 4,
-            overflow = TextOverflow.Ellipsis,
-            onTextLayout = { result ->
-                if (!expanded) hasOverflow = result.hasVisualOverflow
+        // 原文富文本：iconusername 内联头像 + 站内链接路由（TranslationEntry 不动，
+        // 自动/手动翻译仍按纯文本进行）；仅译文模式收起原文
+        val success = state as? TranslationUiState.Success
+        val translationVisible = success != null && success.showing
+        if (!translationVisible || mode == TranslationDisplayMode.BILINGUAL) {
+            HtmlTextView(
+                html = bioHtml,
+                maxLines = if (expanded) Int.MAX_VALUE else 4
+            )
+        }
+        if (translationVisible) {
+            if (mode == TranslationDisplayMode.BILINGUAL) {
+                Spacer(modifier = Modifier.height(6.dp))
             }
-        )
-        if (hasOverflow || expanded) {
+            Text(
+                text = success.translated,
+                style = TextStyle(fontSize = 13.sp, lineHeight = 19.sp, color = DarkOnSurface),
+                maxLines = if (expanded) Int.MAX_VALUE else 4,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { result ->
+                    if (!expanded) translatedOverflow = result.hasVisualOverflow
+                }
+            )
+            TranslationCaption(entry, success, mode)
+        }
+        val failure = state as? TranslationUiState.Failed
+        if (failure != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = translationErrorText(failure),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        if (htmlOverflow || translatedOverflow || expanded) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = if (expanded) stringResource(R.string.profile_show_less) else stringResource(R.string.profile_show_more),

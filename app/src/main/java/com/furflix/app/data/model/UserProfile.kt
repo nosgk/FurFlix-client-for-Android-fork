@@ -14,6 +14,8 @@ data class UserProfile(
     val isWatching: Boolean,
     val watchUrl: String,
     val profileText: String = "",
+    // 简介富文本 HTML（iconusername 内联头像/bbcode/绝对化站内链接），BioCard 富渲染用
+    val profileTextHtml: String = "",
     val galleryCount: Int = 0,
     val favoritesCount: Int = 0,
     val watchersCount: Int = 0,
