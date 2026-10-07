@@ -1189,6 +1189,7 @@ object FurAffinityScraper {
 
         val statsLabels = doc.select("div.submission-content-stats span.highlight span")
         val statsValues = doc.select("div.submission-content-stats > span:not(.highlight) span")
+        var theme = ""
         if (statsLabels.size == statsValues.size) {
             for (i in statsLabels.indices) {
                 val label = statsLabels[i].text().trim().lowercase()
@@ -1196,7 +1197,13 @@ object FurAffinityScraper {
                 when {
                     label.contains("resolution") -> resolution = value
                     label.contains("file size") -> fileSize = value
-                    label.contains("type") || label.contains("category") -> if (fileType.isEmpty()) fileType = value
+                    // 现代版式的 Category/Theme/Species 只在这里出现（旧侧栏选择器拿不到）
+                    label.contains("theme") -> if (theme.isEmpty()) theme = value
+                    label.contains("species") -> if (species.isEmpty()) species = value
+                    label.contains("type") || label.contains("category") -> {
+                        if (fileType.isEmpty()) fileType = value
+                        if (category.isEmpty()) category = value
+                    }
                 }
             }
         }
@@ -1217,6 +1224,7 @@ object FurAffinityScraper {
             description = description,
             rating = rating,
             category = category,
+            theme = theme,
             species = species,
             gender = gender,
             views = views,

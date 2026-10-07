@@ -1926,6 +1926,7 @@ private fun DescriptionContent(
 private fun MetaInfoContent(sub: Submission) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         MetaInfoCard(stringResource(R.string.meta_category), sub.category)
+        MetaInfoCard(stringResource(R.string.meta_theme), sub.theme)
         MetaInfoCard(stringResource(R.string.meta_species), sub.species)
         MetaInfoCard(stringResource(R.string.meta_gender), sub.gender)
         MetaInfoCard(stringResource(R.string.filter_rating), sub.rating)

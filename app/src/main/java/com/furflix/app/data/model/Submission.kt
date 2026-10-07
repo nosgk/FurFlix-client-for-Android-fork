@@ -17,6 +17,8 @@ data class Submission(
     val description: String = "",
     val rating: String = "",
     val category: String = "",
+    // FA 详情页 submission-content-stats 的 Theme（上传者未设时为空）
+    val theme: String = "",
     val species: String = "",
     val gender: String = "",
     val views: Int = 0,
