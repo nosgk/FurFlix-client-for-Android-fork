@@ -436,6 +436,9 @@
     <string name="doc_download_hint">Download from the toolbar below, then open with any document app</string>
     <!-- Meta labels also used by the info chips on the detail page -->
     <string name="meta_category">Category</string>
+    <!-- Detail top bar: per-page title translation toggle -->
+    <string name="title_translate_disable">Hide title translation</string>
+    <string name="title_translate_enable">Show title translation</string>
     <string name="meta_theme">Theme</string>
     <string name="meta_species">Species</string>
     <string name="meta_gender">Gender</string>

@@ -217,6 +217,8 @@ fun PostDetailScreen(
         var showZoom by remember { mutableStateOf(false) }
         var showDocumentViewer by remember { mutableStateOf(false) }
         var showPdfViewer by remember { mutableStateOf(false) }
+        // 顶栏开关：本页关闭/开启标题翻译（不回写全局设置）
+        var titleTranslateHidden by remember { mutableStateOf(false) }
         val downloadTask by DownloadManager.tasks.collectAsState()
         val myDownloadTask = downloadTask.lastOrNull { it.submissionId == currentPostId }
         var downloadCompletedRecently by remember { mutableStateOf(false) }
@@ -269,7 +271,8 @@ fun PostDetailScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // ── Title（双语翻译：原文恒显，译文按类别显示方式跟进）──
+                            // ── Title（双语翻译：原文恒显，译文按类别显示方式跟进；
+                            //    顶栏开关可整页关闭本页标题翻译）──
                             if (sub.title.isNotBlank()) {
                                 val titleEntry = rememberTranslationEntry(
                                     key = sub.id,
@@ -277,14 +280,18 @@ fun PostDetailScreen(
                                     category = TranslationCategory.TITLE,
                                     singleRequest = true
                                 )
-                                TranslatableAutoEffect(titleEntry, translationPrefs)
+                                if (!titleTranslateHidden) {
+                                    TranslatableAutoEffect(titleEntry, translationPrefs)
+                                }
                                 val titleState by titleEntry.state.collectAsStateWithLifecycle()
                                 val titleSuccess = titleState as? TranslationUiState.Success
                                 val titleMode = translationPrefs.displayMode(TranslationCategory.TITLE)
+                                val titleTranslationVisible = !titleTranslateHidden &&
+                                    titleSuccess != null && titleSuccess.showing
                                 Row(verticalAlignment = Alignment.Top) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = if (titleSuccess != null && titleSuccess.showing &&
+                                            text = if (titleTranslationVisible &&
                                                 titleMode == TranslationDisplayMode.TRANSLATION_ONLY
                                             ) {
                                                 titleSuccess.translated
@@ -295,7 +302,7 @@ fun PostDetailScreen(
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White
                                         )
-                                        if (titleSuccess != null && titleSuccess.showing &&
+                                        if (titleTranslationVisible &&
                                             titleMode == TranslationDisplayMode.BILINGUAL &&
                                             titleSuccess.translated.isNotBlank() &&
                                             titleSuccess.translated != sub.title
@@ -308,7 +315,7 @@ fun PostDetailScreen(
                                             )
                                         }
                                     }
-                                    if (translationPrefs.enabled) {
+                                    if (translationPrefs.enabled && !titleTranslateHidden) {
                                         Spacer(modifier = Modifier.width(8.dp))
                                         TranslationIconButton(entry = titleEntry, enabled = true)
                                     }
@@ -521,6 +528,31 @@ fun PostDetailScreen(
                     contentDescription = stringResource(R.string.action_back),
                     tint = Color.White
                 )
+            }
+
+            // 顶栏右上角：关闭/开启标题翻译（本页生效；翻译功能未启用时不显示）
+            if (translationPrefs.enabled) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 48.dp, end = 16.dp)
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .clickable { titleTranslateHidden = !titleTranslateHidden },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Translate,
+                        contentDescription = stringResource(
+                            if (titleTranslateHidden) R.string.title_translate_enable
+                            else R.string.title_translate_disable
+                        ),
+                        tint = if (titleTranslateHidden) Color.White.copy(alpha = 0.45f)
+                        else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
             // Bottom fade
