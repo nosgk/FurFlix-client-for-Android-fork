@@ -472,6 +472,7 @@ private fun MyFavoritesContent(
                                 contentType = { "submission" }
                             ) { submission ->
                                 SubmissionCard(
+                                    modifier = Modifier.animateItem(),
                                     submission = submission,
                                     onClick = {
                                         if (selectionActive) {
@@ -529,6 +530,7 @@ private fun MyFavoritesContent(
                     ) {
                         items(submissions, key = { it.id }, contentType = { "submission" }) { submission ->
                             SubmissionCard(
+                                modifier = Modifier.animateItem(),
                                 submission = submission,
                                 onClick = {
                                     if (selectionActive) {
@@ -579,6 +581,7 @@ private fun MyFavoritesContent(
                     ) {
                         items(submissions, key = { it.id }, contentType = { "submission" }) { submission ->
                             SubmissionCard(
+                                modifier = Modifier.animateItem(),
                                 submission = submission,
                                 onClick = {
                                     if (selectionActive) {
@@ -793,6 +796,7 @@ private fun HistorySubmissionsContent(
                         contentType = { "submission" }
                     ) { submission ->
                         SubmissionCard(
+                            modifier = Modifier.animateItem(),
                             submission = submission,
                             onClick = {
                                 if (selectionActive) {
@@ -833,6 +837,7 @@ private fun HistorySubmissionsContent(
                     item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
                     items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
                         SubmissionCard(
+                            modifier = Modifier.animateItem(),
                             submission = submission,
                             onClick = {
                                 if (selectionActive) {
@@ -870,6 +875,7 @@ private fun HistorySubmissionsContent(
                     item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
                     items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
                         SubmissionCard(
+                            modifier = Modifier.animateItem(),
                             submission = submission,
                             onClick = {
                                 if (selectionActive) {

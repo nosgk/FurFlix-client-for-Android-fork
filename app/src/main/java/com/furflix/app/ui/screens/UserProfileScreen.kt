@@ -494,6 +494,35 @@ fun UserProfileScreen(
                             if (errorMessage != null && submissions.isEmpty()) {
                                 item(key = "error", span = StaggeredGridItemSpan.FullLine) { ErrorState(message = errorMessage ?: "") }
                             }
+                            if (submissions.isEmpty() && isLoading && errorMessage == null) {
+                                // 骨架占位与其他页面同构:骨架卡直接铺进当前网格(不嵌套 Lazy 容器),
+                                // 比例池与整体骨架共用;列表模式整行短块+文字行,网格模式多变比例
+                                if (mode == GalleryViewMode.LIST) {
+                                    items(
+                                        count = 4,
+                                        key = { "skeleton_$it" },
+                                        span = { StaggeredGridItemSpan.FullLine },
+                                        contentType = { "skeleton" }
+                                    ) { index ->
+                                        SkeletonCard(
+                                            ratio = 1.33f,
+                                            showText = true,
+                                            modifier = Modifier.padding(horizontal = 8.dp)
+                                        )
+                                    }
+                                } else {
+                                    items(
+                                        count = 12,
+                                        key = { "skeleton_$it" },
+                                        contentType = { "skeleton" }
+                                    ) { index ->
+                                        SkeletonCard(
+                                            ratio = SKELETON_RATIOS[index % SKELETON_RATIOS.size],
+                                            modifier = Modifier.padding(2.dp)
+                                        )
+                                    }
+                                }
+                            }
                             if (submissions.isEmpty() && !isLoading && errorMessage == null) {
                                 item(key = "empty", span = StaggeredGridItemSpan.FullLine) {
                                     EmptyState(
@@ -515,7 +544,7 @@ fun UserProfileScreen(
                                         key = { it.id },
                                         span = { StaggeredGridItemSpan.FullLine }
                                     ) { submission ->
-                                        Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                        Box(modifier = Modifier.animateItem().padding(horizontal = 8.dp)) {
                                             SubmissionCard(
                                                 submission = submission,
                                                 onClick = {
@@ -540,6 +569,7 @@ fun UserProfileScreen(
                                         contentType = { "submission" }
                                     ) { submission ->
                                         SubmissionCard(
+                                            modifier = Modifier.animateItem(),
                                             submission = submission,
                                             onClick = {
                                                 if (selectionActive) {

@@ -567,6 +567,7 @@ fun HomeScreen(
                                         contentType = { "submission" }
                                     ) { submission ->
                                         SubmissionCard(
+                                            modifier = Modifier.animateItem(),
                                             submission = submission,
                                             onClick = {
                     if (pageSelectionActive) {
@@ -643,6 +644,7 @@ fun HomeScreen(
                                         contentType = { "submission" }
                                     ) { submission ->
                                         SubmissionCard(
+                                            modifier = Modifier.animateItem(),
                                             submission = submission,
                                             onClick = {
                     if (pageSelectionActive) {
@@ -1115,6 +1117,7 @@ fun HomeScreen(
                                         contentType = { "submission" }
                                     ) { submission ->
                                         SubmissionCard(
+                                            modifier = Modifier.animateItem(),
                                             submission = submission,
                                             onClick = {
                     if (pageSelectionActive) {
@@ -1185,6 +1188,7 @@ fun HomeScreen(
                                         contentType = { "submission" }
                                     ) { submission ->
                                         SubmissionCard(
+                                            modifier = Modifier.animateItem(),
                                             submission = submission,
                                             onClick = {
                     if (pageSelectionActive) {

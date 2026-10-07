@@ -270,8 +270,9 @@ fun TagSearchScreen(
                 }
             } else {
                 // 三视图共用同一张卡片与同一套多选回调（与首页/用户页一致）
-                val submissionCard: @Composable (com.furflix.app.data.model.Submission) -> Unit = { submission ->
+                val submissionCard: @Composable (com.furflix.app.data.model.Submission, Modifier) -> Unit = { submission, itemModifier ->
                     SubmissionCard(
+                        modifier = itemModifier,
                         submission = submission,
                         onClick = {
                             if (selectionActive) {
@@ -312,7 +313,7 @@ fun TagSearchScreen(
                                     items = submissions,
                                     key = { it.id },
                                     contentType = { "submission" }
-                                ) { submission -> submissionCard(submission) }
+                                ) { submission -> submissionCard(submission, Modifier.animateItem()) }
                                 if (isLoadingMore) {
                                     item(
                                         span = StaggeredGridItemSpan.FullLine,
@@ -345,7 +346,7 @@ fun TagSearchScreen(
                                     items = submissions,
                                     key = { it.id },
                                     contentType = { "submission" }
-                                ) { submission -> submissionCard(submission) }
+                                ) { submission -> submissionCard(submission, Modifier.animateItem()) }
                                 if (isLoadingMore) {
                                     item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                                 }
@@ -381,7 +382,7 @@ fun TagSearchScreen(
                                     items = submissions,
                                     key = { it.id },
                                     contentType = { "submission" }
-                                ) { submission -> submissionCard(submission) }
+                                ) { submission -> submissionCard(submission, Modifier.animateItem()) }
                                 if (isLoadingMore) {
                                     item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                                 }

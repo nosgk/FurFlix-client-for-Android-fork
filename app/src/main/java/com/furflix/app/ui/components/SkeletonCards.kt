@@ -40,9 +40,11 @@ import androidx.compose.ui.unit.dp
  * 不做逐块 shimmer 扫光（长列表里成片扫光既噪又费帧）。
  * 布局参数与 GalleryCells 同源，由调用方按当前视图传入。
  */
+/** 占位图块宽高比池（模拟真实作品版式的多样性，瀑布流尤其需要）；网格内联骨架复用同一池 */
+val SKELETON_RATIOS = listOf(0.72f, 1.25f, 0.95f, 0.6f, 1.1f, 0.8f, 1.35f, 0.9f, 0.75f, 1.05f)
+
 private object SkeletonDefaults {
-    /** 占位图块宽高比区间（模拟真实作品版式的多样性，瀑布流尤其需要） */
-    val ratios = listOf(0.72f, 1.25f, 0.95f, 0.6f, 1.1f, 0.8f, 1.35f, 0.9f, 0.75f, 1.05f)
+    val ratios = SKELETON_RATIOS
 }
 
 @Composable
