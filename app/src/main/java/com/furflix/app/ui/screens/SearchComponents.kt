@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -21,9 +20,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -59,7 +59,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -99,18 +103,11 @@ fun SearchBar(
     tagSuggestions: List<String> = emptyList(),
     onTypingWordChanged: (String) -> Unit = {}
 ) {
-    // 上一轮查询解析出的标签；新词搜索时若无本轮新增，则不再自动带入旧标签
-    val inheritedTags = remember(query) {
-        Regex("@keywords\\s+(\\S+)").findAll(query).map { it.groupValues[1] }.toList()
-    }
-    var tags by remember(query) {
-        mutableStateOf(inheritedTags)
-    }
-    var text by remember(query) {
-        mutableStateOf(
-            "\u200B" + query.replace(Regex("@keywords\\s+\\S+"), "").trim().replace(Regex("\\s+"), " ")
-        )
-    }
+    // 输入框是本地草稿：query 只在“提交搜索”时向外回写，绝不反向灌回输入框
+    // （此前 remember(query) 会在搜索触发时把框内容重置成上次查询词——“带入之前
+    // 的搜索词”的根因）。标签 chips 同样只由本轮输入产生，不再从旧查询解析继承。
+    var tags by remember { mutableStateOf(emptyList<String>()) }
+    var text by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
     val scrollState = rememberScrollState()
     val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -189,31 +186,29 @@ fun SearchBar(
                     }
                 }
 
-                BasicTextField(
+                // 原生 TextField：此前用 BasicTextField + 零宽字符(\u200B)哨兵判断退格，
+                // 中文/日文等组词输入法在组词过程中会吞掉该哨兵，导致输入被整体清空并
+                // 误删一个标签 chip（“必须切英文输入法才能输”的根因）。原生字段不需要
+                // 哨兵：空框退格删最后一个标签由 onPreviewKeyEvent 处理。
+                TextField(
                     value = text,
                     onValueChange = { newText ->
-                        if (!newText.startsWith("\u200B")) {
-                            // Backspace was pressed on the empty field
-                            if (tags.isNotEmpty()) {
-                                tags = tags.dropLast(1)
-                            }
-                            text = "\u200B"
-                            return@BasicTextField
-                        }
-
-                        if (newText.endsWith(" ")) {
-                            val words = newText.removePrefix("\u200B").split(" ")
-                            val lastWord = words.dropLast(1).lastOrNull()
-                            if (lastWord != null && lastWord.startsWith("#") && lastWord.length > 1) {
-                                tags = addTagToken(tags, lastWord.removePrefix("#"))
-                                text = "\u200B" + newText.removePrefix("\u200B").substring(0, newText.removePrefix("\u200B").lastIndexOf(lastWord))
-                                return@BasicTextField
-                            }
+                        val commitWord = if (newText.endsWith(" ")) {
+                            val words = newText.trimEnd().split(" ")
+                            val lastWord = words.lastOrNull()
+                            lastWord != null && lastWord.startsWith("#") && lastWord.length > 1
+                        } else false
+                        if (commitWord) {
+                            val words = newText.trimEnd().split(" ")
+                            val lastWord = words.last()
+                            tags = addTagToken(tags, lastWord.removePrefix("#"))
+                            text = words.dropLast(1).joinToString(" ").let { if (it.isNotEmpty()) "$it " else "" }
+                            onTypingWordChanged("")
+                            return@TextField
                         }
                         text = newText
 
-                        val words = newText.removePrefix("\u200B").split(" ")
-                        val currentWord = words.lastOrNull() ?: ""
+                        val currentWord = newText.split(" ").lastOrNull() ?: ""
                         if (currentWord.startsWith("#")) {
                             onTypingWordChanged(currentWord.removePrefix("#"))
                         } else {
@@ -221,27 +216,30 @@ fun SearchBar(
                         }
                     },
                     modifier = Modifier
+                        .weight(1f)
                         .focusRequester(focusRequester)
-                        .defaultMinSize(minWidth = 60.dp)
-                        .padding(vertical = 4.dp),
+                        .onPreviewKeyEvent { event ->
+                            // 输入框为空时按退格：删除最后一个标签 chip
+                            if (event.type == KeyEventType.KeyDown &&
+                                event.key == Key.Backspace &&
+                                text.isEmpty() && tags.isNotEmpty()
+                            ) {
+                                tags = tags.dropLast(1)
+                                true
+                            } else {
+                                false
+                            }
+                        },
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(
                         onSearch = {
-                            var finalText = text.removePrefix("\u200B").trim()
-                            val words = finalText.split(" ")
-                            val lastWord = words.lastOrNull()
+                            var finalText = text.trim()
+                            val lastWord = finalText.split(" ").lastOrNull()
                             if (lastWord != null && lastWord.startsWith("#") && lastWord.length > 1) {
                                 tags = addTagToken(tags, lastWord.removePrefix("#"))
-                                finalText = finalText.substring(0, finalText.lastIndexOf(lastWord)).trim()
-                                text = "\u200B" + finalText
-                            }
-
-                            // 输入新词搜索 = 全新查询：上一轮遗留的标签不再自动带入
-                            //（本轮通过 #词/建议点选新加的标签除外，保留组合意图）
-                            if (finalText.isNotEmpty() && tags == inheritedTags) {
-                                tags = emptyList()
+                                finalText = finalText.substringBeforeLast(lastWord).trim()
                             }
 
                             val finalQuery = buildString {
@@ -256,17 +254,24 @@ fun SearchBar(
                             }
                             if (finalQuery.isNotBlank()) {
                                 onSearch(finalQuery.trim())
+                                // 提交即清空：框内不残留上一轮查询词
+                                text = ""
+                                tags = emptyList()
+                                onTypingWordChanged("")
                                 keyboardController?.hide()
                             }
                         }
                     ),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    decorationBox = { innerTextField ->
-                        if (text == "\u200B" && tags.isEmpty()) {
-                            Text(stringResource(R.string.search_hint), color = MutedText, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        innerTextField()
-                    }
+                    placeholder = {
+                        Text(stringResource(R.string.search_hint), color = MutedText, style = MaterialTheme.typography.bodyMedium)
+                    },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                        unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                        focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        cursorColor = MaterialTheme.colorScheme.primary
+                    )
                 )
 
                 DropdownMenu(
@@ -294,11 +299,11 @@ fun SearchBar(
                             },
                             onClick = {
                                 tags = addTagToken(tags, suggestion)
-                                val words = text.removePrefix("\u200B").split(" ").toMutableList()
+                                val words = text.split(" ").toMutableList()
                                 if (words.isNotEmpty()) {
                                     words.removeAt(words.lastIndex)
                                 }
-                                text = "\u200B" + words.joinToString(" ") + (if (words.isNotEmpty()) " " else "")
+                                text = words.joinToString(" ") + if (words.isNotEmpty()) " " else ""
                                 onTypingWordChanged("")
                             }
                         )
