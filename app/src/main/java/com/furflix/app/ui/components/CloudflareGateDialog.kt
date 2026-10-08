@@ -123,7 +123,10 @@ private fun CloudflareGateWebView(url: String) {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 // 验证 WebView 不设 UA：Android 原生 UA 与平台/TLS 指纹一致，
-                // CF 按合法客户端放行（桌面 UA 伪装 Windows 平台会被拒绝）
+                // CF 按合法客户端放行（桌面 UA 伪装 Windows 平台会被拒绝）。
+                // 同时把运行时 UA 回写单一来源——验证即将签发的 cf_clearance
+                // 按 UA 绑定，抓取链路必须与本 WebView 同 UA 才能吃到通行证
+                com.furflix.app.data.remote.UserAgent.update(settings.userAgentString)
                 android.webkit.CookieManager.getInstance().setAcceptCookie(true)
                 android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 

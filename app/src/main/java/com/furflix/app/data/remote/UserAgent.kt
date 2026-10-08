@@ -2,44 +2,55 @@ package com.furflix.app.data.remote
 
 import android.content.Context
 import android.webkit.WebSettings
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 全链路 UA 单一来源（2026-10-08 CF 循环验证事故定案）。
+ * 全链路 UA 单一来源（2026-10-08 CF 循环验证事故定案 + 实时更新版）。
  *
  * 全部出站链路——OkHttp 抓取 / Coil 图片 / 下载 / 登录与验证 WebView——统一使用
- * 设备**真实 WebView UA**（Application 创建时经 [init] 运行时获取）：
- *  - cf_clearance 被 CF 严格绑定到"签发它的 UA"。验证 WebView 只能用原生 UA
- *    通过人机验证（桌面 UA 平台不一致会被拒，3f8e899 登录回归实测），抓取链路
- *    曾配桌面 Chrome UA——clearance 拿到后重试仍按 UA 不匹配拒绝，验证对话框
- *    反复弹出、应用完全不可用（2026-10-08 实机报告）。绑定校验是 CF 的标准
- *    行为，"FA 不校验 clearance-UA 绑定"仅是无 clearance 场景的观测，从未真正
- *    跨链路验证过；两链路共用同一 UA 是绑定成立的唯一前提。
- *  - 客户端声明自洽：UA 与 Client Hints（FurHeaders）同源本文件，真实平台。
+ * 设备**真实 WebView UA**：cf_clearance 被 CF 按"签发它的 UA"绑定校验，验证
+ * WebView（原生 UA）拿到的 clearance 只有在同 UA 的抓取链路上才有效。
  *
- * 历史注：3f8e899~e6639a6 抓取链路曾用桌面 UA 以对齐桌面主题解析样本，并配
- * Fetch Metadata 拟真头压制挑战；该状态依赖 CF 的挑战策略静默，clearance 一旦
- * 介入即失效。本应用在 Android 移动 UA 下长期验证可用（初版~3f8e899），解析层
- * 以该形态为准校准。
+ * 实时更新设计：
+ *  - UA 以 [MutableStateFlow] 持有，[update] 可随时注入新值（如登录/验证
+ *    WebView 每次创建时回写其运行时 UA），后续请求立即生效；
+ *  - 请求头（User-Agent 与 FurHeaders 的 Client Hints）在每次构建请求时
+ *    实时读取 [current]，不存在缓存过期问题；
+ *  - Cookie 侧由 getCookiesString 每次调用实时读系统 CookieManager 补
+ *    cf_clearance 等 CF 系 cookie（92cdde0 起的行为，保持不变）。
+ *
+ * 回落 UA 锁定 Android WebView 形态（JVM 单测/极端时序），桌面形态是
+ * 2026-10-08 事故根因，UserAgentTest 防其回流。
  */
 object UserAgent {
 
-    /** init 前的回落值（JVM 单测/极端时序）：Android WebView 形态的移动 UA */
+    /** init 前的回落值：Android WebView 形态的移动 UA */
     private const val FALLBACK =
         "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
             "Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36"
 
-    @Volatile
-    private var runtime: String? = null
+    private val _ua = MutableStateFlow(FALLBACK)
 
-    /** Application 创建时调用：取设备 WebView 的真实 UA */
+    /** 当前生效 UA（可观察；网络层取 current()） */
+    val current: StateFlow<String> = _ua.asStateFlow()
+
+    /** Application 创建时调用：取设备 WebView 的真实 UA 作为初始值 */
     fun init(context: Context) {
         runCatching { WebSettings.getDefaultUserAgent(context) }
             .getOrNull()
-            ?.let { runtime = it }
+            ?.takeIf { it.isNotBlank() }
+            ?.let { update(it) }
+    }
+
+    /** 实时更新 UA：登录/验证 WebView 回写运行时 UA 等场景，后续请求立即生效 */
+    fun update(ua: String) {
+        if (ua.isNotBlank()) _ua.value = ua
     }
 
     /** 网络请求使用的 UA：设备真实 WebView UA */
-    fun current(): String = runtime ?: FALLBACK
+    fun current(): String = current.value
 
     /** 从当前 UA 解析 Chromium 主版本（Client Hints 与其保持自洽） */
     fun chromiumMajorVersion(): Int =

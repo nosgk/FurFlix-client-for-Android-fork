@@ -458,6 +458,9 @@ private fun HybridLoginWebView(
                     // 指纹三方一致，CF/Turnstile 按合法客户端放行（桌面 UA 伪装
                     // Windows 平台会被识别为伪装流量拒绝——登录回归实测结论）
                 }
+                // 运行时 UA 回写单一来源：Turnstile 签发与 cf_clearance 绑定
+                // 都以本 WebView 的 UA 为准，抓取链路须与之同步
+                com.furflix.app.data.remote.UserAgent.update(settings.userAgentString)
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 
@@ -720,6 +723,8 @@ private fun FaLoginWebView(
                     settings.domStorageEnabled = true
                     // 登录 WebView 不设 UA：Android 原生 UA 与平台/TLS 指纹一致，
                     // 是 CF 放行与 Turnstile 签发的前提（见 HybridLoginWebView 注释）
+                    // 运行时 UA 回写单一来源（理由同上）
+                    com.furflix.app.data.remote.UserAgent.update(settings.userAgentString)
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 
