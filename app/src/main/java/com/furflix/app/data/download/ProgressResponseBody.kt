@@ -45,7 +45,13 @@ class ProgressResponseBody(
     }
 }
 
-/** 600ms 滑动窗口测速；窗口未满时返回 null（沿用上次显示的速度）。 */
+/** 测速窗口长度（原 600ms：快速加载常在首个窗口未满时就完成，网速从未有机会显示） */
+private const val SPEED_SAMPLE_INTERVAL_MS = 300L
+
+/**
+ * 300ms 滑动窗口测速；窗口未满时返回 null（上层沿用上次显示值，
+ * 不覆盖已亮出的速度）。
+ */
 internal class Speedometer {
     private var lastBytes = 0L
     private var windowBytes = 0L
@@ -56,7 +62,7 @@ internal class Speedometer {
         lastBytes = totalRead
         if (windowStart == 0L) windowStart = now
         val elapsed = now - windowStart
-        return if (elapsed >= 600) {
+        return if (elapsed >= SPEED_SAMPLE_INTERVAL_MS) {
             val bps = windowBytes * 1000 / elapsed.coerceAtLeast(1)
             windowBytes = 0
             windowStart = now
@@ -66,4 +72,3 @@ internal class Speedometer {
         }
     }
 }
-
