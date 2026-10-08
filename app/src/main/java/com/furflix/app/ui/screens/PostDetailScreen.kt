@@ -347,6 +347,19 @@ fun PostDetailScreen(
 
                             Spacer(modifier = Modifier.height(20.dp))
 
+                            // ── Author gallery（宽屏右栏专属：紧邻作者头像的作者作品速览；
+                            //    单栏不展示，加载失败/为空时整体不占位）──
+                            if (twoPane && sub.author.isNotEmpty()) {
+                                AuthorGallerySection(
+                                    username = sub.authorUsername.ifEmpty { sub.author },
+                                    currentPostId = currentPostId,
+                                    cardStats = cardStats,
+                                    onNavigateToPost = onNavigateToPost,
+                                    onWarmStats = { viewModel.prefetchSubmissionStats(it) }
+                                )
+                                Spacer(modifier = Modifier.height(20.dp))
+                            }
+
                             // ── Info chips ──────────────────────────────────
                             InfoChipsRow(sub)
 
@@ -426,18 +439,6 @@ fun PostDetailScreen(
                                         }
                                     )
                                 }
-                            }
-
-                            // ── Author gallery（宽屏右栏专属：当前作品前后的作者作品）──
-                            if (twoPane && sub.author.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(24.dp))
-                                AuthorGallerySection(
-                                    username = sub.authorUsername.ifEmpty { sub.author },
-                                    currentPostId = currentPostId,
-                                    cardStats = cardStats,
-                                    onNavigateToPost = onNavigateToPost,
-                                    onWarmStats = { viewModel.prefetchSubmissionStats(it) }
-                                )
                             }
 
                             Spacer(modifier = Modifier.height(24.dp))
