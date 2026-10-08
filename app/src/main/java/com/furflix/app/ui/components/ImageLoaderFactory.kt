@@ -55,7 +55,7 @@ object ImageLoaderFactory {
             .addInterceptor { chain ->
                 val cookiesStr = FurAffinityScraper.getCookiesString()
                 val request = chain.request().newBuilder()
-                    .header("User-Agent", com.furflix.app.data.remote.UserAgent.desktop())
+                    .header("User-Agent", com.furflix.app.data.remote.UserAgent.current())
                     .header("Referer", "https://www.furaffinity.net/")
                 // 图片端 Fetch Metadata 拟真：跨站 CDN 请求的 sec-fetch-*/client hints
                 // 与 UA 同源自洽，压低 CF 对图片链路的 bot 评分

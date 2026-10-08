@@ -17,6 +17,9 @@ class FurFlixApp : Application() {
         instance = this
         // 前后台单一事实源：图片网络层闸门与后台预热协程都读它
         AppLifecycleTracker.install(this)
+        // 全链路 UA 单一来源先于任何网络组件就绪（cf_clearance 的 UA 绑定
+        // 要求抓取/图片/下载与验证 WebView 同 UA，见 UserAgent KDoc）
+        com.furflix.app.data.remote.UserAgent.init(this)
         FurAffinityScraper.init(this)
         // 磁盘缓存配额先于 loader 构建读定（DataStore 首读毫秒级），避免启动后再
         // 重建清缓存；设置页改配额走"清空重建"路径生效

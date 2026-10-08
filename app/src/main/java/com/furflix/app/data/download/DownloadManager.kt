@@ -73,7 +73,6 @@ object DownloadManager {
     private var appContext: Context? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     private const val REFERER = "https://www.furaffinity.net/"
     private val IMAGE_EXTS = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp")
     // FA 音频作品（Music/Podcast 类）与文档类：MediaStore 需按类型分流，不能全按图片落库
@@ -238,7 +237,7 @@ object DownloadManager {
                 .readTimeout(60, TimeUnit.SECONDS)
                 .build()
             val request = Request.Builder().url(workUrl)
-                .header("User-Agent", USER_AGENT)
+                .header("User-Agent", com.furflix.app.data.remote.UserAgent.current())
                 .header("Referer", REFERER)
                 .build()
 

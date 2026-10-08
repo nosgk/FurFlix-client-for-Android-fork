@@ -34,13 +34,11 @@ object FurAffinityScraper {
 
     private val cookieManager = CookieManager.getInstance()
 
-    // PC UA：FA 按 UA/指纹区分呈现，移动 UA 曾加剧“仅注册用户”门页与移动端形态分歧；
-    // 改用桌面 Chrome UA 与浏览器实测样本保持一致（解析规则全部按桌面主题校准）。
-    // 版本号由 UserAgent 按设备真实 WebView 内核动态解析（与登录 WebView、
-    // Coil 图片端共用同一来源）：版本一致性是 Turnstile 静默签发与
-    // cf_clearance 的 UA 绑定在两条链路间成立的前提。
+    // UA 全链路单一来源（UserAgent）：设备真实 WebView UA。cf_clearance 按 UA
+    // 绑定校验，抓取与验证两链路必须同 UA，否则验证通过后重试仍被拒、验证
+    // 对话框循环弹出（2026-10-08 实机事故）；解析层以该 UA 下 FA 的实际形态为准。
     val USER_AGENT: String
-        get() = UserAgent.desktop()
+        get() = UserAgent.current()
 
     const val FA_BASE = "https://www.furaffinity.net"
 
