@@ -416,7 +416,9 @@ fun UserProfileScreen(
                                 BioCard(
                                     text = profile.profileText,
                                     html = profile.profileTextHtml,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    onAuthorClick = onNavigateToUser,
+                                    onNavigateToPost = onNavigateToPost
                                 )
                             }
                         }
@@ -1469,7 +1471,13 @@ private fun StatDivider() {
 // -----------------------------------------------------------------------------------------
 
 @Composable
-private fun BioCard(text: String, html: String = "", modifier: Modifier = Modifier) {
+private fun BioCard(
+    text: String,
+    html: String = "",
+    modifier: Modifier = Modifier,
+    onAuthorClick: (String) -> Unit = {},
+    onNavigateToPost: (String) -> Unit = {}
+) {
     var expanded by remember { mutableStateOf(false) }
     var translatedOverflow by remember { mutableStateOf(false) }
     val translationPrefs = rememberTranslationPrefs()
@@ -1490,7 +1498,6 @@ private fun BioCard(text: String, html: String = "", modifier: Modifier = Modifi
             .clip(RoundedCornerShape(20.dp))
             .background(DarkSurface)
             .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-            .clickable { if (htmlOverflow || translatedOverflow || expanded) expanded = !expanded }
             .animateContentSize()
             .padding(16.dp)
     ) {
@@ -1519,6 +1526,8 @@ private fun BioCard(text: String, html: String = "", modifier: Modifier = Modifi
         if (!translationVisible || mode == TranslationDisplayMode.BILINGUAL) {
             HtmlTextView(
                 html = bioHtml,
+                onAuthorClick = onAuthorClick,
+                onNavigateToPost = onNavigateToPost,
                 maxLines = if (expanded) Int.MAX_VALUE else 4
             )
         }
@@ -1552,7 +1561,10 @@ private fun BioCard(text: String, html: String = "", modifier: Modifier = Modifi
                 text = if (expanded) stringResource(R.string.profile_show_less) else stringResource(R.string.profile_show_more),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { expanded = !expanded }
             )
         }
     }
