@@ -77,7 +77,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import com.furflix.app.ui.components.SubmissionCard
 import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.ui.components.masonryGridCells
@@ -90,7 +89,6 @@ import com.furflix.app.ui.components.LiveScrollSourceEffect
 import com.furflix.app.data.selection.SelectionStore
 import com.furflix.app.data.download.DownloadManager
 import com.furflix.app.ui.components.GlassBarTab
-import com.furflix.app.ui.components.SiteBannerStrip
 import com.furflix.app.ui.components.FurryTabIcons
 import dev.chrisbanes.haze.HazeState
 import com.furflix.app.ui.components.HazeTopAppBar
@@ -161,16 +159,6 @@ fun HomeScreen(
     // View options
     val context = LocalContext.current
     val repository = remember { FurRepository.getInstance(context) }
-
-    // 今日横幅（浏览/最新/搜索/我的共用顶栏）：与启动页共用同一份当日缓存；
-    // 当日未命中时先读一次联网刷新开关再决定是否补抓（关=仅用本地缓存，零流量）
-    var siteBannerUrl by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        val refreshAllowed = repository.splashBannerRefreshFlow.first()
-        siteBannerUrl = repository.loadSiteBanner()
-            ?: if (refreshAllowed) repository.refreshSiteBanner()
-            else repository.loadSiteBannerCached()
-    }
     val persistedViewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
     // 预取用的自适应列数估算；卡片自己还会按实测宽度协商，这里只是把该暖的档位暖对
@@ -255,10 +243,6 @@ fun HomeScreen(
                 enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it },
                 exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it }
             ) {
-            // 今日横幅条（FA 官网同款页头顺序）：浏览/最新/搜索/我的四 tab 共用顶栏，
-            // 取到当日 URL 才渲染；随顶栏一起滚动隐藏/唤回
-            Column {
-                siteBannerUrl?.let { url -> SiteBannerStrip(url = url) }
             HazeTopAppBar(
                 title = {
                     if (selectionActive) {
@@ -378,7 +362,6 @@ fun HomeScreen(
                     }
                 }
             )
-            }
             }
         }
     ) { padding ->
