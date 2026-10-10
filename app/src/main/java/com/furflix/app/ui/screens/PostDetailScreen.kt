@@ -364,17 +364,6 @@ fun PostDetailScreen(
                                 Spacer(modifier = Modifier.height(20.dp))
                             }
 
-                            // ── Info chips ──────────────────────────────────
-                            InfoChipsRow(sub)
-
-                            // ── Folders（作品所属画廊文件夹，可直达文件夹浏览）──
-                            if (sub.folders.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(16.dp))
-                                FoldersSection(folders = sub.folders, onOpenFolder = onOpenFolder)
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
                             // ── Tabs index plan（小说正文存在时插入为首 tab）──
                             // 评论恒为末位：统计栏跳评论区用 lastIndex，勿再硬编码下标
                             val hasStory = sub.storyText.isNotBlank()
@@ -387,64 +376,6 @@ fun PostDetailScreen(
                             val tabIndexDescription = if (hasStory) 1 else 0
                             val tabIndexMeta = if (hasStory) 2 else 1
                             val tabIndexComments = tabs.lastIndex
-
-                            // ── Stats bar ───────────────────────────────────
-                            val commentJumpMarginPx = with(LocalDensity.current) { 12.dp.toPx() }
-                            StatsRow(
-                                sub = sub,
-                                onToggleFavorite = { viewModel.toggleFavorite(currentPostId) },
-                                onCommentsClick = {
-                                    selectedTab = tabIndexComments
-                                    pagerScope.launch {
-                                        if (!tabsAnchorY.isNaN()) {
-                                            // Tab 行内容偏移 = (窗口坐标差) + 已滚动距离；留一点余量
-                                            val target = (tabsAnchorY - scrollRootY + scrollState.value - commentJumpMarginPx).roundToInt()
-                                            scrollState.animateScrollTo(target.coerceAtLeast(0))
-                                        }
-                                    }
-                                }
-                            )
-
-                            // ── Date ────────────────────────────────────────
-                            if (sub.date.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(14.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Schedule,
-                                        contentDescription = null,
-                                        tint = MutedText,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = sub.date,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MutedText
-                                    )
-                                }
-                            }
-
-                            // ── Tags ────────────────────────────────────────
-                            if (sub.tags.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(24.dp))
-                                CompositionLocalProvider(
-                                    LocalTagTranslationEnabled provides
-                                        tagTranslateToggle.takeIf { translationPrefs.enabled }
-                                ) {
-                                    TagsSection(
-                                        tags = sub.tags,
-                                        onTagClick = onTagClick,
-                                        onTagAppend = onTagAppend,
-                                        onTagSavePreset = {
-                                            // 标签长按保存：查询词固定为该标签组，沿用当前筛选快照
-                                            viewModel.addSearchPreset(
-                                                "", "@keywords $it", viewModel.searchFilters.value
-                                            )
-                                        }
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(24.dp))
 
                             // ── 简介 / 详细信息 / 评论（带折叠；位于作者画廊下方）──
                             Row(
@@ -508,6 +439,75 @@ fun PostDetailScreen(
                                     )
                                 }
                             }
+
+                            // ── Info chips ──────────────────────────────────
+                            InfoChipsRow(sub)
+
+                            // ── Folders（作品所属画廊文件夹，可直达文件夹浏览）──
+                            if (sub.folders.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                FoldersSection(folders = sub.folders, onOpenFolder = onOpenFolder)
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // ── Stats bar ───────────────────────────────────
+                            val commentJumpMarginPx = with(LocalDensity.current) { 12.dp.toPx() }
+                            StatsRow(
+                                sub = sub,
+                                onToggleFavorite = { viewModel.toggleFavorite(currentPostId) },
+                                onCommentsClick = {
+                                    selectedTab = tabIndexComments
+                                    pagerScope.launch {
+                                        if (!tabsAnchorY.isNaN()) {
+                                            // Tab 行内容偏移 = (窗口坐标差) + 已滚动距离；留一点余量
+                                            val target = (tabsAnchorY - scrollRootY + scrollState.value - commentJumpMarginPx).roundToInt()
+                                            scrollState.animateScrollTo(target.coerceAtLeast(0))
+                                        }
+                                    }
+                                }
+                            )
+
+                            // ── Date ────────────────────────────────────────
+                            if (sub.date.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        tint = MutedText,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = sub.date,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MutedText
+                                    )
+                                }
+                            }
+
+                            // ── Tags ────────────────────────────────────────
+                            if (sub.tags.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(24.dp))
+                                CompositionLocalProvider(
+                                    LocalTagTranslationEnabled provides
+                                        tagTranslateToggle.takeIf { translationPrefs.enabled }
+                                ) {
+                                    TagsSection(
+                                        tags = sub.tags,
+                                        onTagClick = onTagClick,
+                                        onTagAppend = onTagAppend,
+                                        onTagSavePreset = {
+                                            // 标签长按保存：查询词固定为该标签组，沿用当前筛选快照
+                                            viewModel.addSearchPreset(
+                                                "", "@keywords $it", viewModel.searchFilters.value
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
 
                             Spacer(modifier = Modifier.height(150.dp))
                             }
