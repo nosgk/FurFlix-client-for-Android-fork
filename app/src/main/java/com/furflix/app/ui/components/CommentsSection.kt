@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -359,44 +358,18 @@ private fun CommentThreadRow(
             modifier = Modifier
                 .padding(start = STEP * info.depth, end = 12.dp, top = 8.dp, bottom = 8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(AVATAR_SIZE)
-                    .clickable(enabled = comment.authorUsername.isNotEmpty()) {
-                        onAuthorClick(comment.authorUsername)
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (comment.authorAvatar.isNotEmpty()) {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(comment.authorAvatar)
-                            .crossfade(true)
-                            .build(),
-                        imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
-                        contentDescription = comment.author,
-                        modifier = Modifier
-                            .size(AVATAR_SIZE - 2.dp)
-                            .clip(CircleShape)
-                            .background(DarkSurfaceVariant)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(AVATAR_SIZE - 2.dp)
-                            .clip(CircleShape)
-                            .background(DarkSurfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            tint = SubtleGray,
-                            modifier = Modifier.size(20.dp)
-                        )
+                // D-003:圆形头像走公共件 UserAvatar(图片态/占位态同构)
+                UserAvatar(
+                    url = comment.authorAvatar,
+                    contentDescription = comment.author,
+                    size = AVATAR_SIZE,
+                    enabled = comment.authorUsername.isNotEmpty(),
+                    onClick = if (comment.authorUsername.isNotEmpty()) {
+                        { onAuthorClick(comment.authorUsername) }
+                    } else {
+                        null
                     }
-                }
-            }
+                )
 
             Spacer(modifier = Modifier.width(10.dp))
 
@@ -489,25 +462,11 @@ private fun ContinueThreadRow(
             .clickable(onClick = onOpen)
             .padding(start = STEP * info.depth, end = 12.dp, top = 6.dp, bottom = 6.dp)
     ) {
-        Box(
-            modifier = Modifier.size(AVATAR_SIZE),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(AVATAR_SIZE - 2.dp)
-                    .clip(CircleShape)
-                    .background(DarkSurfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.MoreHoriz,
-                    contentDescription = null,
-                    tint = SubtleGray,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
+            // D-003:同用公共件,占位图标为 MoreHoriz
+            PlaceholderAvatar(
+                icon = Icons.Default.MoreHoriz,
+                size = AVATAR_SIZE
+            )
 
         Spacer(modifier = Modifier.width(10.dp))
 

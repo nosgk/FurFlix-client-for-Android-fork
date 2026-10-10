@@ -273,7 +273,7 @@ K-004/K-005(UI 默认态与右栏顺序)、K-006(搜索面板观感)。
 | --- | --- | --- | --- | --- |
 | D-001 | 空/错误态 UI | 各 Screen 内联 | `ui/components/StateViews.kt` | P2 |
 | D-002 | 下拉刷新容器 | HomeScreen / ProfileScreen / UserProfileScreen | `PullToRefreshBox` 统一 | P2 |
-| D-003 | 头像 + 圆形裁剪 + 占位 | CommentsSection / PostDetail / UserProfile | `UserAvatar.kt` | P2 |
+| D-003 | 头像 + 圆形裁剪 + 占位 | CommentsSection / PostDetail / UserProfile | `UserAvatar.kt` | P2 — **已抽出**(`ui/components/UserAvatar.kt`),评论区 2 处已改 |
 | D-004 | 分区标题(文字 + 分隔线) | 多屏 | `SectionHeader.kt` | P3 |
 | D-005 | 折叠/展开(更多/更少) | UserProfileScreen:1481 与 K-004 需求 | `ExpandableSection.kt` | P2 |
 | D-006 | 图片加载 `ImageRequest.Builder` 样板 | CommentsSection:368 / PostDetail 多处 | `rememberImageRequest()` | P3 |
