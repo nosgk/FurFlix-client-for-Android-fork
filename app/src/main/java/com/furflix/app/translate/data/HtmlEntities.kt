@@ -53,6 +53,9 @@ object HtmlEntities {
      *
      * 数字实体支持十进制(`&#60;`)与十六进制(`&#x3C;`);
      * 越界或非法码点保留字面量。
+     *
+     * 注意:`Int.toChar()` 在 Kotlin 里是**静默截断**(取低 16 位),不抛异常,
+     * 直接用它会把 `&#999999999;` 变成某个无关字符。故必须显式校验码点范围。
      */
     fun decode(text: String): String {
         if ('&' !in text) return text
@@ -64,9 +67,12 @@ object HtmlEntities {
             } else {
                 body.toIntOrNull(10)
             }
-            code?.let { c ->
-                runCatching { c.toChar().toString() }.getOrNull()
-            } ?: m.value
+            if (code == null || !isValidCodePoint(code)) {
+                m.value
+            } else {
+                // Character.toChars 支持增补平面(> 0xFFFF),越界会抛异常,兜底保留字面量
+                runCatching { String(Character.toChars(code)) }.getOrDefault(m.value)
+            }
         }
 
         out = NAMED_ENTITY.replace(out) { m ->
@@ -75,4 +81,8 @@ object HtmlEntities {
 
         return out
     }
+
+    /** 合法 Unicode 标量值:0..0x10FFFF,且不在代理区(0xD800..0xDFFF)。 */
+    private fun isValidCodePoint(code: Int): Boolean =
+        code in 0..0x10FFFF && code !in 0xD800..0xDFFF
 }

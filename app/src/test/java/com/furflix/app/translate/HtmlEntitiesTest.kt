@@ -43,9 +43,31 @@ class HtmlEntitiesTest {
     }
 
     @Test
-    fun `keeps invalid numeric entities literal`() {
+    fun `keeps out of range numeric entities literal`() {
+        // Kotlin 的 Int.toChar() 会静默截断,必须显式校验码点范围才不误转
         assertEquals("&#999999999;", HtmlEntities.decode("&#999999999;"))
+        assertEquals("&#1114112;", HtmlEntities.decode("&#1114112;")) // > 0x10FFFF
+        assertEquals("&#x110000;", HtmlEntities.decode("&#x110000;"))
+    }
+
+    @Test
+    fun `keeps surrogate code points literal`() {
+        assertEquals("&#55296;", HtmlEntities.decode("&#55296;"))   // 0xD800
+        assertEquals("&#xD800;", HtmlEntities.decode("&#xD800;"))
+        assertEquals("&#57343;", HtmlEntities.decode("&#57343;"))   // 0xDFFF
+    }
+
+    @Test
+    fun `keeps malformed numeric entities literal`() {
         assertEquals("&#zz;", HtmlEntities.decode("&#zz;"))
+        assertEquals("&#;", HtmlEntities.decode("&#;"))
+    }
+
+    @Test
+    fun `decodes supplementary plane code point`() {
+        // U+1F600 笑脸,增补平面需代理对
+        assertEquals("\uD83D\uDE00", HtmlEntities.decode("&#128512;"))
+        assertEquals("\uD83D\uDE00", HtmlEntities.decode("&#x1F600;"))
     }
 
     // ---------------------------------------------------------------- 未知实体
