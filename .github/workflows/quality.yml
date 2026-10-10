@@ -153,6 +153,10 @@ jobs:
                   clean = t.split('#')[0].split('?')[0]
                   if not clean:
                       continue
+                  # docs/ 为本地工作区,按设计不入库(见 .gitignore),
+                  # 故指向它的链接在远端必然"断裂",跳过不计。
+                  if clean.startswith('docs/') or clean.startswith('./docs/'):
+                      continue
                   resolved = os.path.normpath(os.path.join(os.path.dirname(path), clean))
                   if not os.path.exists(resolved):
                       BAD.append(f"{path} -> {t}")

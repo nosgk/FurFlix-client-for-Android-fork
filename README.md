@@ -96,7 +96,8 @@ Multiple color themes and app icon styles, 4 UI languages (EN / RU / UA / ZH), g
 Push to `main` triggers the workflow. Release artifacts are uploaded per run.
 
 > Local Gradle invocation is intentionally unsupported: the signing keystore and
-> the pinned toolchain exist only in CI. See [ADR-0003](docs/ADRs/0003-no-local-builds.md).
+> the pinned toolchain exist only in CI (see ADR-0003, kept in the local
+> `docs/ADRs/` workspace — not part of the repository).
 
 ---
 
@@ -105,9 +106,12 @@ Push to `main` triggers the workflow. Release artifacts are uploaded per run.
 Before opening a PR, read:
 
 - `AGENTS.md` — repository conventions (i18n, commit style, no local builds)
-- [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) — how to add screens, components, strings
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — module layout and data flow
 - [`ISSUES.md`](ISSUES.md) — the live, prioritised problem list
+
+Architecture notes, development guides and ADRs live in the local `docs/`
+workspace, which is intentionally **not** part of the repository (see
+`.gitignore`). When you change the architecture, update those local notes and
+record any decision as an ADR there.
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/):
 `feat:`, `fix:`, `refactor:`, `docs:`, `build:`, `test:`, `chore:`.
