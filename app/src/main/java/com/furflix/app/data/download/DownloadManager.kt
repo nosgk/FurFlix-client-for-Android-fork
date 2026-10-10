@@ -236,10 +236,21 @@ object DownloadManager {
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .build()
-            val request = Request.Builder().url(workUrl)
+            val requestBuilder = Request.Builder().url(workUrl)
                 .header("User-Agent", com.furflix.app.data.remote.UserAgent.current())
                 .header("Referer", REFERER)
-                .build()
+                .header(
+                    "Accept",
+                    "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+                )
+            // K-002:d.furaffinity.net 的原件直链对无会话请求返回 403。
+            // 下载必须带走与抓取链路同源的会话/CF cookie,否则"下载原图"必失败。
+            // 与 UserAgent 同源保证 cf_clearance 的 UA 绑定校验成立(ADR-0002)。
+            val cookieHeader = com.furflix.app.data.remote.FurAffinityScraper.getCookiesString()
+            if (cookieHeader.isNotEmpty()) {
+                requestBuilder.header("Cookie", cookieHeader)
+            }
+            val request = requestBuilder.build()
 
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) throw Exception("HTTP ${response.code}")
