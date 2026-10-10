@@ -138,17 +138,24 @@ data class SearchFilters(
     val hasKeywords: Boolean
         get() = keywords.isNotEmpty() || genders.isNotEmpty()
 
+    /**
+     * 生效的筛选维度数(面板顶栏 "[N]" 徽标与快捷行的 activeFilterCount)。
+     * 每个维度只计一次(同维度取消多项仍算 1);排序把 order-by ×
+     * order-direction 视为**一个**维度,避免按相关度排序时被重复计数。
+     */
     val advancedFilterCount: Int
         get() {
             var count = 0
             if (keywords.isNotEmpty()) count++
             if (genders.isNotEmpty()) count++
+            if (category != 0) count++
+            if (artType != 0) count++
             if (species != 0) count++
             if (!ratingGeneral || !ratingMature || !ratingAdult) count++
             if (!typeArt || !typeFlash || !typePhoto || !typeMusic || !typeStory || !typePoetry) count++
             if (range != "all") count++
             if (mode != "extended") count++
-            if (orderBy != "date") count++
+            if (orderBy != "date" || orderDirection != "desc") count++
             return count
         }
 

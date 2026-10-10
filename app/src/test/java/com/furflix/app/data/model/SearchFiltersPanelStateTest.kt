@@ -81,10 +81,32 @@ class SearchFiltersPanelStateTest {
     }
 
     @Test
+    fun `sort direction counts once and shares the sort dimension`() {
+        // 方向单独改动计 1
+        assertEquals(1, SearchFilters(orderDirection = "asc").advancedFilterCount)
+        // order-by 与 order-direction 同属一个维度:两者都非默认仍只计 1
+        assertEquals(
+            1,
+            SearchFilters(orderBy = "relevancy", orderDirection = "asc").advancedFilterCount
+        )
+        assertEquals(0, SearchFilters(orderBy = "date", orderDirection = "desc").advancedFilterCount)
+    }
+
+    @Test
+    fun `category and art type count as their own dimensions`() {
+        assertEquals(1, SearchFilters(category = 2).advancedFilterCount)
+        assertEquals(0, SearchFilters(category = 0).advancedFilterCount)
+        assertEquals(1, SearchFilters(artType = 100).advancedFilterCount)
+        assertEquals(0, SearchFilters(artType = 0).advancedFilterCount)
+    }
+
+    @Test
     fun `dimensions accumulate independently`() {
         val filters = SearchFilters(
             keywords = listOf("fox"),
             genders = listOf("male"),
+            category = 2,
+            artType = 100,
             species = 3,
             ratingAdult = false,
             typePhoto = false,
@@ -92,8 +114,8 @@ class SearchFiltersPanelStateTest {
             mode = "any",
             orderBy = "relevancy",
         )
-        // 8 个维度各计 1
-        assertEquals(8, filters.advancedFilterCount)
+        // 10 个维度各计 1
+        assertEquals(10, filters.advancedFilterCount)
     }
 
     // ---------------------------------------------------------------- range 归一化
