@@ -55,6 +55,72 @@ jobs:
             baseline-report.json
           if-no-files-found: warn
 
+  test-inventory:
+    name: Test inventory (warn-only)
+    runs-on: ubuntu-24.04
+    continue-on-error: true   # 可观测优先;覆盖率硬门禁待 JaCoCo 接入后启用
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      # 覆盖率度量暂不引入 JaCoCo:AGP 9 的 enableUnitTestCoverage 属性名
+      # 未经实测验证,写错会让整个构建脚本配置期失败、阻塞所有提交。
+      # 先以"测试清单"作可观测代理:逐目录统计生产/测试文件数,列出零测试目录。
+      # 口径:按**精确目录**匹配(测试文件摆放未必镜像生产包结构,故数字偏保守)。
+      - name: Report test-to-source ratio per directory
+        run: |
+          python3 - <<'PY'
+          import os
+
+          MAIN = 'app/src/main/java/com/furflix/app'
+          TEST = 'app/src/test/java/com/furflix/app'
+          CRITICAL = {
+              'viewmodel', 'data/repository', 'data/download', 'data/selection',
+              'data/remote', 'data/local', 'translate/data', 'translate/ui',
+          }
+
+          def kt_count(root):
+              n = 0
+              for dirpath, _, files in os.walk(root):
+                  n += sum(1 for f in files if f.endswith('.kt'))
+              return n
+
+          rows = []
+          for dirpath, dirnames, _ in os.walk(MAIN):
+              rel = os.path.relpath(dirpath, MAIN).replace(os.sep, '/')
+              if rel == '.':
+                  continue
+              prod = kt_count(dirpath)
+              if not prod:
+                  continue
+              exact = os.path.join(TEST, rel)
+              tests = kt_count(exact) if os.path.isdir(exact) else 0
+              rows.append((rel, prod, tests))
+
+          rows.sort()
+          print('note: exact-directory match only; tests placed outside the')
+          print('mirror directory are not counted here (see ISSUES.md T-001).')
+          print()
+          print(f"{'directory':<28}{'prod':>6}{'tests':>7}   ratio")
+          untested_critical = []
+          for rel, prod, tests in rows:
+              ratio = (tests / prod) if prod else 0
+              flag = ''
+              if tests == 0 and rel in CRITICAL:
+                  flag = '  <-- CRITICAL, no tests'
+                  untested_critical.append(rel)
+              print(f"{rel:<28}{prod:>6}{tests:>7}   {ratio:.2f}{flag}")
+
+          print()
+          print(f"untested critical dirs: {len(untested_critical)}")
+          for d in untested_critical:
+              print('::warning::no unit tests in ' + d)
+          PY
+
   docs-links:
     name: Markdown link check
     runs-on: ubuntu-24.04
