@@ -1,9 +1,7 @@
 package com.furflix.app.data.remote
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
-import android.webkit.CookieManager
 import com.furflix.app.data.model.Submission
 import com.furflix.app.data.model.Comment
 import com.furflix.app.data.model.GalleryFolder
@@ -27,12 +25,9 @@ class GuestBlockedException(message: String = "Guest gate page") : Exception(mes
 
 object FurAffinityScraper {
 
-    // Session cookies — keyed by name. Real FA auth cookies are named "a" and "b".
-    private var sessionCookies: MutableMap<String, String> = mutableMapOf()
-    private var loggedIn = false
-    private var username = ""
-
-    private val cookieManager = CookieManager.getInstance()
+    // 会话与 cookie 管理已抽至 FurSession(REFACTOR-004):本对象只做抓取与解析,
+    // 下列委托方法保持既有调用方(FurRepository / DownloadManager /
+    // ImageLoaderFactory / MainViewModel)签名不变。
 
     // UA 全链路单一来源（UserAgent）：设备真实 WebView UA。cf_clearance 按 UA
     // 绑定校验，抓取与验证两链路必须同 UA，否则验证通过后重试仍被拒、验证
@@ -64,114 +59,35 @@ object FurAffinityScraper {
         .addInterceptor(com.furflix.app.data.remote.RetryInterceptor())
         .build()
 
-    @SuppressLint("SetJavaScriptEnabled")
     fun init(context: Context) {
-        CookieManager.getInstance().setAcceptCookie(true)
-        if (sessionCookies.isNotEmpty()) {
-            applySessionCookiesToCookieManager()
-        }
+        FurSession.init(context)
     }
 
-    fun isLoggedIn(): Boolean = loggedIn
+    fun isLoggedIn(): Boolean = FurSession.isLoggedIn()
 
-    fun getUsername(): String = username
+    fun getUsername(): String = FurSession.getUsername()
 
     fun setUsername(name: String) {
-        username = name
+        FurSession.setUsername(name)
     }
 
-    /**
-     * Returns the Cookie header string from session cookies.
-     * Only uses cookies that are actual auth/session cookies - not consent junk.
-     * @param forceNsfw if true, injects sfw=0; if false, injects sfw=1; if null, leaves it alone.
-     *
-     * cookie 合并策略（CF 对抗关键）：有会话时以 sessionCookies 为权威，
-     * 并从 CookieManager **精准补齐 Cloudflare 系 cookie**（cf_clearance 等——
-     * 验证弹窗/登录 WebView 刚通过挑战拿到的通行证在这里实时落库）；
-     * 不合并 FCCDCF/FCNEC 等 consent 垃圾（ Cookie 头膨胀反而恶化指纹）。
-     * 无会话（访客态）时回落全量 CookieManager，维持原行为。
-     */
-    fun getCookiesString(forceNsfw: Boolean? = null): String {
-        val cmCookies = parseCm()
-        return CookieMerger.merge(
-            session = sessionCookies,
-            runtime = cmCookies,
-            forceNsfw = forceNsfw,
-        )
-    }
+    /** 合并后的 Cookie 请求头;合并策略见 CookieMerger / FurSession。 */
+    fun getCookiesString(forceNsfw: Boolean? = null): String =
+        FurSession.getCookiesString(forceNsfw)
 
-    /** 解析系统 CookieManager 的当前值(两个 host 合并,后者同名覆盖) */
-    private fun parseCm(): Map<String, String> {
-        val map = LinkedHashMap<String, String>()
-        listOf(
-            cookieManager.getCookie("https://furaffinity.net"),
-            cookieManager.getCookie("https://www.furaffinity.net")
-        ).forEach { raw ->
-            raw?.split(";")?.forEach { part ->
-                val kv = part.trim().split("=", limit = 2)
-                if (kv.size == 2 && kv[0].trim().isNotEmpty()) {
-                    map[kv[0].trim()] = kv[1].trim()
-                }
-            }
-        }
-        return map
-    }
-
-    /**
-     * CF 验证通过后调用:清理会话快照里已被运行时新值取代的 CF 系脏键,
-     * 避免重登前的旧 clearance 在任何回落路径上复活(见 K-001)。
-     */
+    /** CF 验证通过后清理会话快照中的 CF 系脏键(见 K-001)。 */
     fun dropStaleCfSessionCookies() {
-        val stale = CookieMerger.staleSessionKeys(sessionCookies, parseCm())
-        if (stale.isEmpty()) return
-        stale.forEach { sessionCookies.remove(it) }
-        Log.d("FurScraper", "Dropped stale CF session cookies: $stale")
+        FurSession.dropStaleCfSessionCookies()
     }
 
-    /**
-     * Called after WebView login. Parses and stores cookies.
-     * Key insight from iOS: only cookie named "a" (and optionally "b") signals real login.
-     * Cookies like FCCDCF, FCNEC are just CloudFlare/consent cookies — NOT auth.
-     */
+    /** 登录 WebView 回传 cookie 后调用(实现见 FurSession)。 */
     fun setCookiesFromWebView(cookiesString: String) {
-        sessionCookies.clear()
-        cookiesString.split(";").forEach { cookie ->
-            val parts = cookie.trim().split("=", limit = 2)
-            if (parts.size == 2) {
-                val name = parts[0].trim()
-                val value = parts[1].trim()
-                if (name.isNotEmpty()) {
-                    sessionCookies[name] = value
-                }
-            }
-        }
-        applySessionCookiesToCookieManager()
-
-        // Real FA session requires the "a" cookie — just like the iOS app checks:
-        // guard cookies.map(\.name).contains("a") else { return nil }
-        val hasAuthCookie = sessionCookies.containsKey("a")
-        loggedIn = hasAuthCookie
-
-        Log.d(
-            "FurScraper",
-            "Cookies set: ${sessionCookies.keys}, hasAuthCookie(a)=$hasAuthCookie, loggedIn=$loggedIn"
-        )
+        FurSession.setCookiesFromWebView(cookiesString)
     }
 
-    private fun applySessionCookiesToCookieManager() {
-        sessionCookies.forEach { (name, value) ->
-            cookieManager.setCookie("https://furaffinity.net", "$name=$value")
-            cookieManager.setCookie("https://www.furaffinity.net", "$name=$value")
-        }
-        cookieManager.flush()
-    }
-
+    /** 登出:清空会话与系统 cookie(实现见 FurSession)。 */
     fun clearSession() {
-        sessionCookies.clear()
-        loggedIn = false
-        username = ""
-        cookieManager.removeAllCookies(null)
-        cookieManager.flush()
+        FurSession.clearSession()
     }
 
     private suspend fun fetchDocument(url: String, forceNsfw: Boolean? = null): org.jsoup.nodes.Document =
@@ -264,22 +180,20 @@ object FurAffinityScraper {
 
             if (!name.isNullOrEmpty() && name != "Logged in") {
                 Log.d("FurScraper", "Verified login, username=$name")
-                username = name
-                loggedIn = true
+                FurSession.markLoggedIn(name)
             } else {
                 // Try alternate selector
                 val alt = doc.selectFirst("a[href^=\"/user/\"]")
                 val altHref = alt?.attr("href")?.trim('/')?.removePrefix("user/")?.substringBefore("/")
                 val altName = altHref?.takeIf { it.isNotEmpty() } ?: alt?.text()?.trim()
                 if (!altName.isNullOrEmpty() && !altName.contains(" ") && altName.length < 40) {
-                    username = altName
-                    loggedIn = true
+                    FurSession.markLoggedIn(altName)
                     Log.d("FurScraper", "Verified login via alt selector, username=$altName")
                 } else {
                     Log.w("FurScraper", "Could not find username on home page")
                 }
             }
-            username.ifEmpty { null }
+            FurSession.getUsername().ifEmpty { null }
         } catch (e: Exception) {
             Log.e("FurScraper", "verifyLogin error: ${e.message}", e)
             null
@@ -350,8 +264,7 @@ object FurAffinityScraper {
                 return@withContext Result.failure(Exception(msg))
             }
 
-            loggedIn = true
-            username = user
+            FurSession.markLoggedIn(user)
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(Exception("Login error: ${e.message}"))
