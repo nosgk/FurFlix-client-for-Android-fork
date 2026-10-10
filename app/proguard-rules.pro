@@ -1,5 +1,16 @@
 # Proguard rules for FurFlix
 
+# 发布构建剥离调试日志(ISSUES S-001 / S-002)。
+# Log.d / Log.v 是纯调试输出,且多处会打印完整 URL 与页面片段等敏感上下文
+# (如 FurAffinityScraper 的 "Fetching: $url"、"Short HTML: ${html.take(500)}")。
+# -assumenosideeffects 让 R8 在 release 中整条移除调用(含参数求值),
+# 从而不泄漏内部信息;debug 构建不受影响,仍可正常排查。
+# 保留 Log.w / Log.e:告警与错误级信息在生产中仍有诊断价值。
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+}
+
 -keepattributes *Annotation*
 -keepattributes Signature
 -keepattributes InnerClasses,EnclosingMethod
