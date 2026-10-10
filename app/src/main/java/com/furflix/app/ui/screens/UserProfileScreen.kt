@@ -760,6 +760,9 @@ private fun GalleryNavCard(
 ) {
     // 折叠分组集合；组名是用户自建内容，作 key 不参与翻译
     val collapsedGroups = remember { mutableStateMapOf<String, Boolean>() }
+    // K-004:整个「画廊文件夹」区块默认折叠 —— 分组多的用户页首屏会被撑长。
+    // 一旦用户手动展开过则记住其选择（foldersExpanded 持有显式意图）。
+    var foldersExpanded by remember { mutableStateOf(false) }
     // 分组归并，保持站点出现顺序（FA 把 default-group 的无组文件夹排在组后面）
     val grouped = remember(folders) {
         val ordered = LinkedHashMap<String, MutableList<GalleryFolder>>()
@@ -797,38 +800,66 @@ private fun GalleryNavCard(
         }
         if (folders.isNotEmpty()) {
             Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                stringResource(R.string.profile_gallery_folders),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = SubtleGray,
-                modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
-            )
-            grouped.forEach { (group, groupFolders) ->
-                if (group.isEmpty()) {
-                    // 无组文件夹：根级直列（站点的 default-group）
-                    groupFolders.forEach { folder ->
-                        FolderTreeRow(
-                            folder = folder,
-                            active = activeFolder?.id == folder.id,
-                            onOpen = onOpen
-                        )
-                    }
-                } else {
-                    val collapsed = collapsedGroups[group] == true
-                    FolderGroupHeader(
-                        group = group,
-                        collapsed = collapsed,
-                        onToggle = { collapsedGroups[group] = !collapsed }
-                    )
-                    if (!collapsed) {
+            // K-004:标题行即折叠开关，默认收起（箭头朝右）
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { foldersExpanded = !foldersExpanded }
+                    .padding(start = 4.dp, end = 4.dp, top = 2.dp, bottom = 4.dp)
+            ) {
+                Icon(
+                    if (foldersExpanded) Icons.Default.KeyboardArrowDown
+                    else Icons.Default.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = SubtleGray,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    stringResource(R.string.profile_gallery_folders),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = SubtleGray,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    Icons.Default.Folder,
+                    contentDescription = null,
+                    tint = SubtleGray,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            // 选中了具体文件夹时保持展开，避免用户刚点进去列表就收起
+            val showFolders = foldersExpanded || activeFolder != null
+            if (showFolders) {
+                grouped.forEach { (group, groupFolders) ->
+                    if (group.isEmpty()) {
+                        // 无组文件夹：根级直列（站点的 default-group）
                         groupFolders.forEach { folder ->
                             FolderTreeRow(
                                 folder = folder,
                                 active = activeFolder?.id == folder.id,
-                                onOpen = onOpen,
-                                indent = true
+                                onOpen = onOpen
                             )
+                        }
+                    } else {
+                        val collapsed = collapsedGroups[group] == true
+                        FolderGroupHeader(
+                            group = group,
+                            collapsed = collapsed,
+                            onToggle = { collapsedGroups[group] = !collapsed }
+                        )
+                        if (!collapsed) {
+                            groupFolders.forEach { folder ->
+                                FolderTreeRow(
+                                    folder = folder,
+                                    active = activeFolder?.id == folder.id,
+                                    onOpen = onOpen,
+                                    indent = true
+                                )
+                            }
                         }
                     }
                 }
