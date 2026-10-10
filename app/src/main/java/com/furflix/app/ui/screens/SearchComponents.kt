@@ -559,62 +559,6 @@ private fun InlineTextDropdown(
     }
 }
 
-@Composable
-fun FilterDropdownRow(
-    title: String,
-    currentValueLabel: String,
-    options: List<Pair<String, String>>,
-    onSelect: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = true }
-                .padding(vertical = 12.dp, horizontal = 4.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(currentValueLabel, style = MaterialTheme.typography.bodyMedium, color = MutedText)
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = MutedText,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = DarkSurfaceVariant,
-            border = BorderStroke(1.dp, BorderDark),
-            modifier = Modifier.fillMaxWidth(0.6f)
-        ) {
-            options.forEach { (value, label) ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            label,
-                            color = if (label == currentValueLabel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    onClick = {
-                        onSelect(value)
-                        expanded = false
-                    }
-                )
-            }
-        }
-        androidx.compose.material3.HorizontalDivider(color = BorderDark, thickness = 1.dp)
-    }
-}
-
 /**
  * 带过滤输入的行内下拉：长列表（物种 398 项）先键入缩小范围再点选，
  * 空查询时截断展示前 80 项避免一次性组合。

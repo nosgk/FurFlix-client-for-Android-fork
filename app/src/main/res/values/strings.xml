@@ -290,6 +290,7 @@
     <string name="filter_require_any">Require any</string>
     <string name="filter_advanced">FA syntax</string>
     
+    <string name="filter_sort_criteria">Sort Criteria</string>
     <string name="filter_order_by">Order By</string>
     <string name="filter_sort_date">Date</string>
     <string name="filter_sort_relevancy">Relevancy</string>
@@ -314,6 +315,10 @@
     <string name="filter_time_from">From</string>
     <string name="filter_time_to">To</string>
 
+    <!-- FA sidebar "Upload Type Filter" rows (Category / Type / Species) -->
+    <string name="filter_upload_type">Upload Type Filter</string>
+    <string name="filter_category">Category</string>
+    <string name="filter_arttype">Type</string>
     <string name="filter_species">Species</string>
     <string name="filter_species_search">Type to filter…</string>
     <string name="filter_species_narrow">Keep typing to see more</string>

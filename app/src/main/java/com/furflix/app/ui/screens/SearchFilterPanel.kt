@@ -1,7 +1,7 @@
 package com.furflix.app.ui.screens
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,14 +12,15 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,6 +32,8 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -56,14 +59,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.furflix.app.R
+import com.furflix.app.data.FA_ART_TYPE_GROUPS
+import com.furflix.app.data.FA_ART_TYPES
+import com.furflix.app.data.FA_CATEGORIES
+import com.furflix.app.data.FA_CATEGORY_GROUPS
 import com.furflix.app.data.FA_GENDER_OPTIONS
 import com.furflix.app.data.FA_SPECIES
 import com.furflix.app.data.model.SearchFilters
 import com.furflix.app.ui.theme.BorderDark
 import com.furflix.app.ui.theme.CardBackground
+import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.MutedText
 import com.furflix.app.ui.theme.Rating_Adult
 import com.furflix.app.ui.theme.Rating_General
@@ -71,15 +80,22 @@ import com.furflix.app.ui.theme.Rating_Mature
 import com.furflix.app.ui.theme.SubtleGray
 
 /**
- * 搜索与筛选面板(K-006 / REFACTOR-010)。
+ * 搜索与筛选面板(K-006 / REFACTOR-010,2026-10-10 二次升级)。
  *
- * 设计目标:对齐 furaffinity.net 搜索面板的信息架构,同时适配移动端单手操作。
- * - 顶栏:标题 + 生效筛选数徽标(等宽字体,极客风) + 分享/预设/清空
- * - 分区:统一 [FilterSection] 小标签 + 细分隔线,取代原先混杂的间距
- * - 评级:沿用 FA 三色语义(General 绿 / Mature 橙 / Adult 红)
+ * 信息架构对齐 furaffinity.net `/search/` 侧栏 `#search-advanced`:
+ *   - **Sort Criteria**:order-by(relevancy/date/popularity)× order-direction(asc/desc)
+ *   - **Upload Type Filter**:Category / Type / Species 三行(FA 的 optgroup 分组原样保留)
+ * 其余 FA 放在主搜索表单里的维度(Rating / Gender / Content Type)与本站扩展
+ * (Time Range / per-page / Match Mode / 语法速查)按同一分区语言组织。
  *
- * 与 URL 四方镜像契约无关的部分保持行为不变:所有回调签名、SearchFilters
- * 字段读写、FA 原生枚举取值(时间范围/perpage/mode)一律照旧。
+ * 移动端适配:
+ *   - 所有可点行最小高度 44dp(触控目标下限);
+ *   - 排序用芯片而非下拉(3+2 项,平铺比嵌套菜单更快);
+ *   - Category/Type 用分组下拉(FA 的 optgroup 结构),Species 用可搜索下拉(398 项)。
+ *
+ * 极客观感:分区小标签字距拉开、计数徽标与语法操作符用等宽字体。
+ *
+ * 行为契约不变:SearchFilters 字段读写、FA 原生枚举取值、URL 镜像与所有回调签名。
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -127,9 +143,76 @@ fun InlineSearchFilters(
                 onSaveClick = { showSaveDialog = true }
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // 1. Rating —— FA 三色语义
+            // ── Sort Criteria ────────────────────────────────────────────
+            FilterSection(title = stringResource(R.string.filter_sort_criteria)) {
+                Text(
+                    stringResource(R.string.filter_order_by),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SubtleGray,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        "date" to R.string.filter_sort_date,
+                        "relevancy" to R.string.filter_sort_relevancy,
+                        "popularity" to R.string.filter_sort_popularity
+                    ).forEach { (value, labelRes) ->
+                        FAFilterChip(
+                            label = stringResource(labelRes),
+                            selected = filters.orderBy == value
+                        ) { onFiltersChanged(filters.copy(orderBy = value)) }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    stringResource(R.string.filter_sort_direction),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SubtleGray,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FAFilterChip(
+                        label = stringResource(R.string.filter_dir_desc),
+                        selected = filters.orderDirection == "desc"
+                    ) { onFiltersChanged(filters.copy(orderDirection = "desc")) }
+                    FAFilterChip(
+                        label = stringResource(R.string.filter_dir_asc),
+                        selected = filters.orderDirection == "asc"
+                    ) { onFiltersChanged(filters.copy(orderDirection = "asc")) }
+                }
+            }
+
+            // ── Upload Type Filter(Category / Type / Species)────────────
+            FilterSection(title = stringResource(R.string.filter_upload_type)) {
+                GroupedFilterSelect(
+                    label = stringResource(R.string.filter_category),
+                    valueLabel = FA_CATEGORIES.firstOrNull { it.first == filters.category }?.second ?: "All",
+                    groups = remember { groupedOptions(FA_CATEGORIES, FA_CATEGORY_GROUPS) },
+                    onSelect = { onFiltersChanged(filters.copy(category = it.toIntOrNull() ?: 0)) }
+                )
+                GroupedFilterSelect(
+                    label = stringResource(R.string.filter_arttype),
+                    valueLabel = FA_ART_TYPES.firstOrNull { it.first == filters.artType }?.second ?: "All",
+                    groups = remember { groupedOptions(FA_ART_TYPES, FA_ART_TYPE_GROUPS) },
+                    onSelect = { onFiltersChanged(filters.copy(artType = it.toIntOrNull() ?: 0)) }
+                )
+                val speciesOptions = remember {
+                    listOf("0" to "All") + FA_SPECIES.map { it.first.toString() to it.second }
+                }
+                SearchableFilterDropdownRow(
+                    title = stringResource(R.string.filter_species),
+                    currentValueLabel = speciesOptions.firstOrNull { it.first == filters.species.toString() }?.second ?: "All",
+                    options = speciesOptions,
+                    onSelect = { onFiltersChanged(filters.copy(species = it.toIntOrNull() ?: 0)) }
+                )
+            }
+
+            // ── Rating ───────────────────────────────────────────────────
             FilterSection(title = stringResource(R.string.filter_rating)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -157,7 +240,7 @@ fun InlineSearchFilters(
                 }
             }
 
-            // 2. Gender —— FA 语义:所选性别并进 @keywords 组(gender_checkboxes_search.js)
+            // ── Gender(FA 语义:并进 @keywords 组)──────────────────────
             FilterSection(title = stringResource(R.string.filter_gender)) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -182,7 +265,7 @@ fun InlineSearchFilters(
                 }
             }
 
-            // 3. Content Type
+            // ── Content Type(FA 主表单的 upload type 复选框)───────────
             FilterSection(title = stringResource(R.string.filter_content_type)) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -197,19 +280,9 @@ fun InlineSearchFilters(
                 }
             }
 
-            // 4. Species(398 项:先键入过滤再点选)
-            val speciesOptions = remember {
-                listOf("0" to "All") + FA_SPECIES.map { it.first.toString() to it.second }
-            }
-            SearchableFilterDropdownRow(
-                title = stringResource(R.string.filter_species),
-                currentValueLabel = speciesOptions.firstOrNull { it.first == filters.species.toString() }?.second ?: "All",
-                options = speciesOptions,
-                onSelect = { onFiltersChanged(filters.copy(species = it.toIntOrNull() ?: 0)) }
-            )
-
-            // 5. Time Range —— 值必须是 FA 原生枚举(1week/1month 是无效值,2026-10-07 表单实测);
-            //    manual + range_from/range_to(yyyy-MM-dd,实测服务端回显生效)
+            // ── Time Range ───────────────────────────────────────────────
+            // 值必须是 FA 原生枚举(1week/1month 是无效值,2026-10-07 表单实测);
+            // manual + range_from/range_to(yyyy-MM-dd,实测服务端回显生效)
             val timeRanges = listOf(
                 "1day" to stringResource(R.string.filter_time_1d),
                 "3days" to stringResource(R.string.filter_time_3d),
@@ -222,67 +295,74 @@ fun InlineSearchFilters(
                 "all" to stringResource(R.string.filter_time_all),
                 "manual" to stringResource(R.string.filter_time_custom)
             )
-            FilterDropdownRow(
-                title = stringResource(R.string.filter_time_range),
-                currentValueLabel = timeRanges.firstOrNull { it.first == filters.normalizedRange }?.second
-                    ?: timeRanges.last().second,
-                options = timeRanges,
-                onSelect = { onFiltersChanged(filters.copy(range = it)) }
-            )
-            if (filters.range == "manual") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ManualDateField(
-                        label = stringResource(R.string.filter_time_from),
-                        value = filters.rangeFrom,
-                        onPick = { onFiltersChanged(filters.copy(rangeFrom = it)) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    ManualDateField(
-                        label = stringResource(R.string.filter_time_to),
-                        value = filters.rangeTo,
-                        onPick = { onFiltersChanged(filters.copy(rangeTo = it)) },
-                        modifier = Modifier.weight(1f)
-                    )
+            FilterSection(title = stringResource(R.string.filter_time_range)) {
+                GroupedFilterSelect(
+                    label = "",
+                    valueLabel = timeRanges.firstOrNull { it.first == filters.normalizedRange }?.second
+                        ?: timeRanges.last().second,
+                    groups = listOf("" to timeRanges),
+                    onSelect = { onFiltersChanged(filters.copy(range = it)) }
+                )
+                if (filters.range == "manual") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ManualDateField(
+                            label = stringResource(R.string.filter_time_from),
+                            value = filters.rangeFrom,
+                            onPick = { onFiltersChanged(filters.copy(rangeFrom = it)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ManualDateField(
+                            label = stringResource(R.string.filter_time_to),
+                            value = filters.rangeTo,
+                            onPick = { onFiltersChanged(filters.copy(rangeTo = it)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
 
-            // 6. Results per page(FA 原生档位 24/48/72)
-            val perpageOptions = SearchFilters.PERPAGE_CHOICES.map { it.toString() to it.toString() }
-            FilterDropdownRow(
-                title = stringResource(R.string.filter_perpage),
-                currentValueLabel = filters.perpage.toString(),
-                options = perpageOptions,
-                onSelect = { onFiltersChanged(filters.copy(perpage = it.toIntOrNull() ?: SearchFilters.PERPAGE_MAX)) }
-            )
+            // ── Results per page(FA 原生档位 24/48/72)─────────────────
+            FilterSection(title = stringResource(R.string.filter_perpage)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SearchFilters.PERPAGE_CHOICES.forEach { choice ->
+                        FAFilterChip(
+                            label = choice.toString(),
+                            selected = filters.perpage == choice
+                        ) { onFiltersChanged(filters.copy(perpage = choice)) }
+                    }
+                }
+            }
 
-            // 7. Match Mode
+            // ── Tag Match Mode ──────────────────────────────────────────
             val modes = listOf(
                 "all" to stringResource(R.string.filter_require_all),
                 "any" to stringResource(R.string.filter_require_any),
                 "extended" to stringResource(R.string.filter_advanced)
             )
-            FilterDropdownRow(
-                title = stringResource(R.string.filter_match_mode),
-                currentValueLabel = modes.firstOrNull { it.first == filters.mode }?.second
-                    ?: stringResource(R.string.filter_advanced),
-                options = modes,
-                onSelect = { onFiltersChanged(filters.copy(mode = it)) }
-            )
+            FilterSection(title = stringResource(R.string.filter_match_mode)) {
+                GroupedFilterSelect(
+                    label = "",
+                    valueLabel = modes.firstOrNull { it.first == filters.mode }?.second
+                        ?: stringResource(R.string.filter_advanced),
+                    groups = listOf("" to modes),
+                    onSelect = { onFiltersChanged(filters.copy(mode = it)) }
+                )
+            }
 
-            // 8. 搜索语法速查:FA 原生 Lucene 系操作符(/help/#search),
-            //    字段操作符 chip 点击即以"操作符 + 当前查询"立即执行
+            // ── Search syntax 速查 ──────────────────────────────────────
             var showSyntax by remember { mutableStateOf(false) }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
                     .clickable { showSyntax = !showSyntax }
-                    .padding(vertical = 12.dp, horizontal = 2.dp),
+                    .defaultMinSize(minHeight = 44.dp)
+                    .padding(vertical = 10.dp, horizontal = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -344,7 +424,7 @@ fun InlineSearchFilters(
 
 /**
  * 面板顶栏:标题 + 生效筛选数徽标 + 分享链接 / 保存预设 / 清空。
- * 徽标用等宽字体与方括号式呈现,强化"工具箱"的极客观感。
+ * 徽标用等宽字体方括号呈现;图标按钮 44dp 触控目标。
  */
 @Composable
 private fun FilterPanelHeader(
@@ -402,7 +482,7 @@ private fun FilterPanelHeader(
                     clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("FA search", url))
                     android.widget.Toast.makeText(context, copiedToast, android.widget.Toast.LENGTH_SHORT).show()
                 },
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     Icons.Default.Link,
@@ -411,7 +491,7 @@ private fun FilterPanelHeader(
                     modifier = Modifier.size(20.dp)
                 )
             }
-            IconButton(onClick = onSaveClick, modifier = Modifier.size(32.dp)) {
+            IconButton(onClick = onSaveClick, modifier = Modifier.size(44.dp)) {
                 Icon(
                     Icons.Default.BookmarkAdd,
                     contentDescription = stringResource(R.string.search_save_preset),
@@ -421,8 +501,8 @@ private fun FilterPanelHeader(
             }
             TextButton(
                 onClick = onClear,
-                modifier = Modifier.height(28.dp),
-                contentPadding = PaddingValues(horizontal = 6.dp)
+                modifier = Modifier.defaultMinSize(minHeight = 44.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp)
             ) {
                 Text(
                     stringResource(R.string.search_clear_all),
@@ -435,8 +515,8 @@ private fun FilterPanelHeader(
 }
 
 /**
- * 统一分区:小号标签(字母间距拉开)+ 内容 + 细分隔线。
- * 取代原先"标题 bodyLarge + 各处 8/16/24dp 混杂间距"的不一致排版。
+ * 统一分区:小号标签(字距拉开)+ 内容 + 细分隔线。
+ * 标签风格对齐 FA 侧栏的 h4 分组标题,但用字距与颜色而非加粗来区分层级。
  */
 @Composable
 private fun FilterSection(
@@ -457,6 +537,114 @@ private fun FilterSection(
         Spacer(modifier = Modifier.height(12.dp))
         HorizontalDivider(color = BorderDark, thickness = 1.dp)
     }
+}
+
+/**
+ * 分组下拉行(FA `<select>` + `<optgroup>` 的 Compose 对应)。
+ *
+ * @param label 左侧行标签;空串表示纯值行(如时间范围/匹配模式)
+ * @param groups 分组名 → (值, 显示名) 列表;空组名渲染为无标题的平铺项
+ *
+ * 整行最小高度 44dp;菜单内组名以小号灰字作为不可点标题。
+ */
+@Composable
+private fun GroupedFilterSelect(
+    label: String,
+    valueLabel: String,
+    groups: List<Pair<String, List<Pair<String, String>>>>,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { expanded = true }
+                .defaultMinSize(minHeight = 44.dp)
+                .padding(vertical = 10.dp, horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (label.isNotEmpty()) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            } else {
+                Spacer(modifier = Modifier.width(0.dp))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    valueLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 200.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MutedText,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = DarkSurfaceVariant,
+            border = BorderStroke(1.dp, BorderDark),
+            modifier = Modifier.heightIn(max = 420.dp).fillMaxWidth(0.75f)
+        ) {
+            groups.forEach { (groupName, options) ->
+                if (groupName.isNotEmpty()) {
+                    Text(
+                        text = groupName,
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                        color = SubtleGray,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 2.dp)
+                    )
+                }
+                options.forEach { (value, text) ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text,
+                                color = if (text == valueLabel) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            onSelect(value)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 把 FA 常量表按 optgroup 结构展开为分组选项;"All"(id 0)单列为无标题首组。 */
+private fun groupedOptions(
+    table: List<Pair<Int, String>>,
+    groups: List<Pair<String, List<Int>>>
+): List<Pair<String, List<Pair<String, String>>>> {
+    val byId = table.toMap()
+    val out = mutableListOf<Pair<String, List<Pair<String, String>>>>()
+    byId[0]?.let { out += "" to listOf("0" to it) }
+    groups.forEach { (name, ids) ->
+        val items = ids.mapNotNull { id -> byId[id]?.let { id.toString() to it } }
+        if (items.isNotEmpty()) out += name to items
+    }
+    return out
 }
 
 /** 评级芯片:FA 三色语义,选中时以对应色填充,未选中为暗色描边。 */
@@ -600,7 +788,7 @@ fun SavePresetDialog(
     )
 }
 
-/** 通用筛选芯片(非评级类:性别/内容类型)。 */
+/** 通用筛选芯片(非评级类:性别 / 内容类型 / 排序 / 每页)。 */
 @Composable
 private fun FAFilterChip(
     label: String,

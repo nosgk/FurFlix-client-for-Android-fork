@@ -298,6 +298,7 @@
     <!-- FA = FurAffinity 自带的进阶搜索语法 -->
     <string name="filter_advanced">FA 语法</string>
 
+    <string name="filter_sort_criteria">排序条件</string>
     <string name="filter_order_by">排序依据</string>
     <string name="filter_sort_date">日期</string>
     <string name="filter_sort_relevancy">相关度</string>
@@ -322,6 +323,10 @@
     <string name="filter_time_from">起始日期</string>
     <string name="filter_time_to">结束日期</string>
 
+    <!-- FA 侧栏「上传类型筛选」三行(分类 / 类型 / 物种) -->
+    <string name="filter_upload_type">上传类型筛选</string>
+    <string name="filter_category">分类</string>
+    <string name="filter_arttype">类型</string>
     <string name="filter_species">物种</string>
     <string name="filter_species_search">键入以筛选…</string>
     <string name="filter_species_narrow">继续键入查看更多</string>

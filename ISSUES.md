@@ -41,6 +41,7 @@
 | 5 | `7365cd8` | 面板状态测试 + 测试清单可观测门禁 |
 | 5 | `57ca70e` | 修 Markdown 链接门禁误报(README 不再指向不入库的 docs/) |
 | 5 | `8c740a4` | 修 HtmlEntities 越界码点校验(CI 暴露的单测失败) |
+| 4′ | — | 搜索面板二次升级:FA 对齐分区 + 分组下拉 + 触控 44dp;补全 FA_ART_TYPES(19→52) |
 
 已修:K-001 ~ K-007(全部已知问题)、S-001、S-002、C-001、C-003。
 部分:A-001、A-002、T-001、T-002、C-002。
@@ -220,6 +221,21 @@ K-004/K-005(UI 默认态与右栏顺序)、K-006(搜索面板观感)。
 - behavior-change: no
 - subtask: REFACTOR-011
 - status: open
+
+### A-005  `FA_ART_TYPES` 只覆盖 FA 表单的 19/52 项(已修)
+- type: bug
+- severity: P2
+- area: data
+- evidence: 原 `FurFilterConstants.kt` 的 `FA_ART_TYPES` 仅 19 项
+  (0=All 加 General Things 全 14 项、Specialty 仅 5 项、**Music 组整组缺失**);
+  对照 furaffinity.net `/search/` 侧栏 `#search-advanced` 的 `arttype`
+  `<select>`(2026-10-10 实测 HTML):General Things 14 + Specialty 23 +
+  Music 15 = 52 项。缺项意味着 Type 筛选无法命中这些分类。
+- decision: 修复
+- behavior-change: no(纯补全可选值)
+- subtask: FIX-006 / 搜索面板二次升级
+- status: fixed — 按 FA 表单实测补齐至 52 项,新增 `FA_CATEGORY_GROUPS` /
+  `FA_ART_TYPE_GROUPS` 分组映射,`FurFilterTaxonomyTest` 锁定不变量
 
 ### A-004  跨层反向依赖:UI 直接引用 data 层实现
 - type: refactor
