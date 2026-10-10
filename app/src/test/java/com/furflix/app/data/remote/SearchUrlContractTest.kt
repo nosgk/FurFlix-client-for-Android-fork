@@ -140,12 +140,14 @@ class SearchUrlContractTest {
     // ---------------------------------------------------------------- 入参解析
 
     /**
-     * 入参解析走公开入口 [FaLinks.parseFaLink](URL → [FaLink.Search]),
-     * 其内部再调私有的 parseSearchFilters 做枚举白名单钳制。
+     * 入参解析走公开入口 **顶层函数** [parseFaLink](URL → [FaLink.Search]),
+     * 其内部再调私有的 `parseSearchFilters` 做枚举白名单钳制。
+     *
+     * 注意:`FaLinks.kt` 里没有 `FaLinks` 对象 —— 只有顶层函数 `parseFaLink`
+     * 与密封类 `FaLink`(单数)。本测试与它们同包,直接调用即可。
      */
     private fun parseFilters(url: String): SearchFilters? =
-        (com.furflix.app.data.remote.FaLinks.parseFaLink(url)
-            as? com.furflix.app.data.remote.FaLink.Search)?.filters
+        (parseFaLink(url) as? FaLink.Search)?.filters
 
     @Test
     fun `search url round trips through FaLinks parser`() {
