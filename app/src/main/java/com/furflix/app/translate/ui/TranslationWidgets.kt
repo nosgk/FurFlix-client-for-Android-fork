@@ -165,7 +165,12 @@ fun TranslatableText(
                     if (mode == TranslationDisplayMode.BILINGUAL) {
                         Spacer(Modifier.height(6.dp))
                     }
-                    Text(text = s.translated, style = style)
+                    // K-007:译文走 Compose Text,不经 HtmlCompat,上游转义的
+                    // 实体(&lt; 3 等)会原样暴露给用户。展示前统一解码。
+                    val decoded = remember(s.translated) {
+                        com.furflix.app.translate.data.HtmlEntities.decode(s.translated)
+                    }
+                    Text(text = decoded, style = style)
                     TranslationCaption(entry, s, mode)
                 }
             }

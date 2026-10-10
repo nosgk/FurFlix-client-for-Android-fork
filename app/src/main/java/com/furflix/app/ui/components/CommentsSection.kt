@@ -134,7 +134,11 @@ fun CommentsSection(
         val focus = focusStack.lastOrNull()
         if (focus == null) {
             val rows = remember(tree, cutoff) { flattenRows(tree, cutoff) }
-            Column {
+            Column(
+                // K-003:首条评论原本顶部零间距,头像紧贴父容器上沿,被上方
+                // Tab 导航栏裁掉一截。给列表顶部留出呼吸位。
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
                 rows.forEachIndexed { index, row ->
                     // 顶层楼与顶层楼之间给一档呼吸空隙,回复之间保持紧凑
                     val groupGap = if (row.info.depth == 0 && index > 0) 8.dp else 0.dp
@@ -413,12 +417,15 @@ private fun CommentThreadRow(
                     )
                     if (comment.title.isNotEmpty()) {
                         Spacer(modifier = Modifier.width(8.dp))
+                        // K-003:头衔需参与剩余空间分配且可收缩,否则长头衔会把
+                        // 后面的日期整体挤出可视区。
                         Text(
                             text = comment.title,
                             fontSize = 11.sp,
                             color = SubtleGray,
                             maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -435,7 +442,18 @@ private fun CommentThreadRow(
                             }
                         }
                         if (dateStr.isNotEmpty()) {
-                            Text(text = dateStr, fontSize = 11.sp, color = MutedText)
+                            // K-003:日期必须单行且不参与换行。原先无 maxLines /
+                            // 无权重约束,窄屏下被挤压成"竖排一字长蛇",并把整行
+                            // 撑高造成大面积留白。
+                            Text(
+                                text = dateStr,
+                                fontSize = 11.sp,
+                                color = MutedText,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Visible,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
                         }
                     }
                 }
