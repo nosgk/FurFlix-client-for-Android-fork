@@ -152,6 +152,11 @@ private fun CloudflareGateWebView(url: String) {
                                 val r = result?.removeSurrounding("\"")?.trim() ?: ""
                                 if (r == "OK" && passed == 0) {
                                     passed = 1
+                                    // 挑战通过:先清掉会话快照里被新签发值取代的
+                                    // 旧 cf_clearance(K-001),再回执放行重试,
+                                    // 否则重试仍带旧凭证、对话框循环弹出。
+                                    com.furflix.app.data.remote.FurAffinityScraper
+                                        .dropStaleCfSessionCookies()
                                     com.furflix.app.data.remote.CloudflareGate.resolve()
                                 }
                             }

@@ -92,45 +92,40 @@ object FurAffinityScraper {
      * 无会话（访客态）时回落全量 CookieManager，维持原行为。
      */
     fun getCookiesString(forceNsfw: Boolean? = null): String {
-        // CF 系 cookie 白名单：验证/挑战链路签发的通行凭证
-        val cfCookieNames = setOf("cf_clearance", "__cf_bm", "__cfruid", "__cf_chl_seqn")
+        val cmCookies = parseCm()
+        return CookieMerger.merge(
+            session = sessionCookies,
+            runtime = cmCookies,
+            forceNsfw = forceNsfw,
+        )
+    }
 
-        fun parseCm(): Map<String, String> {
-            val map = LinkedHashMap<String, String>()
-            listOf(
-                cookieManager.getCookie("https://furaffinity.net"),
-                cookieManager.getCookie("https://www.furaffinity.net")
-            ).forEach { raw ->
-                raw?.split(";")?.forEach { part ->
-                    val kv = part.trim().split("=", limit = 2)
-                    if (kv.size == 2 && kv[0].trim().isNotEmpty()) {
-                        map[kv[0].trim()] = kv[1].trim()
-                    }
+    /** 解析系统 CookieManager 的当前值(两个 host 合并,后者同名覆盖) */
+    private fun parseCm(): Map<String, String> {
+        val map = LinkedHashMap<String, String>()
+        listOf(
+            cookieManager.getCookie("https://furaffinity.net"),
+            cookieManager.getCookie("https://www.furaffinity.net")
+        ).forEach { raw ->
+            raw?.split(";")?.forEach { part ->
+                val kv = part.trim().split("=", limit = 2)
+                if (kv.size == 2 && kv[0].trim().isNotEmpty()) {
+                    map[kv[0].trim()] = kv[1].trim()
                 }
             }
-            return map
         }
+        return map
+    }
 
-        val cmCookies = parseCm()
-        return if (sessionCookies.isNotEmpty()) {
-            val merged = LinkedHashMap<String, String>()
-            merged.putAll(cmCookies.filterKeys { it in cfCookieNames })
-            sessionCookies.forEach { (name, value) -> merged[name] = value }
-            if (forceNsfw == true) merged.remove("sfw")
-            else if (forceNsfw == false) merged["sfw"] = "1"
-            merged.entries.joinToString("; ") { "${it.key}=${it.value}" }
-        } else {
-            var combined = cmCookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
-            if (forceNsfw == true) {
-                combined = combined.replace(Regex("""sfw=\d+"""), "")
-                    .replace(Regex(""";\s*;"""), ";").trim(';', ' ')
-            } else if (forceNsfw == false) {
-                combined = combined.replace(Regex("""sfw=\d+"""), "").trim(';', ' ')
-                if (combined.isNotEmpty()) combined += "; "
-                combined += "sfw=1"
-            }
-            combined
-        }
+    /**
+     * CF 验证通过后调用:清理会话快照里已被运行时新值取代的 CF 系脏键,
+     * 避免重登前的旧 clearance 在任何回落路径上复活(见 K-001)。
+     */
+    fun dropStaleCfSessionCookies() {
+        val stale = CookieMerger.staleSessionKeys(sessionCookies, parseCm())
+        if (stale.isEmpty()) return
+        stale.forEach { sessionCookies.remove(it) }
+        Log.d("FurScraper", "Dropped stale CF session cookies: $stale")
     }
 
     /**
