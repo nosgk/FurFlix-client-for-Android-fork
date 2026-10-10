@@ -51,6 +51,7 @@ val FA_CATEGORIES = listOf(
 
 val FA_ART_TYPES = listOf(
     0 to "All",
+    // General Things（FA /search/ arttype optgroup）
     2 to "Abstract",
     3 to "Animal related (non-anthro)",
     4 to "Anime",
@@ -64,11 +65,46 @@ val FA_ART_TYPES = listOf(
     12 to "Still Life",
     13 to "Tutorials",
     14 to "Miscellaneous",
+    // Specialty
     100 to "General Furry Art",
+    122 to "ABDL",
+    101 to "Baby fur",
+    102 to "Bondage",
+    103 to "Digimon",
+    104 to "Fat Furs",
+    105 to "Fetish Other",
     106 to "Fursuit",
-    113 to "Pokemon",
+    119 to "Gore / Macabre Art",
+    107 to "Hyper",
+    121 to "Hypnosis",
+    108 to "Inflation",
+    109 to "Macro / Micro",
+    110 to "Muscle",
     111 to "My Little Pony / Brony",
-    119 to "Gore / Macabre Art"
+    112 to "Paw",
+    113 to "Pokemon",
+    114 to "Pregnancy",
+    115 to "Sonic",
+    116 to "Transformation",
+    120 to "TF / TG",
+    117 to "Vore",
+    118 to "Water Sports",
+    // Music
+    201 to "Techno",
+    202 to "Trance",
+    203 to "House",
+    204 to "90s",
+    205 to "80s",
+    206 to "70s",
+    207 to "60s",
+    208 to "Pre-60s",
+    209 to "Classical",
+    210 to "Game Music",
+    211 to "Rock",
+    212 to "Pop",
+    213 to "Rap",
+    214 to "Industrial",
+    200 to "Other Music"
 )
 
 val FA_SPECIES_OPTIONS = listOf(
@@ -215,6 +251,34 @@ val FA_SPECIES_OPTIONS = listOf(
 )
 
 val FA_SPECIES_MAP = FA_SPECIES_OPTIONS.associate { (v, n) -> v to n }
+
+/**
+ * FA /search/ 侧栏 Category 的 optgroup 结构(2026-10-10 实测 #search-advanced)。
+ * 键为 [FA_CATEGORIES] 内的 id;标签是 FA 站点自带的分组名(站点内容,不参与 i18n)。
+ * 用于搜索面板按 FA 原貌分组展示,顺序即 FA 表单顺序。
+ */
+val FA_CATEGORY_GROUPS = listOf(
+    "Visual Art" to listOf(34, 2, 3, 4, 5, 6, 32, 8, 9, 10, 11, 36, 12, 35),
+    "Animation & Media" to listOf(37, 38, 39, 7, 40),
+    "Readable Art" to listOf(13, 14, 15),
+    "Audio Art" to listOf(16, 17),
+    "Downloadable" to listOf(18, 19, 20),
+    "Other Stuff" to listOf(21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31)
+)
+
+/** FA /search/ 侧栏 Type(arttype) 的 optgroup 结构。 */
+val FA_ART_TYPE_GROUPS = listOf(
+    "General Things" to listOf(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14),
+    "Specialty" to listOf(
+        100, 122, 101, 102, 103, 104, 105, 106, 119, 107, 121,
+        108, 109, 110, 111, 112, 113, 114, 115, 116, 120, 117, 118
+    ),
+    "Music" to listOf(
+        201, 202, 203, 204, 205, 206, 207, 208, 209, 210,
+        211, 212, 213, 214, 200
+    )
+)
+
 
 val FA_GENDER_OPTIONS = listOf(
     "" to "Any Gender",
