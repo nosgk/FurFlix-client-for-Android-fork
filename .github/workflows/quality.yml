@@ -1,0 +1,100 @@
+name: Quality
+
+# 质量门禁:静态分析、规范校验、文档内链校验。
+#
+# 起步策略 —— 先可观测、后拦截:
+#   1) 当前不引入 detekt / ktlint Gradle 插件:AGP 9 内置 Kotlin + KGP 2.4.20
+#      的插件版本矩阵尚未实测验证,写死版本号会让 CI 全量失败、阻塞所有提交。
+#      改用零依赖的 scripts/lint-baseline.py 完成等价盘点(warn-only,报告归档)。
+#   2) 规则集已备好于 config/detekt/detekt.yml,待版本矩阵验证通过后再切换为
+#      Gradle 插件并翻 ignoreFailures=false 转硬门禁。
+#   3) 阻断项:Markdown 相对链接校验(内链断裂会直接误导阅读者)。
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  static-baseline:
+    name: Static baseline scan (warn-only)
+    runs-on: ubuntu-24.04
+    continue-on-error: true   # 首轮不阻断;存量清零后改为硬门禁
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Run baseline scan (text)
+        run: python3 scripts/lint-baseline.py --root app/src/main | tee baseline-report.txt
+
+      - name: Run baseline scan (json)
+        run: |
+          python3 scripts/lint-baseline.py --root app/src/main \
+            --format json > baseline-report.json
+          python3 - <<'PY'
+          import json
+          data = json.load(open('baseline-report.json'))
+          total = len(data['findings'])
+          print(f"baseline findings: {total}")
+          print(f"files scanned: {data['files_scanned']}")
+          PY
+
+      - name: Archive baseline report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: static-baseline-report
+          path: |
+            baseline-report.txt
+            baseline-report.json
+          if-no-files-found: warn
+
+  docs-links:
+    name: Markdown link check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      # 只校验仓库内的相对链接;外链不稳定,不纳入门禁。
+      # 排除 docs/ —— 该目录为本地工作区,不入库,远端不存在故必然"断裂"。
+      - name: Check relative links in Markdown
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+
+          MD_LINK = re.compile(r'\[[^\]]*\]\(([^)]+)\)')
+          BAD = []
+          files = []
+          for root, dirs, fs in os.walk('.'):
+              dirs[:] = [d for d in dirs if d not in
+                         {'.git', 'build', '.gradle', 'node_modules', 'docs'}]
+              for f in fs:
+                  if f.endswith('.md'):
+                      files.append(os.path.join(root, f))
+
+          for path in files:
+              text = open(path, encoding='utf-8', errors='ignore').read()
+              for target in MD_LINK.findall(text):
+                  t = target.strip()
+                  if not t or t.startswith(('http://', 'https://', 'mailto:', '#')):
+                      continue
+                  clean = t.split('#')[0].split('?')[0]
+                  if not clean:
+                      continue
+                  resolved = os.path.normpath(os.path.join(os.path.dirname(path), clean))
+                  if not os.path.exists(resolved):
+                      BAD.append(f"{path} -> {t}")
+
+          if BAD:
+              print("::error::Broken relative links found:")
+              for b in BAD:
+                  print("::error::  " + b)
+              sys.exit(1)
+          print(f"OK: checked {len(files)} markdown files, no broken relative links.")
+          PY

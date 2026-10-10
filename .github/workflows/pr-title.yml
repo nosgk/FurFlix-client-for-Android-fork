@@ -1,0 +1,45 @@
+name: PR title
+
+# PR 标题遵循 Conventional Commits(与 AGENTS.md 的提交规范一致)。
+# 只校验标题:commit message 由提交者本地遵守,CI 不做回溯式强制。
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches: [ main ]
+
+jobs:
+  conventional-title:
+    name: Conventional Commits check
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Validate PR title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+
+          title = os.environ.get("TITLE", "").strip()
+          # type(scope)!: subject
+          pattern = re.compile(
+              r'^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)'
+              r'(\([a-z0-9_.\-]+\))?!?: .+'
+          )
+
+          if not title:
+              print("::error::PR title is empty.")
+              sys.exit(1)
+
+          if not pattern.match(title):
+              print("::error::PR title must follow Conventional Commits.")
+              print("::error::  got: " + title)
+              print("::error::  expected: <type>[optional scope][!]: <description>")
+              print("::error::  types: feat fix docs style refactor perf test build ci chore revert")
+              print("::error::  see README.md \"Contributing\" and docs/DEVELOPMENT.md")
+              sys.exit(1)
+
+          print("OK: " + title)
+          PY

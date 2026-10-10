@@ -1,0 +1,74 @@
+# detekt 配置 —— 阶段 3 起步档
+#
+# 说明:本仓库当前 **不引入** detekt / ktlint Gradle 插件。原因:
+#   - AGP 9 内置 Kotlin + KGP 2.4.20,插件版本矩阵需实测验证;
+#   - 未经验证就写死版本号会让 CI 全量失败,阻塞所有提交;
+#   - 计划要求"先可观测、后拦截"。
+# 因此阶段 3 用零依赖的自检脚本(见 scripts/lint-baseline.py)完成等价检查,
+# 并在 ISSUES.md 登记;待版本矩阵验证通过后再启用本文件与 Gradle 插件。
+
+# 保留文件以便后续启用时无需重新设计规则集。
+# 启用方式:在根 build.gradle.kts 的 plugins 块加
+#   id("io.gitlab.arturbosch.detekt") version "<verified-version>" apply false
+# 在 app/build.gradle.kts 的 plugins 块加 id("io.gitlab.arturbosch.detekt"),
+# 并配置 detekt { config.setFrom("../config/detekt/detekt.yml") }。
+
+complexity:
+  LongMethod:
+    active: true
+    threshold: 120          # 存量最大文件先放宽,阶段 4 拆分后收紧到 60
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+    constructorThreshold: 10
+  ComplexMethod:
+    active: true
+    threshold: 20
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 30
+
+style:
+  MagicNumber:
+    active: true
+    # 阶段 4 REFACTOR-002 收编到 theme/Dimen.kt 前置为 warning
+    ignoreNumbers: ['-1', '0', '1', '2']
+  ForbiddenComment:
+    active: true
+    values: ['FIXME:', 'STOPSHIP:']
+  UnusedPrivateMember:
+    active: true
+  MaxLineLength:
+    active: true
+    maxLineLength: 140
+
+exceptions:
+  SwallowedException:
+    active: true
+    # ISSUES S-003:空 catch 吞异常。阶段 4 REFACTOR-011 处置后收紧为阻断。
+    ignoredExceptionTypes:
+      - 'InterruptedException'
+      - 'NumberFormatException'
+  TooGenericExceptionCaught:
+    active: true
+    exceptionNames:
+      - 'Error'
+      - 'Exception'
+      - 'RuntimeException'
+      - 'Throwable'
+
+naming:
+  FunctionNaming:
+    active: true
+    # Compose 约定:可复用组件首字母大写
+    functionPattern: '^([a-zA-Z$][a-zA-Z$0-9]*)$'
+
+potential-bugs:
+  UnsafeCallOnNullableType:
+    active: true            # ISSUES S-004:`!!` 强制解包
+  LateinitUsage:
+    active: false           # Android 场景普遍,暂不限制
+
+performance:
+  SpreadOperator:
+    active: false           # vararg 在 Compose 中常见

@@ -1,0 +1,5 @@
+# 默认审查者:仓库所有者。
+# 所有者取自 git remote(github.com/nosgk/...)与提交作者,非记忆推测。
+# 分支保护规则本身在仓库 Settings 配置(不进代码),参见 README「Contributing」。
+
+*       @nosgk

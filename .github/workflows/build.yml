@@ -45,10 +45,29 @@ jobs:
             exit 1
           fi
 
+      # 注解上限导致大部分告警不可见:完整报告归档,便于离线核对全部条目
+      - name: Archive lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-reports
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+          if-no-files-found: warn
+
       - name: Unit tests
         run: |
           chmod +x gradlew
           ./gradlew :app:testDebugUnitTest
+
+      - name: Archive unit test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-results
+          path: app/build/test-results/testDebugUnitTest/**
+          if-no-files-found: warn
 
       - name: Decode signing keystore
         if: env.BUILD_TYPE != 'debug'
