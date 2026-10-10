@@ -300,7 +300,10 @@ fun HomeScreen(
                             coroutineScope.launch {
                                 try {
                                     scrollers[selectedTab]?.invoke()
-                                } catch (_: Exception) {}
+                                } catch (_: Exception) {
+                                    // S-003:滚动/布局类取消异常,无用户可见后果,
+                                    // 按 ADR-0006 归为可忽略场景(不做静默吞掉的黑箱)。
+                                }
                             }
                         },
                         modifier = Modifier.padding(end = 8.dp)
@@ -1302,7 +1305,9 @@ fun HomeScreen(
                                 profileScrollToTopTrigger++
                             } else {
                                 coroutineScope.launch {
-                                    try { scrollers[index]?.invoke() } catch (_: Exception) {}
+                                    try { scrollers[index]?.invoke() } catch (_: Exception) {
+                                        // S-003:同上,滚动源已失效时的取消异常。
+                                    }
                                 }
                             }
                         } else {

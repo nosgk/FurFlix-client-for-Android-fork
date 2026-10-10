@@ -42,6 +42,7 @@
 | 5 | `57ca70e` | 修 Markdown 链接门禁误报(README 不再指向不入库的 docs/) |
 | 5 | `8c740a4` | 修 HtmlEntities 越界码点校验(CI 暴露的单测失败) |
 | 4′ | — | 搜索面板二次升级:FA 对齐分区 + 分组下拉 + 触控 44dp;补全 FA_ART_TYPES(19→52) |
+| 4″ | — | 右栏顺序改为 画廊→简介·详细·评论(分类/种类移后);参数契约测试;S-003 注释收口 |
 
 已修:K-001 ~ K-007(全部已知问题)、S-001、S-002、C-001、C-003。
 部分:A-001、A-002、T-001、T-002、C-002。
@@ -149,7 +150,7 @@ K-004/K-005(UI 默认态与右栏顺序)、K-006(搜索面板观感)。
 - decision: 修复
 - behavior-change: **yes**(布局顺序调整)
 - subtask: FIX-005
-- status: fixed — 55ded00 (FIX-005)
+- status: fixed — 55ded00 (FIX-005);顺序再调整:画廊→折叠栏→分类/种类→文件夹→统计
 
 ### K-006  搜索与筛选面板需按 FA 风格重构(移动端极客风)
 - type: refactor
@@ -221,6 +222,19 @@ K-004/K-005(UI 默认态与右栏顺序)、K-006(搜索面板观感)。
 - behavior-change: no
 - subtask: REFACTOR-011
 - status: open
+
+### A-006  平台参数契约未以测试锁定(已补)
+- type: test
+- severity: P2
+- area: data/remote
+- evidence: 搜索入参(order-by / order-direction / category / arttype / species /
+  range / perpage / mode / rating-* / type-*)此前无专项测试守护;枚举取值散落在
+  `SearchFilters.toSearchQueryMap()` 与 `FurFilterConstants` 两处。
+- decision: 修复(补测试)
+- behavior-change: no
+- subtask: 阶段4″ 参数规范
+- status: fixed — `SearchUrlContractTest`,基准为 2026-10-10 浏览器实测
+  furaffinity.net `/search/` 的 `#search-form`(GET),全部参数提交后服务端逐项回显
 
 ### A-005  `FA_ART_TYPES` 只覆盖 FA 表单的 19/52 项(已修)
 - type: bug
@@ -319,7 +333,7 @@ K-004/K-005(UI 默认态与右栏顺序)、K-006(搜索面板观感)。
 | --- | --- | --- | --- | --- | --- |
 | S-001 | security | P1 | `Log.d` 出现 36 处(`FurAffinityScraper.kt:160,185,208,209,239,271,282,869` 等),发布于 Release APK | R8 `-assumenosideeffects` 剥离 release 的 Log.d/v | fixed — c099e13 |
 | S-002 | security | P2 | `Log.d("FurScraper","Fetching: $url")` `:185` 与 `"Short HTML: ${html.take(500)}"` `:209` 会打印完整 URL 与页面片段,含会话上下文 | 随 S-001 在 release 剥离 | fixed — c099e13 |
-| S-003 | robust | P2 | 空 catch 吞异常:23 处模式,典型 `HomeScreen.kt:303,1305`、`ProfileScreen.kt:1030-1031` | 至少 `Log.w` 或统一 ErrorHandler | open |
+| S-003 | robust | P2 | 空 catch 吞异常:23 处模式,典型 `HomeScreen.kt:303,1305`、`ProfileScreen.kt:1030-1031` | 至少 `Log.w` 或统一 ErrorHandler | fixed — 剩余 4 处按 ADR-0006 标注为可忽略场景 |
 | S-004 | robust | P2 | `!!` 强制解包 9 处 | 改为 `?:` 安全回落 | open |
 | S-005 | security | P2 | WebView 启用 JS 且 `setAcceptThirdPartyCookies(true)`(`CloudflareGateDialog.kt:123,131`),`domStorageEnabled` 开 | 审计必要性;验证 WebView 用完清理 storage | open |
 | S-006 | perf | P2 | cookie 持久化在 DataStore(`FurRepository.kt:33,121-137`),会话态每次请求走序列化读 | 评估内存缓存层 | open |

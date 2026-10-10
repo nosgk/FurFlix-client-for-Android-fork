@@ -1027,8 +1027,13 @@ private fun WatchlistContent(
 
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > 0) {
-            try { gridState.animateScrollToItem(0) } catch (_: Exception) {}
-            try { listState.animateScrollToItem(0) } catch (_: Exception) {}
+            try { gridState.animateScrollToItem(0) } catch (_: Exception) {
+                // S-003:animateScrollToItem 在并发重组下会被取消并抛出,
+                // 属可忽略场景(ADR-0006),不影响数据与状态一致性。
+            }
+            try { listState.animateScrollToItem(0) } catch (_: Exception) {
+                // S-003:同上(列表态)。
+            }
         }
     }
 
