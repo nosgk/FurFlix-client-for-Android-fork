@@ -36,3 +36,18 @@ release.properties
 # Crash reports
 crash_log.txt
 hs_err_pid*
+
+# Local development docs (batch plans, scan evidence, ADR drafts, harness plan)
+# 全局指令:docs/ 内的开发文档一律不入库;整体为本地工作区,不设白名单例外。
+docs/
+
+# Local scan/debug scratch files
+.ci-check/
+.fa-bisect.tmp.py
+.fa-log.tmp
+.fa-repro.tmp.py
+.fa-token.tmp
+actions_page.html
+final_job.html
+lint_probe.txt
+ref_probe.txt
