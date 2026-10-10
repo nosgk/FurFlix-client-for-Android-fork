@@ -92,11 +92,20 @@ class AppErrorTest {
 
     @Test
     fun `AppError is a classification value, not a Throwable`() {
-        // AppError 不继承 Throwable:它是"错误分类"而非异常本身,
-        // 因此 from() 不接受 AppError 入参(否则编译器会判定该分支恒为假)。
-        val e = AppError.Parse(RuntimeException("bad html"))
-        assertFalse("AppError 不应是 Throwable", e is Throwable)
-        assertTrue("cause 仍可保留原始异常", e.cause is RuntimeException)
+        // AppError 不继承 Throwable:它是"错误分类"而非异常本身。
+        // 注意:不能用 `assertFalse(e is Throwable)` —— AppError 与 Throwable
+        // 是不相交类型,编译器会直接报 "Check for instance is always 'false'"
+        // (编译错误,不是断言失败)。故改为断言类型关系与 cause 保留。
+        val cause = RuntimeException("bad html")
+        val e: AppError = AppError.Parse(cause)
+
+        // 编译期可判定的形式:Throwable 不是 AppError 的父类型
+        assertFalse(
+            "AppError 不应派生自 Throwable",
+            Throwable::class.java.isAssignableFrom(e.javaClass)
+        )
+        assertEquals("cause 应保留原始异常", cause, e.cause)
+        assertEquals("分类应保持为 Parse", AppError.Parse::class.java, e.javaClass)
     }
 
     // ---------------------------------------------------------------- 语义组合
