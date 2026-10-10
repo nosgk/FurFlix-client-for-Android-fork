@@ -504,6 +504,7 @@ private fun genderLabel(value: String): String = when (value) {
 }
 
 /** 自定义时间范围的单个日期框:只读展示 + 系统日期选择器。 */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun ManualDateField(
     label: String,

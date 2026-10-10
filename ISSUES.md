@@ -21,6 +21,34 @@
 
 ---
 
+---
+
+## 修复进度(harness 改造批次,2026-10-10)
+
+| 阶段 | 提交 | 内容 |
+| --- | --- | --- |
+| 1 | `36f526a` | 全量扫描,产出本清单 + `docs/scan/*` |
+| 2 | `1d9a33f` | 文档治理:README 对齐、ARCHITECTURE/DEVELOPMENT/ADR |
+| 3 | `1a2ec61` | 门禁:报告归档 / 静态基线 / PR 标题 / 模板 / CODEOWNERS |
+| 4 | `788f93e` | FIX-001 CF cookie 合并顺序(P0) |
+| 4 | `86c7a54` | FIX-002 原图下载 403 |
+| 4 | `e206003` | FIX-003/K-007 评论区排版 + 译文实体解码 |
+| 4 | `daebe43` | FIX-004 画廊文件夹默认折叠 |
+| 4 | `55ded00` | FIX-005 详情页右栏折叠栏 |
+| 4 | `3dbba56` | REFACTOR-010 搜索面板重构并抽出独立文件 |
+| 4 | `60268bb` | REFACTOR-004 抽出 FurSession |
+| 4 | `c099e13` | REFACTOR-012 release 剥离调试日志 |
+| 5 | `7365cd8` | 面板状态测试 + 测试清单可观测门禁 |
+
+已修:K-001 ~ K-007(全部已知问题)、S-001、S-002、C-001、C-003。
+部分:A-001、A-002、T-001、T-002、C-002。
+待办:A-003/A-004(接缝与 DI)、D-* 重复代码收编、S-003/S-004 异常与解包、
+REFACTOR-006~009(四屏拆分)、JaCoCo 覆盖率硬门禁。
+
+**记忆纠正**:既有记忆称"UA 统一后 CF 循环已修复(92cdde0)"。
+代码实证:UA 统一是必要条件但不充分,cookie 合并覆盖顺序才是残留根因,
+本批次 FIX-001 补齐(见 K-001 条目与 ADR-0005)。
+
 ## 一、已知问题(用户报告,已实证定位)
 
 ### K-001  CF 验证通过后仍循环弹窗,退账号重登才缓解
@@ -41,7 +69,7 @@
 - decision: 修复
 - behavior-change: no
 - subtask: FIX-001
-- status: open
+- status: fixed — 788f93e (FIX-001)
 
 > **记忆纠正**:既有记忆 `furflix-cf-verification-batch.md` 称"全链路统一运行时真实 WebView UA 后
 > CF 循环已修复(92cdde0)"。代码实证显示:UA 统一**确实必要**(见 `UserAgent.kt:9-26`),
@@ -63,7 +91,7 @@
 - decision: 修复
 - behavior-change: no
 - subtask: FIX-002
-- status: open
+- status: fixed — 86c7a54 (FIX-002)
 
 ### K-003  评论区排版崩溃(日期竖排、头像裁切、实体未解码)
 - type: bug
@@ -83,7 +111,7 @@
 - decision: 修复
 - behavior-change: no
 - subtask: FIX-003
-- status: open
+- status: fixed — e206003 (FIX-003)
 
 ### K-004  用户页"画廊文件夹"未默认折叠
 - type: bug
@@ -97,7 +125,7 @@
 - decision: 修复
 - behavior-change: **yes**(UI 默认态变化)
 - subtask: FIX-004
-- status: open
+- status: fixed — daebe43 (FIX-004)
 
 ### K-005  详情页右栏顺序:"作者画廊"下应为"简介/详细信息/评论"
 - type: bug
@@ -111,7 +139,7 @@
 - decision: 修复
 - behavior-change: **yes**(布局顺序调整)
 - subtask: FIX-005
-- status: open
+- status: fixed — 55ded00 (FIX-005)
 
 ### K-006  搜索与筛选面板需按 FA 风格重构(移动端极客风)
 - type: refactor
@@ -123,7 +151,7 @@
 - decision: 重构
 - behavior-change: yes(视觉;URL 契约保持不变)
 - subtask: REFACTOR-010 / FIX-006
-- status: open
+- status: fixed — 3dbba56 (REFACTOR-010/FIX-006)
 
 ### K-007  翻译文本 HTML 实体泄漏(`<3` → `&lt; 3`)
 - type: bug
@@ -134,7 +162,7 @@
 - decision: 修复
 - behavior-change: no
 - subtask: FIX-003
-- status: open
+- status: fixed — e206003 (FIX-003)
 
 ---
 
@@ -156,7 +184,7 @@
 - decision: 重构(目标单文件 < 800 行)
 - behavior-change: no
 - subtask: REFACTOR-006 ~ REFACTOR-010
-- status: open
+- status: partial — SearchComponents 1202→775 (3dbba56);其余屏待拆
 
 ### A-002  `FurAffinityScraper` 单文件 1704 行,承担 6 类职责
 - type: refactor
@@ -168,7 +196,7 @@
 - decision: 按职责拆子文件,共享 `FaHtml` 解析工具
 - behavior-change: no
 - subtask: REFACTOR-004
-- status: open
+- status: partial — FurSession 抽出,Scraper 1704→1612 (60268bb);解析层待拆
 
 ### A-003  全局单例式 object 承担状态,难以测试与生命周期管理
 - type: refactor
@@ -248,7 +276,7 @@
   - 全仓仅 20 个测试文件,**无 `androidTest`**,无 Compose UI 测试。
 - decision: 阶段 5 补齐
 - subtask: 阶段 5
-- status: open
+- status: partial — 新增 CookieMergerTest / HtmlEntitiesTest / SearchFiltersPanelStateTest
 
 ### T-002  无覆盖率度量与门禁
 - type: test
@@ -256,7 +284,7 @@
 - area: ci
 - evidence: `build.yml` 仅跑 `testDebugUnitTest`,无 JaCoCo、无阈值、无报告归档。
 - decision: 阶段 3 加报告,阶段 5 加阈值
-- status: open
+- status: partial — test-inventory 可观测 job (7365cd8);JaCoCo 硬门禁暂缓
 
 ---
 
@@ -264,8 +292,8 @@
 
 | ID | 类型 | 严重度 | 证据 | 建议 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| S-001 | security | P1 | `Log.d` 出现 36 处(`FurAffinityScraper.kt:160,185,208,209,239,271,282,869` 等),发布于 Release APK | 引入 Timber,Release 种 NoOp Tree | open |
-| S-002 | security | P2 | `Log.d("FurScraper","Fetching: $url")` `:185` 与 `"Short HTML: ${html.take(500)}"` `:209` 会打印完整 URL 与页面片段,含会话上下文 | 降为 debug 且脱敏 | open |
+| S-001 | security | P1 | `Log.d` 出现 36 处(`FurAffinityScraper.kt:160,185,208,209,239,271,282,869` 等),发布于 Release APK | R8 `-assumenosideeffects` 剥离 release 的 Log.d/v | fixed — c099e13 |
+| S-002 | security | P2 | `Log.d("FurScraper","Fetching: $url")` `:185` 与 `"Short HTML: ${html.take(500)}"` `:209` 会打印完整 URL 与页面片段,含会话上下文 | 随 S-001 在 release 剥离 | fixed — c099e13 |
 | S-003 | robust | P2 | 空 catch 吞异常:23 处模式,典型 `HomeScreen.kt:303,1305`、`ProfileScreen.kt:1030-1031` | 至少 `Log.w` 或统一 ErrorHandler | open |
 | S-004 | robust | P2 | `!!` 强制解包 9 处 | 改为 `?:` 安全回落 | open |
 | S-005 | security | P2 | WebView 启用 JS 且 `setAcceptThirdPartyCookies(true)`(`CloudflareGateDialog.kt:123,131`),`domStorageEnabled` 开 | 审计必要性;验证 WebView 用完清理 storage | open |
@@ -288,11 +316,11 @@
 
 | ID | 类型 | 严重度 | 证据 | 建议 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| C-001 | ci | **P1** | 仅 `build.yml` 一个工作流;`lintDebug` 失败时 `grep | head -6` 只报 6 条,其余错误被吞 | 归档完整 lint 报告为 artifact | open |
-| C-002 | ci | P2 | 无静态分析(ktlint/detekt) | 阶段 3 加 `quality.yml`,warn-only 起步 | open |
-| C-003 | ci | P2 | 无 PR 模板 / CODEOWNERS / commit 规范校验 | 阶段 3 补齐 | open |
-| C-004 | ci | P3 | `ubuntu-24.04` 钉死,2026-10-19 `ubuntu-latest` 迁移需复核 | 阶段 3 复核 | open |
-| C-005 | ci | P3 | 无自动变更日志 | 阶段 3 评估 Release Please | open |
+| C-001 | ci | **P1** | 仅 `build.yml` 一个工作流;`lintDebug` 失败时 `grep | head -6` 只报 6 条,其余错误被吞 | 归档完整 lint 报告为 artifact | fixed — 1a2ec61 |
+| C-002 | ci | P2 | 无静态分析(ktlint/detekt) | 以零依赖 `lint-baseline.py` 替代;detekt/ktlint 待版本矩阵验证 | partial — 1a2ec61 |
+| C-003 | ci | P2 | 无 PR 模板 / CODEOWNERS / commit 规范校验 | 阶段 3 补齐 | fixed — 1a2ec61 |
+| C-004 | ci | P3 | `ubuntu-24.04` 钉死,2026-10-19 `ubuntu-latest` 迁移需复核 | 阶段 3 复核 | open(待 ubuntu-latest 迁移窗口) |
+| C-005 | ci | P3 | 无自动变更日志 | 阶段 3 评估 Release Please | defer |
 
 ---
 
