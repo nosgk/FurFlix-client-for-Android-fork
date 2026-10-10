@@ -91,9 +91,12 @@ class AppErrorTest {
     }
 
     @Test
-    fun `already classified errors pass through unchanged`() {
-        val original = AppError.Parse(RuntimeException("bad html"))
-        assertEquals(original, AppError.from(original))
+    fun `AppError is a classification value, not a Throwable`() {
+        // AppError 不继承 Throwable:它是"错误分类"而非异常本身,
+        // 因此 from() 不接受 AppError 入参(否则编译器会判定该分支恒为假)。
+        val e = AppError.Parse(RuntimeException("bad html"))
+        assertFalse("AppError 不应是 Throwable", e is Throwable)
+        assertTrue("cause 仍可保留原始异常", e.cause is RuntimeException)
     }
 
     // ---------------------------------------------------------------- 语义组合

@@ -69,9 +69,11 @@ sealed class AppError(
         /**
          * 把裸异常归类为 [AppError]:预先识别项目已有的异常类型,
          * 其余按名字/消息做保守猜测,猜不出即 [Unknown](不吞信息)。
+         *
+         * 注意:[AppError] 本身**不是** Throwable(它是分类值而非异常),
+         * 故这里不接受 AppError 入参 —— 已分类的错误直接沿用即可。
          */
         fun from(t: Throwable): AppError = when {
-            t is AppError -> t
             t is com.furflix.app.data.remote.CloudflareChallengeException ->
                 Cloudflare(t.pageUrl, t)
             t is com.furflix.app.data.remote.GuestBlockedException -> GuestBlocked(t)
