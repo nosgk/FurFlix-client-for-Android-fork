@@ -1,5 +1,8 @@
 # FurFlix
 
+> ⚠️ **Цей переклад може відставати від англійської версії.**
+> Актуальну інформацію дивіться в [README.md](README.md) (EN) або [README_ZH.md](README_ZH.md) (中文).
+
 <p align="center">
   <a href="https://furrychx.github.io/FurFlix-client-for-Android/">🌐 Офіційний сайт застосунку</a>
 </p>
@@ -10,8 +13,9 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white" alt="Android">
-  <img src="https://img.shields.io/badge/Kotlin-2.1-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
+  <img src="https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
   <img src="https://img.shields.io/badge/Compose-Material_3-4285F4?logo=jetpackcompose&logoColor=white" alt="Compose">
+  <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?logo=gradle&logoColor=white" alt="AGP">
 </p>
 
 <p align="center"><a href="README.md">English</a> · <a href="README_RU.md">Русский</a> · <a href="README_UA.md">Українська</a> · <a href="README_ZH.md">简体中文</a></p>
@@ -90,7 +94,7 @@
 Заглушуй слова в заголовках, вимикай NSFW.
 
 ### 🎨 Оформлення
-8 колірних тем, 8 стилів іконки, 3 мови (EN/RU/UA), glassmorphism-інтерфейс з ефектами розмиття.
+8 колірних тем, 8 стилів іконки, 4 мови (EN/RU/UA/ZH), glassmorphism-інтерфейс з ефектами розмиття.
 
 ---
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> **自动化变更日志(规划中)**:本项目 commit 遵循 Conventional Commits,
+> 阶段 3 起评估接入 Release Please / standard-version 自动生成本节内容。
+> 在自动化落地前,本节保持人工维护。
+
+
+
 ### Added
 - **Consistency sweep**: long-press multi-select (with batch favorite and
   batch download) now also works on the user page galleries and the tag
