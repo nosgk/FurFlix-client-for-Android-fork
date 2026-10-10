@@ -226,6 +226,9 @@
     <string name="post_meta_info">Meta Info</string>
     <string name="post_comments">Comments</string>
     <string name="post_story">Story</string>
+    <!-- 详情页右栏「简介/详细信息/评论」区块的折叠/展开 -->
+    <string name="post_details_collapse">Collapse</string>
+    <string name="post_details_expand">Expand</string>
     <string name="post_folders">Folders</string>
     <!-- Story reader & Flash/GIF viewers -->
     <string name="flash_play">Play Flash</string>

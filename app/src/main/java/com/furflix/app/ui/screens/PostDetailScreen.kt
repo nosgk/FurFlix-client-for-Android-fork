@@ -267,6 +267,10 @@ fun PostDetailScreen(
                             // Tab state lives up here so the stats bar can jump
                             // straight to the Comments tab.
                             var selectedTab by remember { mutableIntStateOf(0) }
+                            // 右栏「简介/详细信息/评论」整栏折叠态（K-005）。
+                            // 默认展开:该栏是详情页主内容,收起会让首屏只剩图片;
+                            // 折叠按钮供想专注看图的用户收起。
+                            var detailsExpanded by remember { mutableStateOf(true) }
 
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -440,31 +444,69 @@ fun PostDetailScreen(
                                     )
                                 }
                             }
-
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            // ── Tabs: [Story] / Description / Meta / Comments ──
-                            CustomTabRow(
-                                tabs = tabs,
-                                selectedTab = selectedTab,
-                                onTabSelected = { selectedTab = it },
-                                modifier = Modifier.onGloballyPositioned { tabsAnchorY = it.positionInRoot().y }
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            when {
-                                hasStory && selectedTab == 0 -> StoryReader(sub = sub)
-                                selectedTab == tabIndexDescription -> DescriptionContent(
-                                    sub = sub,
-                                    onAuthorClick = onAuthorClick,
-                                    onNavigateToPost = onNavigateToPost
+                            // ── 简介 / 详细信息 / 评论（带折叠；位于作者画廊下方）──
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { detailsExpanded = !detailsExpanded }
+                                    .padding(horizontal = 4.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.post_description
+                                    ) + " · " + stringResource(
+                                        R.string.post_meta_info
+                                    ) + " · " + stringResource(
+                                        R.string.post_comments
+                                    ),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
-                                selectedTab == tabIndexMeta -> MetaInfoContent(sub)
-                                else -> CommentsContent(
-                                    comments = sub.commentList,
-                                    onAuthorClick = onAuthorClick
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    if (detailsExpanded) Icons.Default.KeyboardArrowUp
+                                    else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = stringResource(
+                                        if (detailsExpanded) R.string.post_details_collapse
+                                        else R.string.post_details_expand
+                                    ),
+                                    tint = SubtleGray,
+                                    modifier = Modifier.size(20.dp)
                                 )
+                            }
+
+                            if (detailsExpanded) {
+                                // ── Tabs: [Story] / Description / Meta / Comments ──
+                                CustomTabRow(
+                                    tabs = tabs,
+                                    selectedTab = selectedTab,
+                                    onTabSelected = { selectedTab = it },
+                                    modifier = Modifier.onGloballyPositioned { tabsAnchorY = it.positionInRoot().y }
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                when {
+                                    hasStory && selectedTab == 0 -> StoryReader(sub = sub)
+                                    selectedTab == tabIndexDescription -> DescriptionContent(
+                                        sub = sub,
+                                        onAuthorClick = onAuthorClick,
+                                        onNavigateToPost = onNavigateToPost
+                                    )
+                                    selectedTab == tabIndexMeta -> MetaInfoContent(sub)
+                                    else -> CommentsContent(
+                                        comments = sub.commentList,
+                                        onAuthorClick = onAuthorClick
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(150.dp))

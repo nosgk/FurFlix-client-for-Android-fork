@@ -232,6 +232,9 @@
     <string name="post_meta_info">详细信息</string>
     <string name="post_comments">评论</string>
     <string name="post_story">正文</string>
+    <!-- 详情页右栏「简介/详细信息/评论」区块的折叠/展开 -->
+    <string name="post_details_collapse">收起</string>
+    <string name="post_details_expand">展开</string>
     <string name="post_folders">文件夹</string>
     <!-- 小说阅读器与 Flash/GIF 查看器 -->
     <string name="flash_play">播放 Flash</string>
