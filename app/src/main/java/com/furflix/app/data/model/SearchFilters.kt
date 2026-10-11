@@ -1,5 +1,10 @@
 package com.furflix.app.data.model
 
+import com.furflix.app.data.FA_ART_TYPES
+import com.furflix.app.data.FA_CATEGORIES
+import com.furflix.app.data.FA_GENDER_OPTIONS
+import com.furflix.app.data.FA_SPECIES
+import com.furflix.app.data.FA_SPECIES_OPTIONS
 import com.furflix.app.data.SEARCH_PAGE_SIZE
 import kotlinx.serialization.Serializable
 
@@ -70,6 +75,37 @@ data class SearchFilters(
             "1month" -> "30days"
             else -> range
         }
+
+    /**
+     * 把任意来源的取值收敛到 FA 站点的合法入参集合（幂等）。所有筛选进入应用
+     * 的三个口子都要过这一关：URL 解析、DataStore 读回、UI 提交——任一处漏掉，
+     * 非法值（旧版本存的枚举、手改的分享链接、越界 id）就会直接进请求，
+     * 站点侧表现为"静默按默认筛选"或空结果，很难排查。
+     *
+     * 收敛规则一律是"回落到不过滤"（0 / 默认排序 / all），绝不猜测用户意图：
+     * - category / arttype / species 必须命中站点词表 id，否则归 0；
+     * - perpage 取 24/48/72 中最近的一档；
+     * - order-by / order-direction / mode / range 白名单；
+     * - range 非 manual 时清空日期；日期必须是 yyyy-MM-dd；
+     * - genders 只保留站点性别词表内的值；keywords 去空白去重。
+     */
+    fun normalized(): SearchFilters {
+        val r = normalizedRange.lowercase().takeIf { it in RANGE_VALUES } ?: "all"
+        return copy(
+            orderBy = orderBy.lowercase().takeIf { it in ORDER_BY_VALUES } ?: "date",
+            orderDirection = orderDirection.lowercase().takeIf { it in ORDER_DIRECTION_VALUES } ?: "desc",
+            range = r,
+            rangeFrom = if (r == "manual" && DATE_RE.matches(rangeFrom)) rangeFrom else "",
+            rangeTo = if (r == "manual" && DATE_RE.matches(rangeTo)) rangeTo else "",
+            mode = mode.lowercase().takeIf { it in MODE_VALUES } ?: "extended",
+            perpage = PERPAGE_CHOICES.minByOrNull { kotlin.math.abs(it - perpage) } ?: PERPAGE_MAX,
+            category = category.takeIf { id -> FA_CATEGORY_IDS.contains(id) } ?: 0,
+            artType = artType.takeIf { id -> FA_ART_TYPE_IDS.contains(id) } ?: 0,
+            species = species.takeIf { id -> FA_SPECIES_IDS.contains(id) } ?: 0,
+            genders = genders.map { it.trim() }.filter { it in FA_GENDER_VALUES }.distinct(),
+            keywords = keywords.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        )
+    }
 
     fun toBrowseQueryMap(): Map<String, String> {
         val map = mutableMapOf<String, String>()
@@ -164,6 +200,31 @@ data class SearchFilters(
         const val PERPAGE_MIN = 24
         const val PERPAGE_MAX = 72
         val PERPAGE_CHOICES = listOf(24, 48, 72)
+
+        // ---- 合法入参集合（站点词表的镜像，供 normalized() 校验）----
+
+        private val ORDER_BY_VALUES = setOf("date", "relevancy", "popularity")
+        private val ORDER_DIRECTION_VALUES = setOf("asc", "desc")
+        private val MODE_VALUES = setOf("all", "any", "extended")
+        private val RANGE_VALUES = setOf(
+            "all", "1day", "3days", "7days", "30days", "90days",
+            "1year", "3years", "5years", "manual"
+        )
+        private val DATE_RE = Regex("""\d{4}-\d{2}-\d{2}""")
+
+        private val FA_CATEGORY_IDS = FA_CATEGORIES.map { it.first }.toSet()
+        private val FA_ART_TYPE_IDS = FA_ART_TYPES.map { it.first }.toSet()
+
+        /**
+         * 物种 id 取两张表的并集：站点全量表（[FA_SPECIES]，398 项，搜索面板用）
+         * 与精简选项表（[FA_SPECIES_OPTIONS]，140 项，行内下拉用）。只认其中一张
+         * 会把另一张产出的合法 id 误判为非法——这正是"改共享层要逐面检查"的
+         * 典型多米诺位点。
+         */
+        private val FA_SPECIES_IDS: Set<Int> =
+            (FA_SPECIES.map { it.first } + FA_SPECIES_OPTIONS.map { it.first }).toSet()
+
+        private val FA_GENDER_VALUES = FA_GENDER_OPTIONS.map { it.first }.toSet()
 
         /**
          * [buildKeywordQuery] 的逆变换（extended 模式产物）：把 q 里的

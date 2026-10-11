@@ -279,6 +279,7 @@ fun DownloadsScreen(
                             ) {
                                 items(images, key = { it.uri.toString() }) { item ->
                                     DownloadCard(
+                                        modifier = Modifier.animateItem(),
                                         item = item,
                                         useOriginalRatio = false,
                                         onOpen = openAction,
@@ -301,6 +302,7 @@ fun DownloadsScreen(
                             ) {
                                 items(images, key = { it.uri.toString() }) { item ->
                                     DownloadCard(
+                                        modifier = Modifier.animateItem(),
                                         item = item,
                                         useOriginalRatio = true,
                                         onOpen = openAction,
@@ -322,6 +324,7 @@ fun DownloadsScreen(
                             ) {
                                 items(images, key = { it.uri.toString() }) { item ->
                                     DownloadCard(
+                                        modifier = Modifier.animateItem(),
                                         item = item,
                                         useOriginalRatio = true,
                                         onOpen = openAction,
@@ -350,7 +353,8 @@ private fun DownloadCard(
     onViewPost: (DownloadedItem) -> Unit,
     onViewAuthor: (DownloadedItem) -> Unit,
     onShare: (DownloadedItem) -> Unit,
-    onDelete: (DownloadedItem) -> Unit
+    onDelete: (DownloadedItem) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val meta = remember(item.filename) { parseMeta(context, item.filename) }
@@ -359,7 +363,7 @@ private fun DownloadCard(
     val displayAuthor = if (meta != null && meta.author != "Unknown" && meta.author.isNotBlank()) "@${meta.author}" else null
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)

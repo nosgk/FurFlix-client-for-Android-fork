@@ -118,7 +118,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var searchGeneration = 0
 
     fun updateSearchFilters(filters: com.furflix.app.data.model.SearchFilters) {
-        _searchFilters.value = filters
+        // UI 是最后一个入口：面板里的越界组合（如手动日期只填一半）也在这里
+        // 收敛成站点合法入参，请求与持久化读到的都是同一份规范值
+        _searchFilters.value = filters.normalized()
         if (_searchQuery.value.isNotEmpty() || filters.hasKeywords || _selectedTab.value == 2) {
             scheduleSearchReload()
         }

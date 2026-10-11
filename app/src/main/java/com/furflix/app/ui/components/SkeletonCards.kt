@@ -51,8 +51,10 @@ private object SkeletonDefaults {
 private fun PulsingBlock(modifier: Modifier, shape: Shape) {
     val transition = rememberInfiniteTransition(label = "skeleton")
     val alpha by transition.animateFloat(
-        initialValue = 0.05f,
-        targetValue = 0.11f,
+        // 0.05→0.11 在近黑卡片底上几乎看不出脉动（实测视觉上像静态灰块），
+        // 抬到 0.08→0.17 才既能读出"正在加载"，又不至于抢注意力
+        initialValue = 0.08f,
+        targetValue = 0.17f,
         animationSpec = infiniteRepeatable(
             tween(780, easing = FastOutSlowInEasing),
             RepeatMode.Reverse

@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,12 +19,16 @@ import com.furflix.app.ui.theme.Dimens
 fun ErrorState(
     message: String,
     modifier: Modifier = Modifier,
-    iconSize: androidx.compose.ui.unit.Dp = 64.dp
+    iconSize: androidx.compose.ui.unit.Dp = 64.dp,
+    /** 可选重试：传了才显示按钮，避免各页面各写一套"图标+文案+重试"。 */
+    retryLabel: String? = null,
+    onRetry: (() -> Unit)? = null
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(200.dp),
+            // 同 EmptyState：最小高度而非固定高度，大字号/横屏下不裁切
+            .heightIn(min = 200.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -41,6 +46,10 @@ fun ErrorState(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp)
             )
+            if (retryLabel != null && onRetry != null) {
+                Spacer(modifier = Modifier.height(Dimens.sm))
+                TextButton(onClick = onRetry) { Text(retryLabel) }
+            }
         }
     }
 }

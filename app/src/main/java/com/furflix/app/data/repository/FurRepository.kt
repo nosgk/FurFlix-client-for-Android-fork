@@ -663,8 +663,11 @@ class FurRepository(private val context: Context) {
 
     suspend fun saveSearchFilters(filters: com.furflix.app.data.model.SearchFilters) {
         context.dataStore.edit { prefs ->
-            prefs[LAST_SEARCH_FILTERS_KEY] =
-                filterJson.encodeToString(com.furflix.app.data.model.SearchFilters.serializer(), filters)
+            // 落盘前收敛：保证磁盘里存的永远是站点合法入参
+            prefs[LAST_SEARCH_FILTERS_KEY] = filterJson.encodeToString(
+                com.furflix.app.data.model.SearchFilters.serializer(),
+                filters.normalized()
+            )
         }
     }
 
@@ -788,7 +791,10 @@ class FurRepository(private val context: Context) {
         val prefs = context.dataStore.data.first()
         val raw = prefs[LAST_SEARCH_FILTERS_KEY] ?: return null
         return try {
+            // 读回时同样收敛：旧版本可能存过已废弃的枚举/id（键结构未知字段本就
+            // 被 ignoreUnknownKeys 丢掉，但枚举值是合法 JSON，必须逐字段校验）
             filterJson.decodeFromString(com.furflix.app.data.model.SearchFilters.serializer(), raw)
+                .normalized()
         } catch (_: Exception) {
             null
         }

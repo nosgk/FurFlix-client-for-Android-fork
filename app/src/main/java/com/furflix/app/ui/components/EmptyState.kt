@@ -25,7 +25,9 @@ fun EmptyState(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(200.dp),
+            // 用最小高度而非固定高度：文字缩放档拉满或横屏时，固定 200dp 会把
+            // 图标+多行文案裁掉；heightIn 保证下限观感不变、上限随内容长。
+            .heightIn(min = 200.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

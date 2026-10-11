@@ -7,6 +7,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 val Typography = Typography(
+    // display* / headlineSmall / titleSmall 此前缺失，会回落到 Material3 默认值
+    // （字号与字重都跟这套自定义比例不搭，同级标题忽大忽小）。补齐后层级由
+    // 一套连续比例决定，而不是部分自定义、部分默认。
+    displaySmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        lineHeight = 38.sp,
+        letterSpacing = (-0.8).sp
+    ),
     headlineLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Bold,
@@ -21,6 +31,13 @@ val Typography = Typography(
         lineHeight = 26.sp,
         letterSpacing = (-0.3).sp
     ),
+    headlineSmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 17.sp,
+        lineHeight = 23.sp,
+        letterSpacing = (-0.2).sp
+    ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
@@ -33,6 +50,13 @@ val Typography = Typography(
         fontWeight = FontWeight.Medium,
         fontSize = 15.sp,
         lineHeight = 20.sp,
+        letterSpacing = 0.1.sp
+    ),
+    titleSmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
         letterSpacing = 0.1.sp
     ),
     bodyLarge = TextStyle(

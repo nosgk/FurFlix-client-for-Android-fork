@@ -190,7 +190,9 @@ private fun parseSearchFilters(query: String): com.furflix.app.data.model.Search
             typePoetry = param("type-poetry") == "1"
         )
     }
-    return f
+    // 统一收敛到站点合法入参：手改/第三方产出的链接里的越界 id、过期枚举
+    // 都在这里被挡下，不让它们进入请求与持久化（与 toSearchQueryMap 镜像）。
+    return f.normalized()
 }
 
 /** 最小 query 解析：首个同名键生效；%XX 与 + 解码，失败回落原值。 */
