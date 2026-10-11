@@ -271,7 +271,6 @@
     <string name="document_unsupported">This format can\'t be opened in the built-in viewer. Download it below and open with any document app.</string>
     <!-- %1$d = embedded image count -->
     <string name="document_media_count">%1$d embedded images</string>
-    <string name="toast_copied_to_clipboard">Copied to clipboard</string>
     <string name="toast_document_full_copied">Full text copied</string>
     <string name="cd_document_save_txt">Save as .txt</string>
     <!-- %1$s = saved file name -->

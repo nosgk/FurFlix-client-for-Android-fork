@@ -277,7 +277,6 @@
     <string name="document_unsupported">该格式暂不支持内置查看,可从下方下载后用任意文档应用打开。</string>
     <!-- %1$d = 内嵌图片数 -->
     <string name="document_media_count">文档内嵌 %1$d 张图片</string>
-    <string name="toast_copied_to_clipboard">已复制到剪贴板</string>
     <string name="toast_document_full_copied">已复制全文</string>
     <string name="cd_document_save_txt">下载为 .txt</string>
     <!-- %1$s = 保存的文件名 -->

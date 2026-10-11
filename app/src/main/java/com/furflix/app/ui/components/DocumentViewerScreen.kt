@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -225,7 +226,6 @@ fun DocumentViewerScreen(
     // ── 控制栏显隐：点正文空白处切换（顶栏 + 查找条 + 翻译条一起收起）──
     var controlsVisible by remember { mutableStateOf(true) }
 
-    val copiedToast = stringResource(R.string.toast_copied_to_clipboard)
     val allCopiedToast = stringResource(R.string.toast_document_full_copied)
     var showTranslationSettings by remember { mutableStateOf(false) }
 
@@ -458,10 +458,6 @@ fun DocumentViewerScreen(
                                 highlightQuery = findQuery.trim(),
                                 entries = entriesByParagraph[index],
                                 prefs = prefs,
-                                onLongPress = {
-                                    clipboard.setText(AnnotatedString(paragraph))
-                                    android.widget.Toast.makeText(context, copiedToast, android.widget.Toast.LENGTH_SHORT).show()
-                                },
                                 onTap = { controlsVisible = !controlsVisible }
                             )
                             if (index != paragraphs.lastIndex || media.isNotEmpty()) {
@@ -507,7 +503,18 @@ fun DocumentViewerScreen(
     }
 }
 
-/** 单段：命中高亮 + 长按复制 + 单击切控制栏 + 翻译渲染（与小说阅读器同一 StoryParagraph）。 */
+/**
+ * 单段：命中高亮 + 原生文本选择 + 单击切控制栏 + 翻译渲染（与小说阅读器同一 StoryParagraph）。
+ *
+ * 文本选择交给 [SelectionContainer]：长按出的是系统自己的选择手柄与浮动工具条
+ * （复制/全选/分享，随系统语言与主题），可逐字/逐词拖选——这是 Android 用户
+ * 对"能选中文字"的既有预期。此前是长按整段直接进剪贴板，粒度粗且没有选择过程，
+ * 想复制一句话里的一半也做不到。
+ *
+ * 选择容器只包住文本本身，单击切控制栏的 clickable 留在外层：SelectionContainer
+ * 只消费长按与拖拽，普通单击会冒泡到外层，两个手势互不抢占。
+ * 译文（StoryParagraph）一并包进来，原文与译文可以跨行一起选中。
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DocumentParagraph(
@@ -515,7 +522,6 @@ private fun DocumentParagraph(
     highlightQuery: String,
     entries: List<TranslationEntry>,
     prefs: com.furflix.app.translate.data.TranslationUiPrefs,
-    onLongPress: () -> Unit,
     onTap: () -> Unit
 ) {
     val annotated: AnnotatedString = remember(paragraph, highlightQuery) {
@@ -542,20 +548,29 @@ private fun DocumentParagraph(
     }
 
     Column(
-        modifier = Modifier.combinedClickable(onClick = onTap, onLongClick = onLongPress)
+        modifier = Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            // 无涟漪：整段文本的可点区域不该在阅读时闪一下水波
+            indication = null,
+            onClick = onTap
+        )
     ) {
-        Text(
-            text = annotated,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                lineHeight = 26.sp,
-                color = Color(0xFFE0E0E0)
-            )
-        )
-        StoryParagraph(
-            paragraph = "",
-            entries = entries,
-            prefs = prefs
-        )
+        SelectionContainer {
+            Column {
+                Text(
+                    text = annotated,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        lineHeight = 26.sp,
+                        color = Color(0xFFE0E0E0)
+                    )
+                )
+                StoryParagraph(
+                    paragraph = "",
+                    entries = entries,
+                    prefs = prefs
+                )
+            }
+        }
     }
 }
 
