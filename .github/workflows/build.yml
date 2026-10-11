@@ -35,8 +35,11 @@ jobs:
             echo "lintDebug passed"
           else
             echo "::error::lintDebug failed, error lines follow"
-            # 注解每步上限 10 条:优先 lint Error/编译错误行,再补任务失败行
-            grep -E "Error: |^e: " /tmp/lint.log | head -6 | while IFS= read -r line; do
+            # 注解每步上限 10 条:优先 lint Error/编译错误行,再补任务失败行。
+            # 这里刻意多打印(30 条):超出的部分不会变成注解,但会留在原始作业日志里,
+            # 便于一次性看到全部编译错误而不是改一条跑一轮(原始日志可经
+            # Actions jobs API 取回)。
+            grep -E "Error: |^e: " /tmp/lint.log | head -30 | while IFS= read -r line; do
               echo "::error::${line:0:260}"
             done
             grep -E "> Task .*FAILED|FAILURE: Build|Lint found" /tmp/lint.log | head -2 | while IFS= read -r line; do

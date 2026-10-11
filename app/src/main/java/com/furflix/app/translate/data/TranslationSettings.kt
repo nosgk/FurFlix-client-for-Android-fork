@@ -217,24 +217,6 @@ class TranslationSettings private constructor(private val context: Context) {
     suspend fun saveDocModel(v: String) = edit { it[K_DOC_MODEL] = v }
 
     /**
-     * 文档链路实际生效的配置：开启独立服务时用它自己的服务商/语言/密钥，
-     * 未配置过的字段（空串）逐字段回落全局值，避免开箱即"缺密钥"；
-     * 未开启独立服务时等价全局配置（与旧行为一致）。
-     */
-    val documentConfig: Flow<TranslationConfig> =
-        kotlinx.coroutines.flow.combine(docConfigSnapshot, config) { doc, g ->
-            if (doc == null) g
-            else g.copy(
-                provider = doc.provider,
-                targetLanguage = doc.targetLanguage.ifBlank { g.targetLanguage },
-                azureKey = doc.azureKey.ifBlank { g.azureKey },
-                apiKey = doc.apiKey.ifBlank { g.apiKey },
-                baseUrl = doc.baseUrl.ifBlank { g.baseUrl },
-                model = doc.model.ifBlank { g.model },
-            )
-        }
-
-    /**
      * UI 层消费的文档配置快照（设置页与查看器内配置面板共用）。返回 null =
      * 未开启独立服务（UI 呈现"跟随全局"）。
      */
@@ -249,6 +231,27 @@ class TranslationSettings private constructor(private val context: Context) {
             model = p[K_DOC_MODEL] ?: "",
         )
     }
+
+    /**
+     * 文档链路实际生效的配置：开启独立服务时用它自己的服务商/语言/密钥，
+     * 未配置过的字段（空串）逐字段回落全局值，避免开箱即"缺密钥"；
+     * 未开启独立服务时等价全局配置（与旧行为一致）。
+     *
+     * 声明在 [docConfigSnapshot] 之后：Kotlin 属性初始化顺序即声明顺序，
+     * 反过来引用会报"must be initialized"。
+     */
+    val documentConfig: Flow<TranslationConfig> =
+        kotlinx.coroutines.flow.combine(docConfigSnapshot, config) { doc, g ->
+            if (doc == null) g
+            else g.copy(
+                provider = doc.provider,
+                targetLanguage = doc.targetLanguage.ifBlank { g.targetLanguage },
+                azureKey = doc.azureKey.ifBlank { g.azureKey },
+                apiKey = doc.apiKey.ifBlank { g.apiKey },
+                baseUrl = doc.baseUrl.ifBlank { g.baseUrl },
+                model = doc.model.ifBlank { g.model },
+            )
+        }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         context.translationDataStore.edit(block)

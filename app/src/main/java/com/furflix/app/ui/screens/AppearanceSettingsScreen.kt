@@ -566,9 +566,8 @@ fun AppearanceSettingsScreen(
                     .clickable {
                         scope.launch {
                             repository.saveImageFidelity(!imageFidelity)
-                            // loader 级开关（禁用硬件位图）需重建实例才生效；
-                            // 清缓存是这一路径的既定代价，与磁盘配额变更一致
-                            com.furflix.app.ui.components.ImageLoaderFactory.highFidelityDecoding = !imageFidelity
+                            // 保真解码是请求级配置（ARGB_8888 + 精确采样 + 软件位图），
+                            // 已解码的缓存按旧配置留存——清一次缓存让新配置立即生效
                             com.furflix.app.ui.components.ImageLoaderFactory.reset()
                         }
                     }
@@ -598,7 +597,6 @@ fun AppearanceSettingsScreen(
                     onCheckedChange = { enabled ->
                         scope.launch {
                             repository.saveImageFidelity(enabled)
-                            com.furflix.app.ui.components.ImageLoaderFactory.highFidelityDecoding = enabled
                             com.furflix.app.ui.components.ImageLoaderFactory.reset()
                         }
                     }

@@ -182,13 +182,15 @@ fun SubmissionCard(
                 // 直接用高清图顶替缩略图（原缩略图请求剔除；缓存被逐则回落缩略图）。
                 // 订阅登记表版本而非把结果 remember 住：下拉刷新后卡片 key 不变、
                 // remember 不会重算，只有订阅才能在原图新登记（或刷新时重查）后
-                // 及时顶替缩略图。
+                // 及时顶替缩略图。LocalContext 必须在组合期取出——remember 的
+                // lambda 不是 @Composable，在里面读会编译失败。
+                val cardContext = LocalContext.current
                 val heroVersion by com.furflix.app.data.local.HeroUpgradeRegistry.version
                     .collectAsState()
-                val upgradedUrl = remember(heroVersion, submission.id, displayUrl) {
+                val upgradedUrl = remember(heroVersion, submission.id, displayUrl, cardContext) {
                     val heroUrl = com.furflix.app.data.local.HeroUpgradeRegistry.lookup(submission.id)
                     if (heroUrl != null &&
-                        ImageLoaderFactory.getInstance(LocalContext.current)
+                        ImageLoaderFactory.getInstance(cardContext)
                             .memoryCache?.get(coil3.memory.MemoryCache.Key(heroUrl)) != null
                     ) heroUrl else null
                 }

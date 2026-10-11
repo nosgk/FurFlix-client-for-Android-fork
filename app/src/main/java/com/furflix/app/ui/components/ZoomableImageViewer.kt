@@ -50,6 +50,7 @@ import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
+import coil3.toBitmap
 import com.furflix.app.R
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.theme.DarkSurfaceVariant
@@ -209,9 +210,13 @@ fun ZoomableImageViewer(
                 }
             },
             success = success@{ state ->
-                val bitmap = (state.painter as? BitmapPainter)?.image
+                // 拿可读的位图给 LOD 重采样用：优先走 Coil 官方的 Image→Bitmap
+                // 转换，失败再退回画家的位图（跨淡等包装会让画家不是 BitmapPainter）
+                val bitmap: ImageBitmap? = runCatching {
+                    state.result.image.toBitmap().asImageBitmap()
+                }.getOrNull() ?: (state.painter as? BitmapPainter)?.image
                 if (bitmap == null) {
-                    // 拿不到位图（跨淡包装等）：退回 Coil 自己的绘制，功能不受影响
+                    // 两条路都拿不到：退回 Coil 自己的绘制，功能不受影响
                     SubcomposeAsyncImageContent()
                     return@success
                 }

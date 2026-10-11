@@ -2,6 +2,7 @@ package com.furflix.app.ui.components
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.FilterQuality
+import coil3.request.allowHardware
 import coil3.request.bitmapConfig
 import com.furflix.app.data.repository.FurRepository
 
@@ -25,13 +26,10 @@ val LocalImageFidelity = staticCompositionLocalOf { false }
  * 注意 GPU 只区分"最近邻 / 双线性"两档——双三次与兰索斯在 android.graphics
  * 里拿不到（Skia 的 SkSamplingOptions 未开放），所以这里三档真实算法统一退回
  * [FilterQuality.Low]（双线性），由 CPU 重采样（[com.furflix.app.utils.BitmapResampler]）
- * 在图像查看器里补齐真实算法。AUTO 用 Compose 的默认值（双线性），
+ * 在图像查看器里补齐真实算法。AUTO 同样是双线性（Compose 的默认档），
  * 不能退回 None——那是最近邻，会比现状更糊。
  */
-fun imageFilterQuality(mode: Int): FilterQuality = when (mode) {
-    FurRepository.IMAGE_INTERPOLATION_AUTO -> androidx.compose.ui.graphics.DefaultFilterQuality
-    else -> FilterQuality.Low
-}
+fun imageFilterQuality(mode: Int): FilterQuality = FilterQuality.Low
 
 /** 该档位是否需要 CPU 卷积重采样（双线性以上才值得算）。 */
 fun needsCpuResample(mode: Int): Boolean =
@@ -40,15 +38,17 @@ fun needsCpuResample(mode: Int): Boolean =
         mode == FurRepository.IMAGE_INTERPOLATION_LANCZOS
 
 /**
- * 把高保真解码落到具体请求上：强制 ARGB_8888 色彩 + EXACT 精度（按目标尺寸
- * 精确采样，不做"够用即可"的降采样近似）。未开启保真时原样返回，零开销。
+ * 把高保真解码落到具体请求上：强制 ARGB_8888 色彩 + EXACT 精确采样（按目标尺寸
+ * 精确采样，不做"够用即可"的降采样近似）+ 禁用硬件位图（HARDWARE 位图读不回
+ * 像素，既不能参与高质量重采样，也无法做后续处理）。未开启保真时原样返回，零开销。
  *
- * 只作用于静态图：GIF 走动图解码器，bitmapConfig 对它无意义。
+ * 只作用于静态图：GIF 走动图解码器，这些配置对它无意义。
  */
 fun coil3.request.ImageRequest.Builder.applyFidelity(enabled: Boolean): coil3.request.ImageRequest.Builder =
     if (!enabled) this
     else bitmapConfig(android.graphics.Bitmap.Config.ARGB_8888)
         .precision(coil3.size.Precision.EXACT)
+        .allowHardware(false)
 
 /**
  * 图片请求统一装饰：保真解码 + 显式尺寸档位。详情页主图、全屏缩放查看器与
