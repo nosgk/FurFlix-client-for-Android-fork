@@ -721,6 +721,9 @@ fun PostDetailScreen(
                     else -> {
                         ZoomableImageViewer(
                             imageUrl = zoomSubmission.fullImageUrl,
+                            // 已下载作品：查看器直接读本地文件，不再重新下载
+                            localSource = com.furflix.app.data.local.DownloadedMediaRegistry
+                                .lookup(currentPostId),
                             onClose = { showZoom = false }
                         )
                     }

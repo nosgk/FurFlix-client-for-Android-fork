@@ -60,6 +60,8 @@ fun ProgressiveImageContent(
     fixedSized: Boolean = false,
     fallbackAspectRatio: Float = 4f / 3f,
     heroKey: String? = null,
+    /** 显式指定的本地副本（已下载文件）；为空时按 heroKey 查已下载登记表 */
+    localSource: android.net.Uri? = null,
     onImageClick: (() -> Unit)? = null,
     onImageSuccess: (() -> Unit)? = null
 ) {
@@ -67,6 +69,13 @@ fun ProgressiveImageContent(
         val density = LocalDensity.current
         val quality = LocalThumbnailQuality.current
         val detailQuality = LocalDetailImageQuality.current
+
+        // 已下载作品直接读本地文件，不再走网络——这是"缓存复用"的反向那一半
+        // （下载方向早就会复用 Coil 磁盘缓存）。见 DownloadedMediaRegistry 的说明：
+        // 按 postId 复用不会降质（copy 同源；original 比详情页默认图更清晰）。
+        val resolvedLocal = remember(localSource, heroKey) {
+            localSource ?: com.furflix.app.data.local.DownloadedMediaRegistry.lookup(heroKey)
+        }
 
         // 占位 URL：按本盒物理像素与清晰度偏好协商（与卡片/预取同源机制），
         // 必须是真缩略档（@NNN-）且不等于原图，否则放弃占位。
@@ -86,8 +95,9 @@ fun ProgressiveImageContent(
 
         val imageModifier = if (fixedSized) Modifier.matchParentSize() else Modifier.fillMaxWidth()
 
-        // 底层占位（缓存命中即零流量出图）
-        if (placeholderUrl != null) {
+        // 底层占位（缓存命中即零流量出图）。有本地副本时跳过：本地解码是瞬时的事，
+        // 占位只会白白多拉一次网络缩略图——那正是"已下载还要联网"的一部分。
+        if (placeholderUrl != null && resolvedLocal == null) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(placeholderUrl)
@@ -105,6 +115,7 @@ fun ProgressiveImageContent(
         val retryState = rememberRetryImageState(fullUrl)
         RetrySubcomposeAsyncImage(
             state = retryState,
+            dataOverride = resolvedLocal,
             requestSize = remember(detailQuality, maxWidth, maxHeight, density.density, ratio) {
                 when {
                     detailQuality == com.furflix.app.data.repository.FurRepository.DETAIL_QUALITY_AUTO -> null

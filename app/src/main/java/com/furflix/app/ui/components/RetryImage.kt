@@ -100,6 +100,11 @@ fun RetrySubcomposeAsyncImage(
     contentScale: ContentScale = ContentScale.Crop,
     crossfadeMs: Int = 300,
     requestSize: coil3.size.Size? = null,
+    /**
+     * 覆盖请求数据（用于已下载作品的本地 Uri）：非空时用它替代 state.effectiveUrl。
+     * 类型是 Any?，因为 Coil 的 Uri/File 数据源不是字符串。
+     */
+    dataOverride: Any? = null,
     /** 重采样插值档位（FurRepository.IMAGE_INTERPOLATION_*）；null = 跟随组合树 */
     interpolation: Int? = null,
     /** 高保真解码：强制 ARGB_8888 + 精确采样；null = 跟随组合树 */
@@ -116,7 +121,7 @@ fun RetrySubcomposeAsyncImage(
     val effectiveFidelity = fidelity ?: LocalImageFidelity.current
     SubcomposeAsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
-            .data(state.effectiveUrl)
+            .data(dataOverride ?: state.effectiveUrl)
             .crossfade(crossfadeMs)
             .apply {
                 // 详情页画质档位注入点：null = 默认按布局约束解码；

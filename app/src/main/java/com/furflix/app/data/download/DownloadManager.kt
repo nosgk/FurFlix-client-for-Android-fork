@@ -223,7 +223,10 @@ object DownloadManager {
                             totalBytes = cachedBytes.size.toLong()
                         )
                     }
-                    persistStream(ctx, ext, finalName, folderPref) { os -> os.write(cachedBytes) }
+                    val cachedUri = persistStream(ctx, ext, finalName, folderPref) { os -> os.write(cachedBytes) }
+                    // 登记本地副本：此后在软件内查看该作品直接读这份文件，不再联网
+                    com.furflix.app.data.local.DownloadedMediaRegistry
+                        .register(task.submissionId, cachedUri)
                     writeMeta(ctx, task.submissionId, author, title)
                     update(task.id) { it.copy(status = DownloadStatus.COMPLETED, speedBps = 0) }
                     toast(ctx, ctx.getString(R.string.toast_download_saved, finalName))
@@ -295,6 +298,9 @@ object DownloadManager {
                     }
                 }
 
+                // 登记本地副本：此后在软件内查看该作品直接读这份文件，不再联网
+                com.furflix.app.data.local.DownloadedMediaRegistry
+                    .register(task.submissionId, insertedUri)
                 writeMeta(ctx, task.submissionId, author, title)
                 update(task.id) { it.copy(status = DownloadStatus.COMPLETED, speedBps = 0) }
                 toast(ctx, ctx.getString(R.string.toast_download_saved, finalName))

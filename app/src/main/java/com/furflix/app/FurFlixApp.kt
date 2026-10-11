@@ -33,6 +33,9 @@ class FurFlixApp : Application() {
         SingletonImageLoader.setUnsafe(ImageLoaderFactory.getInstance(this))
         // 缓存碎片清理：旧版 PDF 临时残留 / 陈旧 .tmp / 文档缓存配额修剪
         CacheJanitor.cleanOnce(this)
+        // 已下载作品登记表预热（后台线程）：让"软件内查看已下载作品"直接读本地
+        // 文件而不重新下载；也覆盖本次改动之前下载的条目（靠文件名里的 postId）
+        com.furflix.app.data.local.DownloadedMediaRegistry.warmUpOnce(this)
     }
 
     companion object {

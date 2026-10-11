@@ -44,6 +44,7 @@ import com.furflix.app.data.download.DownloadTask
 import com.furflix.app.data.local.DownloadHelper
 import com.furflix.app.data.local.DownloadedItem
 import com.furflix.app.data.model.GalleryViewMode
+import com.furflix.app.data.local.DownloadedMediaRegistry
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.HazeTopAppBar
 import com.furflix.app.ui.components.RetrySubcomposeAsyncImage
@@ -133,11 +134,14 @@ fun DownloadsScreen(
 
     LaunchedEffect(Unit) {
         images = DownloadHelper.getDownloadedImages(context)
+        // 登记本地副本：点"软件内查看"进详情页时直接读这份文件，不再重新下载
+        DownloadedMediaRegistry.registerAll(images)
         isLoading = false
     }
     LaunchedEffect(Unit) {
         DownloadManager.refreshSignal.collect {
             images = DownloadHelper.getDownloadedImages(context)
+            DownloadedMediaRegistry.registerAll(images)
         }
     }
 

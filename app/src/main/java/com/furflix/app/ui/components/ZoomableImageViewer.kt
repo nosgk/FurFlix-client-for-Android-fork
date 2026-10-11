@@ -78,7 +78,9 @@ import kotlin.math.roundToInt
 @Composable
 fun ZoomableImageViewer(
     imageUrl: String,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    /** 已下载作品的本地副本：非空时直接读它，不再联网（见 DownloadedMediaRegistry） */
+    localSource: android.net.Uri? = null
 ) {
     BackHandler { onClose() }
     val context = LocalContext.current
@@ -162,7 +164,7 @@ fun ZoomableImageViewer(
     ) {
         SubcomposeAsyncImage(
             model = ImageRequest.Builder(context)
-                .data(retryState.effectiveUrl)
+                .data(localSource ?: retryState.effectiveUrl)
                 .apply {
                     when {
                         detailQuality == FurRepository.DETAIL_QUALITY_ORIGINAL ->
