@@ -34,21 +34,31 @@ class ResamplePlanTest {
         }
     }
 
-    /** 1:1 时必须是恒等：只有中心抽头权重为 1，其余为 0（否则图像会糊/位移）。 */
+    /**
+     * 1:1 时必须是恒等：每个输出像素的总权重都落在同索引的源像素上（权重 1），
+     * 其余为 0（否则图像会糊/位移）。
+     *
+     * 注意要按"钳制后的源索引"累计权重：边缘像素的核会伸出图外，多个抽头会被
+     * clampIndex 合并到同一个源像素上（其中一个权重为 0），直接逐个抽头断言
+     * "索引相同即权重为 1" 会把这种正常的边缘情形误判为失败。
+     */
     @Test
     fun identityWhenScaleIsOne() {
         for (algo in algos) {
             val n = 16
             val plan = ResamplePlan.plan(algo, srcLen = n, srcStart = 0.0, srcSpan = n.toDouble(), outLen = n)
             for (i in 0 until n) {
+                val acc = DoubleArray(n)
                 for (k in 0 until plan.taps) {
                     val idx = ResamplePlan.clampIndex(plan.starts[i] + k, n)
-                    val w = plan.weights[i * plan.taps + k]
-                    if (idx == i) {
-                        assertTrue("algo=$algo i=$i w=$w", abs(w - 1f) < 1e-3)
-                    } else {
-                        assertTrue("algo=$algo i=$i idx=$idx w=$w", abs(w) < 1e-3)
-                    }
+                    acc[idx] += plan.weights[i * plan.taps + k].toDouble()
+                }
+                for (j in 0 until n) {
+                    val expected = if (j == i) 1.0 else 0.0
+                    assertTrue(
+                        "algo=$algo i=$i j=$j acc=${acc[j]}",
+                        abs(acc[j] - expected) < 1e-3
+                    )
                 }
             }
         }
