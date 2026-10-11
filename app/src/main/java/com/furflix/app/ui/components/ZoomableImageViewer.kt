@@ -36,7 +36,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -210,13 +209,13 @@ fun ZoomableImageViewer(
                 }
             },
             success = success@{ state ->
-                // 拿可读的位图给 LOD 重采样用：优先走 Coil 官方的 Image→Bitmap
-                // 转换，失败再退回画家的位图（跨淡等包装会让画家不是 BitmapPainter）
+                // 拿可读的位图给 LOD 重采样用：走 Coil 官方的 Image→Bitmap 转换
+                // （BitmapPainter.image 在该 Compose 版本里是 private，取不到）
                 val bitmap: ImageBitmap? = runCatching {
                     state.result.image.toBitmap().asImageBitmap()
-                }.getOrNull() ?: (state.painter as? BitmapPainter)?.image
+                }.getOrNull()
                 if (bitmap == null) {
-                    // 两条路都拿不到：退回 Coil 自己的绘制，功能不受影响
+                    // 转换失败（如解码结果不是位图）：退回 Coil 自己的绘制，功能不受影响
                     SubcomposeAsyncImageContent()
                     return@success
                 }

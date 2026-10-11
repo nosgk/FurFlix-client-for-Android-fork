@@ -511,7 +511,7 @@ fun AppearanceSettingsScreen(
 
             // --- 图像重采样插值算法（放大/缩小的采样质量） ---
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.PhotoFilter, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.Image, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
@@ -575,7 +575,7 @@ fun AppearanceSettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Default.HighQuality,
+                    Icons.Default.ColorLens,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )
