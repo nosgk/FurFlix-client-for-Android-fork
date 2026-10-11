@@ -89,10 +89,15 @@ fun ProgressiveImageContent(
         // 底层占位（缓存命中即零流量出图）
         if (placeholderUrl != null) {
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current).data(placeholderUrl).build(),
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(placeholderUrl)
+                    .applyImageQuality(LocalImageFidelity.current)
+                    .build(),
                 imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
                 contentDescription = null,
                 contentScale = contentScale,
+                // 占位只在原图就位前短暂可见：插值档位跟随全局，放大时同样平滑
+                filterQuality = imageFilterQuality(LocalImageInterpolation.current),
                 modifier = imageModifier
             )
         }

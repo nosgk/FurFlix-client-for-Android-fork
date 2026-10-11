@@ -100,6 +100,10 @@ fun RetrySubcomposeAsyncImage(
     contentScale: ContentScale = ContentScale.Crop,
     crossfadeMs: Int = 300,
     requestSize: coil3.size.Size? = null,
+    /** 重采样插值档位（FurRepository.IMAGE_INTERPOLATION_*）；null = 跟随组合树 */
+    interpolation: Int? = null,
+    /** 高保真解码：强制 ARGB_8888 + 精确采样；null = 跟随组合树 */
+    fidelity: Boolean? = null,
     onLoading: () -> Unit = {},
     onSuccess: () -> Unit = {},
     onSettledError: () -> Unit = {},
@@ -107,6 +111,9 @@ fun RetrySubcomposeAsyncImage(
     errorContent: (@Composable BoxScope.() -> Unit)? = null
 ) {
     RetryEffect(state)
+    // 组合树注入：调用点未显式传参时跟随 NavGraph 提供的全局偏好
+    val effectiveInterpolation = interpolation ?: LocalImageInterpolation.current
+    val effectiveFidelity = fidelity ?: LocalImageFidelity.current
     SubcomposeAsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
             .data(state.effectiveUrl)
@@ -116,11 +123,13 @@ fun RetrySubcomposeAsyncImage(
                 // Size.ORIGINAL = 不限解码尺寸（原图档）
                 if (requestSize != null) size(requestSize)
             }
+            .applyImageQuality(effectiveFidelity)
             .build(),
         imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
         contentDescription = contentDescription,
         modifier = modifier,
         contentScale = contentScale,
+        filterQuality = imageFilterQuality(effectiveInterpolation),
         onLoading = {
             onLoading()
             ImageLoadProgress.clear(state.url)

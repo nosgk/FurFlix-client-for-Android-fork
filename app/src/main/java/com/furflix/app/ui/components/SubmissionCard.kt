@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -178,14 +179,19 @@ fun SubmissionCard(
                 }
                 val showStats = stats != null || forceFavorited || instantTypeLabel.isNotEmpty()
                 // 跨视图复用：该作品在详情页完整加载过且高清图仍在内存缓存时，
-                // 直接用高清图顶替缩略图（原缩略图请求剔除；缓存被逐则回落缩略图）
-                val heroUrl = remember(submission.id) {
-                    com.furflix.app.data.local.HeroUpgradeRegistry.lookup(submission.id)
+                // 直接用高清图顶替缩略图（原缩略图请求剔除；缓存被逐则回落缩略图）。
+                // 订阅登记表版本而非把结果 remember 住：下拉刷新后卡片 key 不变、
+                // remember 不会重算，只有订阅才能在原图新登记（或刷新时重查）后
+                // 及时顶替缩略图。
+                val heroVersion by com.furflix.app.data.local.HeroUpgradeRegistry.version
+                    .collectAsState()
+                val upgradedUrl = remember(heroVersion, submission.id, displayUrl) {
+                    val heroUrl = com.furflix.app.data.local.HeroUpgradeRegistry.lookup(submission.id)
+                    if (heroUrl != null &&
+                        ImageLoaderFactory.getInstance(LocalContext.current)
+                            .memoryCache?.get(coil3.memory.MemoryCache.Key(heroUrl)) != null
+                    ) heroUrl else null
                 }
-                val upgradedUrl = if (heroUrl != null &&
-                    ImageLoaderFactory.getInstance(LocalContext.current)
-                        .memoryCache?.get(coil3.memory.MemoryCache.Key(heroUrl)) != null
-                ) heroUrl else null
                 // 失败自动重试 3 次；耗尽后小浮层显示错误码与重试
                 val retryState = rememberRetryImageState(upgradedUrl ?: displayUrl)
                 AsyncImage(
@@ -199,6 +205,8 @@ fun SubmissionCard(
                         .fillMaxSize()
                         .clip(cardShape),
                     contentScale = ContentScale.Crop,
+                    // 卡片缩放采样跟随设置里的插值档位
+                    filterQuality = imageFilterQuality(LocalImageInterpolation.current),
                     placeholder = ColorPainter(DarkSurfaceVariant),
                     error = ColorPainter(DarkSurfaceVariant),
                     onLoading = { imageLoaded = false },

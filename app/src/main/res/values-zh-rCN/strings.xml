@@ -84,6 +84,16 @@
     <string name="settings_detail_quality">详情页画质</string>
     <string name="settings_detail_quality_desc">详情主图与缩放查看器的分辨率上限;原图档全分辨率解码</string>
     <string name="settings_detail_quality_original">原图</string>
+    <!-- 图像重采样:缩放位图时的插值算法 -->
+    <string name="settings_image_interpolation">图像插值算法</string>
+    <string name="settings_image_interpolation_desc">缩放图像时的重采样算法;档位越高越锐利,耗时越长</string>
+    <string name="settings_interpolation_auto">自动</string>
+    <string name="settings_interpolation_low">双线性(快)</string>
+    <string name="settings_interpolation_medium">双三次(高品质)</string>
+    <string name="settings_interpolation_high">兰索斯(慢·最高)</string>
+    <!-- 高保真解码:强制 ARGB_8888 + 精确采样,不做降采样近似 -->
+    <string name="settings_image_fidelity">高保真解码</string>
+    <string name="settings_image_fidelity_desc">全色深、精确采样解码,无降采样损失;内存占用更高,切换时会清空图片缓存</string>
     <!-- 文字缩放叠加在系统字体缩放之上;1.0 = 跟随系统 -->
     <string name="settings_text_size">文字大小</string>
     <string name="settings_text_size_desc">叠加在系统字体缩放之上</string>
@@ -269,6 +279,22 @@
     <string name="document_media_count">文档内嵌 %1$d 张图片</string>
     <string name="toast_copied_to_clipboard">已复制到剪贴板</string>
     <string name="toast_document_full_copied">已复制全文</string>
+    <string name="cd_document_save_txt">下载为 .txt</string>
+    <!-- %1$s = 保存的文件名 -->
+    <string name="toast_document_txt_saved">已保存:%1$s</string>
+    <string name="toast_document_txt_failed">文本保存失败</string>
+    <!-- PDF 能打开但没有可抽取的文本层(扫描件/纯图) -->
+    <string name="pdf_no_text_layer">该 PDF 没有文本层(扫描件或纯图片)。可用 PDF 查看器翻阅页面。</string>
+    <!-- 文档查看器可用独立于全局的翻译服务 -->
+    <string name="document_translation_service">文档翻译服务</string>
+    <string name="document_translation_service_desc">为文档与 PDF 单独指定翻译服务</string>
+    <string name="document_translation_separate">使用独立服务</string>
+    <string name="document_translation_follow_global">跟随全局设置</string>
+    <string name="document_translation_separate_desc">关闭则沿用全局翻译设置</string>
+    <string name="document_translation_fallback_hint">留空的字段将回落到全局设置</string>
+    <!-- store 作品:把写在作品描述里的故事送进文档查看器 -->
+    <string name="doc_read_description">从作品描述查看故事</string>
+    <string name="doc_open_pages">查看页面</string>
     <!-- 评论楼中楼 -->
     <string name="comments_replies_count">%d 条回复</string>
     <string name="comments_parents_hidden">已隐藏 %d 条父评论</string>

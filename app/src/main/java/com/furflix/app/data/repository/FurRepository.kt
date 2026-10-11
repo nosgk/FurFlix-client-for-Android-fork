@@ -73,6 +73,17 @@ class FurRepository(private val context: Context) {
         /** 关注卡片背景模糊半径上限（dp） */
         const val WATCHLIST_BANNER_BLUR_MAX = 20f
 
+        /**
+         * 图像重采样插值档位（imageInterpolationFlow）：
+         * AUTO = 跟随系统默认；其余三档为真实重采样算法（双线性/双三次/兰索斯），
+         * 在图像查看器里对可见区域做 CPU 卷积重采样（android.graphics 只给得出
+         * 双线性，双三次与兰索斯必须自算），档位越高越锐利、越慢。
+         */
+        const val IMAGE_INTERPOLATION_AUTO = 0
+        const val IMAGE_INTERPOLATION_BILINEAR = 1
+        const val IMAGE_INTERPOLATION_BICUBIC = 2
+        const val IMAGE_INTERPOLATION_LANCZOS = 3
+
     private val RECENT_SEARCHES_KEY = stringPreferencesKey("recent_searches")
     private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
     private val VIEW_MODE_KEY = stringPreferencesKey("view_mode")
@@ -97,6 +108,8 @@ class FurRepository(private val context: Context) {
     private val DOWNLOAD_FOLDER_KEY = stringPreferencesKey("download_folder")
     private val DOWNLOAD_METHOD_KEY = stringPreferencesKey("download_method")
     private val DETAIL_IMAGE_QUALITY_KEY = intPreferencesKey("detail_image_quality")
+    private val IMAGE_INTERPOLATION_KEY = intPreferencesKey("image_interpolation")
+    private val IMAGE_FIDELITY_KEY = booleanPreferencesKey("image_fidelity")
     private val LAST_SEARCH_FILTERS_KEY = stringPreferencesKey("last_search_filters")
     private val QUICK_PRESETS_KEY = stringPreferencesKey("quick_presets")
     private val SEARCH_PRESETS_KEY = stringPreferencesKey("search_presets_v2")
@@ -608,6 +621,38 @@ class FurRepository(private val context: Context) {
                 in DETAIL_QUALITY_TIERS -> tier
                 else -> DETAIL_QUALITY_AUTO
             }
+        }
+    }
+
+    /**
+     * 图像重采样插值算法（imageInterpolationFlow）：位图放大/缩小重采样时用的
+     * 采样质量档位，映射到 Compose [androidx.compose.ui.graphics.FilterQuality]。
+     * 只影响绘制期采样，不额外拉取字节；档位越高放大观感越平滑、GPU 成本越高。
+     */
+    val imageInterpolationFlow: kotlinx.coroutines.flow.Flow<Int> = context.dataStore.data.map { prefs ->
+        val stored = prefs[IMAGE_INTERPOLATION_KEY] ?: IMAGE_INTERPOLATION_AUTO
+        if (stored in IMAGE_INTERPOLATION_AUTO..IMAGE_INTERPOLATION_LANCZOS) stored else IMAGE_INTERPOLATION_AUTO
+    }
+
+    suspend fun saveImageInterpolation(mode: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[IMAGE_INTERPOLATION_KEY] = mode.coerceIn(IMAGE_INTERPOLATION_AUTO, IMAGE_INTERPOLATION_LANCZOS)
+        }
+    }
+
+    /**
+     * 高保真解码（imageFidelityFlow）：默认关。开启后静态图解码强制 ARGB_8888
+     * （禁用 HARDWARE/RGB_565 等有损或不可读回的配置），并按视图物理像素精确
+     * 采样（EXACT 精度）——消除降采样带来的细节损失与色带。代价是内存占用上升，
+     * 缩略图密集的网格场景建议保持关闭。
+     */
+    val imageFidelityFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[IMAGE_FIDELITY_KEY] ?: false
+    }
+
+    suspend fun saveImageFidelity(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[IMAGE_FIDELITY_KEY] = enabled
         }
     }
 

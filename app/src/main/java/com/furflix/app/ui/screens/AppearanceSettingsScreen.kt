@@ -62,6 +62,10 @@ fun AppearanceSettingsScreen(
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
     val thumbnailQuality by repository.thumbnailQualityFlow.collectAsState(initial = 0)
     val detailImageQuality by repository.detailImageQualityFlow.collectAsState(initial = FurRepository.DETAIL_QUALITY_AUTO)
+    val imageInterpolation by repository.imageInterpolationFlow.collectAsState(
+        initial = FurRepository.IMAGE_INTERPOLATION_AUTO
+    )
+    val imageFidelity by repository.imageFidelityFlow.collectAsState(initial = false)
     val detailLayoutPref by repository.detailLayoutFlow.collectAsState(initial = FurRepository.DETAIL_LAYOUT_AUTO)
     val detailSplit by repository.detailSplitFlow.collectAsState(initial = FurRepository.DETAIL_SPLIT_DEFAULT)
     val textScale by repository.textScaleFlow.collectAsState(initial = 1f)
@@ -503,6 +507,102 @@ fun AppearanceSettingsScreen(
                         Text(name, color = textColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+
+            // --- 图像重采样插值算法（放大/缩小的采样质量） ---
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.PhotoFilter, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.settings_image_interpolation),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_image_interpolation_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val interpolationOptions = listOf(
+                    stringResource(R.string.settings_interpolation_auto) to FurRepository.IMAGE_INTERPOLATION_AUTO,
+                    stringResource(R.string.settings_interpolation_low) to FurRepository.IMAGE_INTERPOLATION_BILINEAR,
+                    stringResource(R.string.settings_interpolation_medium) to FurRepository.IMAGE_INTERPOLATION_BICUBIC,
+                    stringResource(R.string.settings_interpolation_high) to FurRepository.IMAGE_INTERPOLATION_LANCZOS
+                )
+                interpolationOptions.forEach { (name, mode) ->
+                    val isSelected = imageInterpolation == mode
+                    val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(bgColor)
+                            .clickable { scope.launch { repository.saveImageInterpolation(mode) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(name, color = textColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // --- 高保真解码（强制高质量色彩 + 精确采样） ---
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable {
+                        scope.launch {
+                            repository.saveImageFidelity(!imageFidelity)
+                            // loader 级开关（禁用硬件位图）需重建实例才生效；
+                            // 清缓存是这一路径的既定代价，与磁盘配额变更一致
+                            com.furflix.app.ui.components.ImageLoaderFactory.highFidelityDecoding = !imageFidelity
+                            com.furflix.app.ui.components.ImageLoaderFactory.reset()
+                        }
+                    }
+                    .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.HighQuality,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_image_fidelity),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_image_fidelity_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = imageFidelity,
+                    onCheckedChange = { enabled ->
+                        scope.launch {
+                            repository.saveImageFidelity(enabled)
+                            com.furflix.app.ui.components.ImageLoaderFactory.highFidelityDecoding = enabled
+                            com.furflix.app.ui.components.ImageLoaderFactory.reset()
+                        }
+                    }
+                )
             }
 
             // --- Text size (multiplies the system font scale) ---

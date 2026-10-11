@@ -18,6 +18,8 @@ import com.furflix.app.data.remote.FaLink
 import com.furflix.app.data.remote.parseFaLink
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.LocalDetailImageQuality
+import com.furflix.app.ui.components.LocalImageFidelity
+import com.furflix.app.ui.components.LocalImageInterpolation
 import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.screens.*
 import com.furflix.app.viewmodel.MainViewModel
@@ -102,10 +104,19 @@ fun FurFlixNavGraph(
     val thumbnailQuality by qualityFlow.collectAsState(initial = DynamicThumbnail.TIER_AUTO)
     val detailQualityFlow = remember { FurRepository.getInstance(appContext).detailImageQualityFlow }
     val detailImageQuality by detailQualityFlow.collectAsState(initial = FurRepository.DETAIL_QUALITY_AUTO)
+    // 图像引擎：重采样插值档位与高保真解码，同在全树注入一次
+    val interpolationFlow = remember { FurRepository.getInstance(appContext).imageInterpolationFlow }
+    val imageInterpolation by interpolationFlow.collectAsState(
+        initial = FurRepository.IMAGE_INTERPOLATION_AUTO
+    )
+    val fidelityFlow = remember { FurRepository.getInstance(appContext).imageFidelityFlow }
+    val imageFidelity by fidelityFlow.collectAsState(initial = false)
 
     CompositionLocalProvider(
         LocalThumbnailQuality provides thumbnailQuality,
-        LocalDetailImageQuality provides detailImageQuality
+        LocalDetailImageQuality provides detailImageQuality,
+        LocalImageInterpolation provides imageInterpolation,
+        LocalImageFidelity provides imageFidelity
     ) {
         // CF 验证处理：抓取链路命中拦截时全局弹出（人工通过后抓取协程自动重试）
         val cfChallengeUrl by com.furflix.app.data.remote.CloudflareGate.challengeUrl.collectAsState()

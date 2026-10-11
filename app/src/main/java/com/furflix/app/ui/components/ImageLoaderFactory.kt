@@ -21,6 +21,17 @@ object ImageLoaderFactory {
     @Volatile
     var diskCacheLimitBytes: Long = -1L
 
+    /**
+     * 高保真解码（imageFidelityFlow，默认关）：开启后新建的 loader 全局禁用
+     * 硬件位图——HARDWARE 配置不可 CPU 读回、也不参与高质量重采样，是"放大发糊"
+     * 的隐性来源之一。设置在 FurFlixApp 启动期读定；设置页切换走 reset() 重建，
+     * 与磁盘配额同一条生效路径。
+     *
+     * 注意：只影响此后新建的 loader 实例；已缓存的解码结果按各自当时的配置保留。
+     */
+    @Volatile
+    var highFidelityDecoding: Boolean = false
+
     fun getInstance(context: Context): ImageLoader {
         return imageLoader ?: createLoader(context).also { imageLoader = it }
     }
@@ -82,6 +93,9 @@ object ImageLoaderFactory {
                     add(coil3.gif.GifDecoder.Factory())
                 }
             }
+            // 高保真：全局禁用硬件位图（见 highFidelityDecoding KDoc）。请求级
+            // 还会叠加 bitmapConfig(ARGB_8888) 与精确采样，两者合起来才是完整保真。
+            .allowHardware(!highFidelityDecoding)
             .memoryCache {
                 coil3.memory.MemoryCache.Builder()
                     // 25% → 30%：回滚已看过画面更多直接命中内存（零解码零 IO），

@@ -80,6 +80,16 @@
     <string name="settings_detail_quality">Detail Page Quality</string>
     <string name="settings_detail_quality_desc">Resolution cap for the detail artwork and zoom viewer; Original decodes at full resolution</string>
     <string name="settings_detail_quality_original">Original</string>
+    <!-- Image resampling: interpolation algorithm used when scaling bitmaps up/down -->
+    <string name="settings_image_interpolation">Image Interpolation</string>
+    <string name="settings_image_interpolation_desc">Resampling algorithm used when zooming; higher tiers are sharper but slower</string>
+    <string name="settings_interpolation_auto">Auto</string>
+    <string name="settings_interpolation_low">Bilinear (fast)</string>
+    <string name="settings_interpolation_medium">Bicubic (quality)</string>
+    <string name="settings_interpolation_high">Lanczos (slow, best)</string>
+    <!-- High-fidelity decoding: force ARGB_8888 + exact sampling, no downscale approximation -->
+    <string name="settings_image_fidelity">High-Fidelity Decoding</string>
+    <string name="settings_image_fidelity_desc">Full-color, exact-sampling decode — no downscale loss. Uses more memory; clears the image cache when toggled</string>
     <!-- Text size multiplies the system font scale; 1.0 = follow system -->
     <string name="settings_text_size">Text size</string>
     <string name="settings_text_size_desc">Multiplies the system font scale</string>
@@ -263,6 +273,22 @@
     <string name="document_media_count">%1$d embedded images</string>
     <string name="toast_copied_to_clipboard">Copied to clipboard</string>
     <string name="toast_document_full_copied">Full text copied</string>
+    <string name="cd_document_save_txt">Save as .txt</string>
+    <!-- %1$s = saved file name -->
+    <string name="toast_document_txt_saved">Saved: %1$s</string>
+    <string name="toast_document_txt_failed">Failed to save the text file</string>
+    <!-- PDF opened fine but carries no extractable text layer (scanned/image-only) -->
+    <string name="pdf_no_text_layer">This PDF has no text layer (it is a scan or an image). Use the PDF viewer to read the pages.</string>
+    <!-- Document viewer can use its own translation service, separate from the global one -->
+    <string name="document_translation_service">Document translation service</string>
+    <string name="document_translation_service_desc">Choose a separate service for documents and PDFs</string>
+    <string name="document_translation_separate">Use a separate service</string>
+    <string name="document_translation_follow_global">Follow global settings</string>
+    <string name="document_translation_separate_desc">Off = follow the global translation settings</string>
+    <string name="document_translation_fallback_hint">Fields left empty fall back to the global settings</string>
+    <!-- Store submission: read the story written into the description -->
+    <string name="doc_read_description">Read story from description</string>
+    <string name="doc_open_pages">View pages</string>
     <!-- Comment threading -->
     <string name="comments_replies_count">%d replies</string>
     <string name="comments_parents_hidden">%d parent comments hidden</string>

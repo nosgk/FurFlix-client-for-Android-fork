@@ -28,6 +28,13 @@ class FurFlixApp : Application() {
                 FurRepository.getInstance(this@FurFlixApp).imageCacheLimitFlow.first()
             }
         }
+        // 高保真解码同在 loader 构建前读定（与磁盘配额同一条"启动读定 + 设置页
+        // 清空重建"路径）：它决定 loader 是否全局禁用硬件位图
+        runCatching {
+            ImageLoaderFactory.highFidelityDecoding = runBlocking {
+                FurRepository.getInstance(this@FurFlixApp).imageFidelityFlow.first()
+            }
+        }
         // Route ALL Coil loads (even bare AsyncImage calls) through our loader,
         // which carries FA headers/cookies and the GIF decoder for animated avatars.
         SingletonImageLoader.setUnsafe(ImageLoaderFactory.getInstance(this))
