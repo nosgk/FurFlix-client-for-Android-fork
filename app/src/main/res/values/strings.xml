@@ -85,11 +85,19 @@
     <string name="settings_image_interpolation_desc">Resampling algorithm used when zooming; higher tiers are sharper but slower</string>
     <string name="settings_interpolation_auto">Auto</string>
     <string name="settings_interpolation_low">Bilinear (fast)</string>
-    <string name="settings_interpolation_medium">Bicubic (quality)</string>
-    <string name="settings_interpolation_high">Lanczos (slow, best)</string>
+    <string name="settings_interpolation_medium">Bicubic (high quality)</string>
+    <string name="settings_interpolation_high">Lanczos (slow, highest)</string>
     <!-- High-fidelity decoding: force ARGB_8888 + exact sampling, no downscale approximation -->
     <string name="settings_image_fidelity">High-Fidelity Decoding</string>
     <string name="settings_image_fidelity_desc">Full-color, exact-sampling decode — no downscale loss. Uses more memory; clears the image cache when toggled</string>
+    <!-- Sub-switch: also apply high-fidelity decoding to the thumbnail grid (memory heavy) -->
+    <string name="settings_image_fidelity_thumbnails">Also apply to thumbnails</string>
+    <string name="settings_image_fidelity_thumbnails_desc">Applies to gallery cards too. Many small cards decode in full colour, so memory use rises noticeably</string>
+    <!-- How a downloaded item opens: in-app detail page (full image engine) or the system gallery -->
+    <string name="settings_download_open_target">Open downloads with</string>
+    <string name="settings_download_open_target_desc">In-app routes through the detail page and its image viewer; the system gallery opens the file directly</string>
+    <string name="settings_download_open_inapp">In-app viewer</string>
+    <string name="settings_download_open_system">System gallery</string>
     <!-- Text size multiplies the system font scale; 1.0 = follow system -->
     <string name="settings_text_size">Text size</string>
     <string name="settings_text_size_desc">Multiplies the system font scale</string>

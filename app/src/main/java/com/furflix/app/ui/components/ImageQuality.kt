@@ -21,6 +21,18 @@ val LocalImageInterpolation = staticCompositionLocalOf { FurRepository.IMAGE_INT
 val LocalImageFidelity = staticCompositionLocalOf { false }
 
 /**
+ * 高保真解码是否应用到缩略图网格（imageFidelityThumbnailsFlow，默认关）。
+ * 与 [LocalImageFidelity] 是"总开关 + 子开关"的关系：总开关关着时子开关无意义。
+ */
+val LocalImageFidelityThumbnails = staticCompositionLocalOf { false }
+
+/**
+ * 缩略图实际是否吃高保真：两个开关都打开才算。画廊卡片、用户页速览这类
+ * 小图网格统一读它，别在各调用点自己写 `a && b`——规则只有一处才好改。
+ */
+fun thumbnailFidelity(): Boolean = LocalImageFidelity.current && LocalImageFidelityThumbnails.current
+
+/**
  * 插值档位 → Compose [FilterQuality]：GPU 绘制路径上的采样质量。
  *
  * 注意 GPU 只区分"最近邻 / 双线性"两档——双三次与兰索斯在 android.graphics
@@ -31,11 +43,9 @@ val LocalImageFidelity = staticCompositionLocalOf { false }
  */
 fun imageFilterQuality(mode: Int): FilterQuality = FilterQuality.Low
 
-/** 该档位是否需要 CPU 卷积重采样（双线性以上才值得算）。 */
+/** 该档位是否需要 CPU 卷积重采样（三档真实算法才需要；AUTO 交给 GPU）。 */
 fun needsCpuResample(mode: Int): Boolean =
-    mode == FurRepository.IMAGE_INTERPOLATION_BILINEAR ||
-        mode == FurRepository.IMAGE_INTERPOLATION_BICUBIC ||
-        mode == FurRepository.IMAGE_INTERPOLATION_LANCZOS
+    com.furflix.app.utils.ResamplePlan.isRealAlgorithm(mode)
 
 /**
  * 把高保真解码落到具体请求上：强制 ARGB_8888 色彩 + EXACT 精确采样（按目标尺寸

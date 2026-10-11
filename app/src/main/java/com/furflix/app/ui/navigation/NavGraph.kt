@@ -19,6 +19,7 @@ import com.furflix.app.data.remote.parseFaLink
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.ui.components.LocalDetailImageQuality
 import com.furflix.app.ui.components.LocalImageFidelity
+import com.furflix.app.ui.components.LocalImageFidelityThumbnails
 import com.furflix.app.ui.components.LocalImageInterpolation
 import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.screens.*
@@ -111,12 +112,17 @@ fun FurFlixNavGraph(
     )
     val fidelityFlow = remember { FurRepository.getInstance(appContext).imageFidelityFlow }
     val imageFidelity by fidelityFlow.collectAsState(initial = false)
+    val fidelityThumbsFlow = remember {
+        FurRepository.getInstance(appContext).imageFidelityThumbnailsFlow
+    }
+    val imageFidelityThumbnails by fidelityThumbsFlow.collectAsState(initial = false)
 
     CompositionLocalProvider(
         LocalThumbnailQuality provides thumbnailQuality,
         LocalDetailImageQuality provides detailImageQuality,
         LocalImageInterpolation provides imageInterpolation,
-        LocalImageFidelity provides imageFidelity
+        LocalImageFidelity provides imageFidelity,
+        LocalImageFidelityThumbnails provides imageFidelityThumbnails
     ) {
         // CF 验证处理：抓取链路命中拦截时全局弹出（人工通过后抓取协程自动重试）
         val cfChallengeUrl by com.furflix.app.data.remote.CloudflareGate.challengeUrl.collectAsState()

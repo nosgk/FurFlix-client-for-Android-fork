@@ -200,6 +200,8 @@ fun SubmissionCard(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(retryState.effectiveUrl)
                         .crossfade(300)
+                        // 缩略图保真由"总开关 + 子开关"共同决定（默认不应用）
+                        .applyFidelity(thumbnailFidelity())
                         .build(),
                     imageLoader = ImageLoaderFactory.getInstance(LocalContext.current),
                     contentDescription = submission.title,

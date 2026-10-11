@@ -110,6 +110,10 @@ fun DownloadsScreen(
     // 三视图（网格/瀑布流/列表）与列数偏好直接挂 DataStore，写入后自动回流
     val viewMode by repository.downloadsViewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
+    // 主点击落点：系统相册（默认）或软件内详情页（设置页可切）
+    val downloadOpenTarget by repository.downloadOpenTargetFlow.collectAsState(
+        initial = FurRepository.DOWNLOAD_OPEN_SYSTEM
+    )
 
     // 实时任务状态（排队/下载中/失败）+ 完成信号驱动列表重查
     val downloadTasks by DownloadManager.tasks.collectAsState()
@@ -236,15 +240,25 @@ fun DownloadsScreen(
             } else {
                 // 卡片动作回调只定义一次，三种视图共用（回调按条目分发）
                 val shareVia = stringResource(R.string.share_via)
-                val openAction: (DownloadedItem) -> Unit = { item ->
-                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                        setDataAndType(item.uri, "image/*")
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    context.startActivity(intent)
-                }
                 val viewPostAction: (DownloadedItem) -> Unit = { item ->
                     parseMeta(context, item.filename)?.let { onNavigateToPost(it.postId) }
+                }
+                // 主点击的落点由设置决定：
+                // - 系统相册（默认，历史行为）：把本地文件交给系统看图应用；
+                // - 软件内：走详情页，吃满无损图像引擎与缩放查看器（代价是要联网
+                //   重新解析作品，本地这份文件本身不会被用上）。
+                // 解析不出 postId 时（老命名/无元数据）退回系统相册，不让点击落空。
+                val openAction: (DownloadedItem) -> Unit = { item ->
+                    val postId = parseMeta(context, item.filename)?.postId
+                    if (downloadOpenTarget == FurRepository.DOWNLOAD_OPEN_INAPP && postId != null) {
+                        onNavigateToPost(postId)
+                    } else {
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(item.uri, "image/*")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(intent)
+                    }
                 }
                 val viewAuthorAction: (DownloadedItem) -> Unit = { item ->
                     parseMeta(context, item.filename)?.let {

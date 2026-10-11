@@ -84,6 +84,10 @@ class FurRepository(private val context: Context) {
         const val IMAGE_INTERPOLATION_BICUBIC = 2
         const val IMAGE_INTERPOLATION_LANCZOS = 3
 
+        /** 下载作品的打开方式（downloadOpenTargetFlow）：系统相册 / 软件内详情页。 */
+        const val DOWNLOAD_OPEN_SYSTEM = "system"
+        const val DOWNLOAD_OPEN_INAPP = "inapp"
+
     private val RECENT_SEARCHES_KEY = stringPreferencesKey("recent_searches")
     private val IS_GRID_KEY = booleanPreferencesKey("is_grid")
     private val VIEW_MODE_KEY = stringPreferencesKey("view_mode")
@@ -110,6 +114,8 @@ class FurRepository(private val context: Context) {
     private val DETAIL_IMAGE_QUALITY_KEY = intPreferencesKey("detail_image_quality")
     private val IMAGE_INTERPOLATION_KEY = intPreferencesKey("image_interpolation")
     private val IMAGE_FIDELITY_KEY = booleanPreferencesKey("image_fidelity")
+    private val IMAGE_FIDELITY_THUMBS_KEY = booleanPreferencesKey("image_fidelity_thumbnails")
+    private val DOWNLOAD_OPEN_TARGET_KEY = stringPreferencesKey("download_open_target")
     private val LAST_SEARCH_FILTERS_KEY = stringPreferencesKey("last_search_filters")
     private val QUICK_PRESETS_KEY = stringPreferencesKey("quick_presets")
     private val SEARCH_PRESETS_KEY = stringPreferencesKey("search_presets_v2")
@@ -653,6 +659,42 @@ class FurRepository(private val context: Context) {
     suspend fun saveImageFidelity(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[IMAGE_FIDELITY_KEY] = enabled
+        }
+    }
+
+    /**
+     * 高保真解码是否同样应用到缩略图网格（默认关）。只在高保真总开关打开时
+     * 有意义：画廊一屏几十张卡片都按 ARGB_8888 + 精确采样解码，内存占用会明显
+     * 上升，所以默认只让详情页/查看器吃保真，缩略图按需开启。
+     */
+    val imageFidelityThumbnailsFlow: kotlinx.coroutines.flow.Flow<Boolean> =
+        context.dataStore.data.map { prefs ->
+            prefs[IMAGE_FIDELITY_THUMBS_KEY] ?: false
+        }
+
+    suspend fun saveImageFidelityThumbnails(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[IMAGE_FIDELITY_THUMBS_KEY] = enabled
+        }
+    }
+
+    /**
+     * 下载作品的打开方式（downloadOpenTargetFlow）：默认 system（交给系统相册，
+     * 与历史行为一致）；inapp 时点卡片走详情页——那里有完整的无损图像引擎与
+     * 缩放查看器，代价是要联网重新解析作品（本地文件不会被使用）。
+     */
+    val downloadOpenTargetFlow: kotlinx.coroutines.flow.Flow<String> =
+        context.dataStore.data.map { prefs ->
+            when (prefs[DOWNLOAD_OPEN_TARGET_KEY]) {
+                DOWNLOAD_OPEN_INAPP -> DOWNLOAD_OPEN_INAPP
+                else -> DOWNLOAD_OPEN_SYSTEM
+            }
+        }
+
+    suspend fun saveDownloadOpenTarget(target: String) {
+        context.dataStore.edit { prefs ->
+            prefs[DOWNLOAD_OPEN_TARGET_KEY] =
+                if (target == DOWNLOAD_OPEN_INAPP) DOWNLOAD_OPEN_INAPP else DOWNLOAD_OPEN_SYSTEM
         }
     }
 

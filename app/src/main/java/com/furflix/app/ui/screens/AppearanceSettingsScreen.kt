@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Image
@@ -66,6 +67,10 @@ fun AppearanceSettingsScreen(
         initial = FurRepository.IMAGE_INTERPOLATION_AUTO
     )
     val imageFidelity by repository.imageFidelityFlow.collectAsState(initial = false)
+    val fidelityThumbnails by repository.imageFidelityThumbnailsFlow.collectAsState(initial = false)
+    val downloadOpenTarget by repository.downloadOpenTargetFlow.collectAsState(
+        initial = FurRepository.DOWNLOAD_OPEN_SYSTEM
+    )
     val detailLayoutPref by repository.detailLayoutFlow.collectAsState(initial = FurRepository.DETAIL_LAYOUT_AUTO)
     val detailSplit by repository.detailSplitFlow.collectAsState(initial = FurRepository.DETAIL_SPLIT_DEFAULT)
     val textScale by repository.textScaleFlow.collectAsState(initial = 1f)
@@ -601,6 +606,98 @@ fun AppearanceSettingsScreen(
                         }
                     }
                 )
+            }
+
+            // --- 子开关：保真是否同样应用到缩略图网格 ---
+            // 仅在高保真总开关打开时出现：总开关关着时这个子项没有意义，
+            // 常驻显示只会让人以为"关了还生效"。
+            if (imageFidelity) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { scope.launch { repository.saveImageFidelityThumbnails(!fidelityThumbnails) } }
+                        // 缩进一级，视觉上从属于上面的总开关
+                        .padding(start = 24.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.GridView,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_image_fidelity_thumbnails),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            stringResource(R.string.settings_image_fidelity_thumbnails_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = fidelityThumbnails,
+                        onCheckedChange = { enabled ->
+                            scope.launch {
+                                repository.saveImageFidelityThumbnails(enabled)
+                                // 缩略图保真也是请求级配置，同样清一次缓存立即生效
+                                com.furflix.app.ui.components.ImageLoaderFactory.reset()
+                            }
+                        }
+                    )
+                }
+            }
+
+            // --- 下载作品的打开方式：系统相册 / 软件内详情页 ---
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.settings_download_open_target),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_download_open_target_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val openTargets = listOf(
+                    stringResource(R.string.settings_download_open_system) to FurRepository.DOWNLOAD_OPEN_SYSTEM,
+                    stringResource(R.string.settings_download_open_inapp) to FurRepository.DOWNLOAD_OPEN_INAPP
+                )
+                openTargets.forEach { (name, target) ->
+                    val isSelected = downloadOpenTarget == target
+                    val bgColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(bgColor)
+                            .clickable { scope.launch { repository.saveDownloadOpenTarget(target) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(name, color = textColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
 
             // --- Text size (multiplies the system font scale) ---

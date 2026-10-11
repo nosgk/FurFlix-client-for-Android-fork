@@ -29,6 +29,10 @@ object ResamplePlan {
     const val BICUBIC = 2
     const val LANCZOS = 3
 
+    /** 是否为需要 CPU 卷积重采样的真实算法档位（AUTO/未知值走 GPU）。 */
+    fun isRealAlgorithm(algo: Int): Boolean =
+        algo == BILINEAR || algo == BICUBIC || algo == LANCZOS
+
     /** 核半径（抽头数 = 2 * support）。 */
     fun support(algo: Int): Int = when (algo) {
         BICUBIC -> 2

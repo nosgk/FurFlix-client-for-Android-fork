@@ -88,12 +88,20 @@
     <string name="settings_image_interpolation">图像插值算法</string>
     <string name="settings_image_interpolation_desc">缩放图像时的重采样算法;档位越高越锐利,耗时越长</string>
     <string name="settings_interpolation_auto">自动</string>
-    <string name="settings_interpolation_low">双线性(快)</string>
-    <string name="settings_interpolation_medium">双三次(高品质)</string>
-    <string name="settings_interpolation_high">兰索斯(慢·最高)</string>
+    <string name="settings_interpolation_low">Bilinear(快)</string>
+    <string name="settings_interpolation_medium">Bicubic(高品质)</string>
+    <string name="settings_interpolation_high">Lanczos(慢·最高)</string>
     <!-- 高保真解码:强制 ARGB_8888 + 精确采样,不做降采样近似 -->
     <string name="settings_image_fidelity">高保真解码</string>
     <string name="settings_image_fidelity_desc">全色深、精确采样解码,无降采样损失;内存占用更高,切换时会清空图片缓存</string>
+    <!-- 子开关:是否同样应用到缩略图网格(内存开销明显) -->
+    <string name="settings_image_fidelity_thumbnails">同时应用到缩略图</string>
+    <string name="settings_image_fidelity_thumbnails_desc">画廊卡片也按全色深解码;卡片数量多,内存占用会明显上升</string>
+    <!-- 下载作品打开方式:软件内详情页(吃满图像引擎)或系统相册 -->
+    <string name="settings_download_open_target">下载作品打开方式</string>
+    <string name="settings_download_open_target_desc">软件内走详情页与图像查看器;系统相册直接打开文件</string>
+    <string name="settings_download_open_inapp">软件内查看</string>
+    <string name="settings_download_open_system">系统相册</string>
     <!-- 文字缩放叠加在系统字体缩放之上;1.0 = 跟随系统 -->
     <string name="settings_text_size">文字大小</string>
     <string name="settings_text_size_desc">叠加在系统字体缩放之上</string>
