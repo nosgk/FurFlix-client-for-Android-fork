@@ -293,17 +293,18 @@ fun DocumentViewerScreen(
                     )
                 }
                 // 下载为 .txt：正文已在手，直接导出（PDF 抽出的文本同样可导）
+                // 文案在组合层解析成模板（lint LocalContextGetResourceValueCall：
+                // 回调里 context.getString 不是配置感知的，会取到过期的资源配置），
+                // 回调只做 String.format
+                val txtSavedTemplate = stringResource(R.string.toast_document_txt_saved)
+                val txtFailedText = stringResource(R.string.toast_document_txt_failed)
                 IconButton(
                     onClick = {
                         scope.launch {
                             val saved = exportTextToDownloads(context, title, paragraphs)
                             android.widget.Toast.makeText(
                                 context,
-                                if (saved != null) {
-                                    context.getString(R.string.toast_document_txt_saved, saved)
-                                } else {
-                                    context.getString(R.string.toast_document_txt_failed)
-                                },
+                                if (saved != null) String.format(txtSavedTemplate, saved) else txtFailedText,
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
