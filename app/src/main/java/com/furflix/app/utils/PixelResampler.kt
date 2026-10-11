@@ -36,7 +36,7 @@ object PixelResampler {
         val premul = IntArray(srcW * srcH)
         for (i in premul.indices) premul[i] = premultiply(srcPixels[i])
 
-        // 2) 横向：srcW → outW，得到 outW×srcH
+        // 2) 横向：srcW → outW，得到 outW×srcH（**保持预乘**，理由见第 3 步）
         val hPlan = ResamplePlan.plan(algo, srcW, 0.0, srcW.toDouble(), outW)
         val horizontal = IntArray(outW * srcH)
         for (y in 0 until srcH) {
@@ -60,7 +60,12 @@ object PixelResampler {
             }
         }
 
-        // 3) 纵向：srcH → outH，得到 outW×outH
+        // 3) 纵向：srcH → outH，得到 outW×outH；两趟都算完才反预乘
+        //
+        // 中途不能反预乘：卷积后 alpha 可能落到 254（255×权重和，浮点误差），
+        // 反预乘会把颜色按 255/254 放大一次，两趟下来最多偏 2 级——纯色图重采样
+        // 后颜色会变，半透明边缘还会发亮。全程预乘、末尾还原一次才正确，
+        // 顺带省掉一半的反预乘运算。
         val vPlan = ResamplePlan.plan(algo, srcH, 0.0, srcH.toDouble(), outH)
         val out = IntArray(outW * outH)
         for (y in 0 until outH) {
@@ -85,13 +90,23 @@ object PixelResampler {
         return out
     }
 
+    /**
+     * 四通道打包为 ARGB，**四舍五入**（不是截断）。
+     *
+     * 截断会让每个通道系统性偏小：纯色 199 经两趟卷积掉到 198 甚至 197，整幅图
+     * 肉眼可见地压暗一点。四舍五入把误差压回 0（单色图重采样后逐像素与源一致，
+     * 见 PixelResamplerTest.flatColorSurvivesResampling）。
+     */
     private fun pack(a: Float, r: Float, g: Float, b: Float): Int {
-        val ai = a.toInt().coerceIn(0, 255)
-        val ri = r.toInt().coerceIn(0, 255)
-        val gi = g.toInt().coerceIn(0, 255)
-        val bi = b.toInt().coerceIn(0, 255)
+        val ai = roundToInt(a).coerceIn(0, 255)
+        val ri = roundToInt(r).coerceIn(0, 255)
+        val gi = roundToInt(g).coerceIn(0, 255)
+        val bi = roundToInt(b).coerceIn(0, 255)
         return (ai shl 24) or (ri shl 16) or (gi shl 8) or bi
     }
+
+    /** 非负通道值就近取整（负数只可能来自核的负瓣，一律夹到 0）。 */
+    private fun roundToInt(v: Float): Int = if (v <= 0f) 0 else (v + 0.5f).toInt()
 
     /** ARGB → 预乘 alpha（RGB 分量乘以 A/255）。 */
     fun premultiply(c: Int): Int {
