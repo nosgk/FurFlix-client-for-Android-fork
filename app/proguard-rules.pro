@@ -18,6 +18,18 @@
 # Keep JSoup
 -keeppackagenames org.jsoup.nodes
 
+# PDFBox-Android:字体/字形资源与 JNI 桥接靠反射与资源名定位,R8 重命名或
+# 收缩会让它加载标准字体时抛异常(表现为 PDF 文本抽取整篇失败)。
+# BouncyCastle 同为反射驱动(加密 PDF 的安全处理器),一并保留签名与注解。
+-keep class com.tom_roush.pdfbox.** { *; }
+-keep class org.apache.pdfbox.** { *; }
+-keep class org.apache.fontbox.** { *; }
+-dontwarn org.apache.**
+-dontwarn com.tom_roush.pdfbox.**
+-keep class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**
+-keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
+
 # Keep data models
 -keep class com.furflix.app.data.model.** { *; }
 

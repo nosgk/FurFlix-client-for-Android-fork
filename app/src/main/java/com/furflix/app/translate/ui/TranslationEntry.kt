@@ -51,6 +51,11 @@ class TranslationEntry(
     val singleRequest: Boolean = false,
     /** 描述等 HTML 内容：htmlIn=false 的服务商会先剥标签再发送。 */
     val contentIsHtml: Boolean = false,
+    /**
+     * 配置覆盖流：非空时用它替代全局 config（文档查看器专用翻译服务走这条），
+     * 为空沿用全局。构造期传入并保持不变——切换服务商会重建 entry。
+     */
+    private val configOverride: kotlinx.coroutines.flow.Flow<TranslationConfig>? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var job: Job? = null
@@ -84,7 +89,7 @@ class TranslationEntry(
         _state.value = TranslationUiState.Loading
         job = scope.launch {
             try {
-                val config = settings.config.first()
+                val config = (configOverride ?: settings.config).first()
                 if (auto &&
                     config.targetLanguage.startsWith("zh", ignoreCase = true) &&
                     translationLooksChinese(text)

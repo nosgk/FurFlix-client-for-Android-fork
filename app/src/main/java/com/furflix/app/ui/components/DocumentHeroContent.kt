@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -37,9 +39,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.furflix.app.R
+import com.furflix.app.ui.theme.BorderDark
+import com.furflix.app.ui.theme.CardBackground
 import com.furflix.app.ui.theme.DarkBackground
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.SubtleGray
+
+/** 主媒体区的一个操作入口（阅读文档 / 查看页面 / 从描述读故事）。 */
+private data class HeroAction(
+    val label: String,
+    val icon: ImageVector,
+    val primary: Boolean,
+    val onClick: () -> Unit
+)
 
 /**
  * 文档/store 类作品（doc/docx/rtf/odt/txt/pdf）主媒体区：封面（若有）+
@@ -49,6 +61,11 @@ import com.furflix.app.ui.theme.SubtleGray
  *
  * [badgeLabel]/[badgeIcon] 为封面角标的内容数据（DOC/PDF 等格式名，同卡片
  * 徽标，不进 i18n 资源体系），按调用方文件类型传入。
+ *
+ * [onReadDescription] 非空时并排给出「从作品描述查看故事」——不少作者把正文
+ * 直接写在作品描述里（store 类尤其常见），该入口把描述当正文送进文档查看器。
+ * [onOpenPageViewer] 供 PDF 并排给出「查看页面」（渲染版查看器）：文本抽取失败
+ * 的扫描件仍能翻页阅读。
  */
 @Composable
 fun DocumentHeroContent(
@@ -58,8 +75,43 @@ fun DocumentHeroContent(
     modifier: Modifier = Modifier,
     badgeLabel: String = "DOC",
     badgeIcon: ImageVector = Icons.Default.Description,
-    onOpenViewer: (() -> Unit)? = null
+    onOpenViewer: (() -> Unit)? = null,
+    onReadDescription: (() -> Unit)? = null,
+    onOpenPageViewer: (() -> Unit)? = null
 ) {
+    val actions = buildList {
+        if (onOpenViewer != null) {
+            add(
+                HeroAction(
+                    label = stringResource(R.string.doc_open_viewer),
+                    icon = Icons.AutoMirrored.Filled.MenuBook,
+                    primary = true,
+                    onClick = onOpenViewer
+                )
+            )
+        }
+        if (onOpenPageViewer != null) {
+            add(
+                HeroAction(
+                    label = stringResource(R.string.doc_open_pages),
+                    icon = Icons.Default.PictureAsPdf,
+                    primary = false,
+                    onClick = onOpenPageViewer
+                )
+            )
+        }
+        if (onReadDescription != null) {
+            add(
+                HeroAction(
+                    label = stringResource(R.string.doc_read_description),
+                    icon = Icons.Default.Article,
+                    primary = false,
+                    onClick = onReadDescription
+                )
+            )
+        }
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
@@ -128,34 +180,50 @@ fun DocumentHeroContent(
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = fileSize, fontSize = 12.sp, color = SubtleGray)
         }
-        if (onOpenViewer != null) {
+        if (actions.isNotEmpty()) {
             Spacer(modifier = Modifier.height(14.dp))
-            Surface(
-                onClick = onOpenViewer,
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                border = BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-                )
+            Row(
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.MenuBook,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(7.dp))
-                    Text(
-                        text = stringResource(R.string.doc_open_viewer),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                actions.forEach { action ->
+                    Surface(
+                        onClick = action.onClick,
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (action.primary) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                        } else {
+                            CardBackground
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            if (action.primary) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                            } else {
+                                BorderDark
+                            }
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
+                        ) {
+                            Icon(
+                                action.icon,
+                                contentDescription = null,
+                                tint = if (action.primary) MaterialTheme.colorScheme.primary else Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(7.dp))
+                            Text(
+                                text = action.label,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (action.primary) MaterialTheme.colorScheme.primary else Color.White
+                            )
+                        }
+                    }
                 }
             }
         }

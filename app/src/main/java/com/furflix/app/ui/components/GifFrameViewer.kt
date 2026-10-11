@@ -181,6 +181,9 @@ private fun GifPlayer(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // 插值档位必须在组合期读取（Canvas 的绘制 lambda 不是 @Composable，
+    // 在里面读 CompositionLocal 是编译错误）
+    val gifFilterQuality = imageFilterQuality(LocalImageInterpolation.current)
     val delays = remember(bytes) {
         GifFrameTable.parseFrameDelaysMs(bytes).ifEmpty { listOf(100) }
     }
@@ -245,6 +248,8 @@ private fun GifPlayer(
     // 缩放/平移/双击 —— 与 ZoomableImageViewer 同一套手感
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
+    // 控制栏显隐：点画面空白处（未被控制栏消费的 tap）切换，沉浸式看帧
+    var controlsVisible by remember { mutableStateOf(true) }
 
     Box(
         modifier = Modifier
@@ -252,6 +257,11 @@ private fun GifPlayer(
             .background(Color.Black)
             .pointerInput(Unit) {
                 detectTapGestures(
+                    onTap = {
+                        // 单击空白处切换控制栏；控制栏自身的 clickable 会消费掉
+                        // 落在它上面的 tap，不会冒泡到这里
+                        controlsVisible = !controlsVisible
+                    },
                     onDoubleTap = {
                         scope.launch {
                             if (scale > 1.5f) {
@@ -274,7 +284,8 @@ private fun GifPlayer(
             }
             .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
-                    val newScale = (scale * zoom).coerceIn(1f, 6f)
+                    // 缩放上限与图像查看器对齐：可一路放大看清逐帧细节
+                    val newScale = (scale * zoom).coerceIn(1f, 64f)
                     scale = newScale
                     offset = if (newScale > 1f) offset + pan else Offset.Zero
                 }
@@ -301,14 +312,28 @@ private fun GifPlayer(
             drawImage(
                 bitmap.asImageBitmap(),
                 dstOffset = IntOffset(dx, dy),
-                dstSize = IntSize(dw, dh)
+                dstSize = IntSize(dw, dh),
+                // 放大采样跟随设置里的插值档位（GIF 逐帧重采样太贵，走 GPU 双线性）
+                filterQuality = gifFilterQuality
             )
         }
 
         // 底部控制条：进度条拖帧 + 上一帧/播放暂停/下一帧/截屏
+        // 点画面空白处可隐藏/唤回（controlsVisible），动画收起让位给画面
+        androidx.compose.animation.AnimatedVisibility(
+            visible = controlsVisible,
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160)) +
+                androidx.compose.animation.slideInVertically(
+                    androidx.compose.animation.core.tween(200)
+                ) { it },
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)) +
+                androidx.compose.animation.slideOutVertically(
+                    androidx.compose.animation.core.tween(180)
+                ) { it },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .background(Color.Black.copy(alpha = 0.55f))
@@ -371,6 +396,7 @@ private fun GifPlayer(
                     )
                 }
             }
+        }
         }
     }
 }

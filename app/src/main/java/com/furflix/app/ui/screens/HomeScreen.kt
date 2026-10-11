@@ -338,8 +338,11 @@ fun HomeScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     }
+                    }
 
                     // Show titles toggle
+                    // 刻意放在"非搜索 tab"判断之外：搜索结果页同样要能切卡片标题
+                    // （此前被包在视图切换的 if 里，搜索 tab 顶栏因此没有 'T'）
                     IconButton(onClick = {
                         pendingShowTitles = !showTitles
                         coroutineScope.launch { repository.saveCardTitles(!showTitles) }
@@ -350,7 +353,6 @@ fun HomeScreen(
                             tint = if (showTitles) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                             modifier = Modifier.size(20.dp)
                         )
-                    }
                     }
 
                     // Settings

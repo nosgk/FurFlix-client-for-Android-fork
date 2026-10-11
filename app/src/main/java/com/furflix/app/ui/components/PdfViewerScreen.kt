@@ -91,6 +91,8 @@ fun PdfViewerScreen(
     var failed by remember { mutableStateOf(false) }
     var pageCount by remember { mutableIntStateOf(0) }
     var attempt by remember { mutableIntStateOf(0) }
+    // 控制栏（顶栏 + 页码滑杆）显隐：点页面空白处切换，沉浸式看图
+    var barsVisible by remember { mutableStateOf(true) }
     val pagerState = rememberPagerState(pageCount = { pageCount })
 
     // 渲染目标宽 = 屏宽物理像素（钳制 720~1600），兼顾清晰度与内存
@@ -180,16 +182,22 @@ fun PdfViewerScreen(
                     renderer = renderer!!,
                     page = page,
                     targetWidthPx = targetWidthPx,
-                    cache = pageCache
+                    cache = pageCache,
+                    onTap = { barsVisible = !barsVisible }
                 )
             }
         }
 
-        // 顶栏：返回 + 标题 + 页码
+        // 顶栏：返回 + 标题 + 页码（点页面空白处可隐藏）
+        androidx.compose.animation.AnimatedVisibility(
+            visible = barsVisible,
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .background(Color.Black.copy(alpha = 0.55f))
                 .statusBarsPadding()
@@ -224,13 +232,19 @@ fun PdfViewerScreen(
                 )
             }
         }
+        }
 
-        // 底栏：页码滑杆跳页
+        // 底栏：页码滑杆跳页（与顶栏一同随点击显隐）
         if (pageCount > 1) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = barsVisible,
+                enter = androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .background(Color.Black.copy(alpha = 0.55f))
                     .navigationBarsPadding()
@@ -248,6 +262,7 @@ fun PdfViewerScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
+            }
         }
     }
 }
@@ -261,7 +276,8 @@ private fun PdfViewerPage(
     renderer: PdfRenderer,
     page: Int,
     targetWidthPx: Int,
-    cache: LruCache<Int, ImageBitmap>
+    cache: LruCache<Int, ImageBitmap>,
+    onTap: () -> Unit = {}
 ) {
     var bitmap by remember(page) { mutableStateOf(cache.get(page)) }
     var renderFailed by remember(page) { mutableStateOf(false) }
@@ -303,6 +319,8 @@ private fun PdfViewerPage(
                 bitmap = bmp,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
+                // 页面位图放大时按设置里的插值档位采样
+                filterQuality = imageFilterQuality(LocalImageInterpolation.current),
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
@@ -312,20 +330,23 @@ private fun PdfViewerPage(
                         translationY = offset.y
                     }
                     .pointerInput(Unit) {
-                        detectTapGestures(onDoubleTap = {
-                            if (scale > 1f) {
-                                scale = 1f
-                                offset = Offset.Zero
-                            } else {
-                                scale = 2.5f
+                        detectTapGestures(
+                            onTap = { onTap() },
+                            onDoubleTap = {
+                                if (scale > 1f) {
+                                    scale = 1f
+                                    offset = Offset.Zero
+                                } else {
+                                    scale = 2.5f
+                                }
                             }
-                        })
+                        )
                     }
                     .pointerInput(scale > 1f) {
                         // 仅放大态接管拖动/捏合：1x 时手势留给 HorizontalPager 翻页
                         if (scale > 1f) {
                             detectTransformGestures { _, pan, zoom, _ ->
-                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                scale = (scale * zoom).coerceIn(1f, 12f)
                                 offset += pan
                                 if (scale <= 1f) offset = Offset.Zero
                             }

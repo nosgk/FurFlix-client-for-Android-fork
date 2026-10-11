@@ -90,6 +90,10 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
 
     val prefs by settings.uiPrefs.collectAsState(initial = TranslationUiPrefs.DEFAULT)
     val config by settings.config.collectAsState(initial = TranslationConfig())
+    // 文档查看器专用翻译服务：设置页与查看器内共用同一个配置面板
+    val docOverride by settings.docOverrideFlow.collectAsState(initial = false)
+    val docSnapshot by settings.docConfigSnapshot.collectAsState(initial = null)
+    var showDocTranslation by remember { mutableStateOf(false) }
 
     var cacheEpoch by remember { mutableIntStateOf(0) }
     var cacheStats by remember { mutableStateOf(0 to 0) }
@@ -308,6 +312,20 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
                 )
             }
 
+            SectionTitle(stringResource(R.string.document_translation_service))
+            SettingsCard {
+                SelectRow(
+                    icon = Icons.Default.Translate,
+                    title = stringResource(R.string.document_translation_service),
+                    current = if (docOverride) {
+                        providerLabel(docSnapshot?.provider ?: config.provider)
+                    } else {
+                        stringResource(R.string.document_translation_follow_global)
+                    },
+                    onClick = { showDocTranslation = true }
+                )
+            }
+
             SectionTitle(stringResource(R.string.translation_cache))
             SettingsCard {
                 SelectRow(
@@ -353,6 +371,10 @@ fun TranslationSettingsScreen(onBack: () -> Unit) {
 
             Spacer(Modifier.height(16.dp))
         }
+    }
+
+    if (showDocTranslation) {
+        DocumentTranslationSettingsDialog(onDismiss = { showDocTranslation = false })
     }
 
     if (showLanguageDialog) {
@@ -442,8 +464,9 @@ private val TranslationCategory.icon: ImageVector
         TranslationCategory.JOURNAL -> Icons.AutoMirrored.Filled.MenuBook
     }
 
+/** 服务商显示名（文档查看器内的翻译服务配置面板复用，故非 private）。 */
 @Composable
-private fun providerLabel(provider: TranslationProvider): String = stringResource(
+internal fun providerLabel(provider: TranslationProvider): String = stringResource(
     when (provider) {
         TranslationProvider.GOOGLE -> R.string.translation_provider_google
         TranslationProvider.CHROME -> R.string.translation_provider_chrome

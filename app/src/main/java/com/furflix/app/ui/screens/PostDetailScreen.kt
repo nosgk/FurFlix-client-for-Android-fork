@@ -210,14 +210,15 @@ fun PostDetailScreen(
         val scrollState = rememberScrollState()
         // 评论图标跳转评论区：滚动容器与 Tab 行的窗口坐标持续采集，
         // 点击时换算出 Tab 行在内容里的偏移再滚动（单栏/双栏各自成立）
-        val pagerScope = rememberCoroutineScope()
         var scrollRootY by remember { mutableFloatStateOf(0f) }
         var tabsAnchorY by remember { mutableFloatStateOf(Float.NaN) }
+        // 评论跳转请求计数：点击评论图标自增，驱动延迟一帧后的滚动（见 StatsRow）
+        var commentJumpRequest by remember { mutableIntStateOf(0) }
         var showZoom by remember { mutableStateOf(false) }
         var showDocumentViewer by remember { mutableStateOf(false) }
         var showPdfViewer by remember { mutableStateOf(false) }
-        // 顶栏开关：本页关闭/开启标题翻译（不回写全局设置）
-        var titleTranslateHidden by remember { mutableStateOf(false) }
+        // 「从作品描述查看故事」：把作品描述（HTML）当正文送进文档查看器
+        var showDescriptionStory by remember { mutableStateOf(false) }
         val downloadTask by DownloadManager.tasks.collectAsState()
         val myDownloadTask = downloadTask.lastOrNull { it.submissionId == currentPostId }
         var downloadCompletedRecently by remember { mutableStateOf(false) }
@@ -257,6 +258,15 @@ fun PostDetailScreen(
                     }
                 } else if (submission != null) {
                     val sub = submission
+                    // 「从作品描述查看故事」入口：仅当描述非空且本作品是文档/store 类
+                    // （正文写进描述的多见于 store）时提供；点开把描述当正文送进
+                    // 文档查看器（可复制/翻译/导出 txt）
+                    val descriptionStoryAction: (() -> Unit)? =
+                        if (sub.description.isNotBlank() &&
+                            (isStoreDocumentSubmission(sub) || isPdfSubmission(sub))
+                        ) {
+                            { showDescriptionStory = true }
+                        } else null
                     // 信息栏提为局部 Composable lambda，单栏/双栏共用同一份内容；
                     // 编译器会包成 rememberComposableLambda，内部 remember 状态稳定。
                     val detailBody: @Composable (Modifier) -> Unit = { bodyModifier ->
@@ -274,8 +284,7 @@ fun PostDetailScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // ── Title（双语翻译：原文恒显，译文按类别显示方式跟进；
-                            //    顶栏开关可整页关闭本页标题翻译）──
+                            // ── Title（双语翻译：原文恒显，译文按类别显示方式跟进）──
                             if (sub.title.isNotBlank()) {
                                 val titleEntry = rememberTranslationEntry(
                                     key = sub.id,
@@ -283,14 +292,11 @@ fun PostDetailScreen(
                                     category = TranslationCategory.TITLE,
                                     singleRequest = true
                                 )
-                                if (!titleTranslateHidden) {
-                                    TranslatableAutoEffect(titleEntry, translationPrefs)
-                                }
+                                TranslatableAutoEffect(titleEntry, translationPrefs)
                                 val titleState by titleEntry.state.collectAsStateWithLifecycle()
                                 val titleSuccess = titleState as? TranslationUiState.Success
                                 val titleMode = translationPrefs.displayMode(TranslationCategory.TITLE)
-                                val titleTranslationVisible = !titleTranslateHidden &&
-                                    titleSuccess != null && titleSuccess.showing
+                                val titleTranslationVisible = titleSuccess != null && titleSuccess.showing
                                 Row(verticalAlignment = Alignment.Top) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
@@ -318,7 +324,7 @@ fun PostDetailScreen(
                                             )
                                         }
                                     }
-                                    if (translationPrefs.enabled && !titleTranslateHidden) {
+                                    if (translationPrefs.enabled) {
                                         Spacer(modifier = Modifier.width(8.dp))
                                         TranslationIconButton(entry = titleEntry, enabled = true)
                                     }
@@ -443,12 +449,6 @@ fun PostDetailScreen(
                             // ── Info chips ──────────────────────────────────
                             InfoChipsRow(sub)
 
-                            // ── Folders（作品所属画廊文件夹，可直达文件夹浏览）──
-                            if (sub.folders.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(16.dp))
-                                FoldersSection(folders = sub.folders, onOpenFolder = onOpenFolder)
-                            }
-
                             Spacer(modifier = Modifier.height(16.dp))
 
                             // ── Stats bar ───────────────────────────────────
@@ -457,16 +457,26 @@ fun PostDetailScreen(
                                 sub = sub,
                                 onToggleFavorite = { viewModel.toggleFavorite(currentPostId) },
                                 onCommentsClick = {
+                                    // 跳转分两步：先把状态切到位（展开折叠栏 + 选中
+                                    // 评论 tab），再由下面的 LaunchedEffect 等一帧重排
+                                    // 完成后按新的锚点滚动。此前在同一个协程里"切 tab
+                                    // 立刻滚"，滚的是旧布局的偏移量，评论区常常滚不到位。
+                                    detailsExpanded = true
                                     selectedTab = tabIndexComments
-                                    pagerScope.launch {
-                                        if (!tabsAnchorY.isNaN()) {
-                                            // Tab 行内容偏移 = (窗口坐标差) + 已滚动距离；留一点余量
-                                            val target = (tabsAnchorY - scrollRootY + scrollState.value - commentJumpMarginPx).roundToInt()
-                                            scrollState.animateScrollTo(target.coerceAtLeast(0))
-                                        }
-                                    }
+                                    commentJumpRequest++
                                 }
                             )
+
+                            // 评论跳转的滚动落点：切 tab 引起的内容重排完成后才执行
+                            LaunchedEffect(commentJumpRequest) {
+                                if (commentJumpRequest == 0) return@LaunchedEffect
+                                // 等一帧：让 Tab 行与评论区完成布局，锚点坐标才是新的
+                                kotlinx.coroutines.delay(60)
+                                if (!tabsAnchorY.isNaN()) {
+                                    val target = (tabsAnchorY - scrollRootY + scrollState.value - commentJumpMarginPx).roundToInt()
+                                    scrollState.animateScrollTo(target.coerceAtLeast(0))
+                                }
+                            }
 
                             // ── Date ────────────────────────────────────────
                             if (sub.date.isNotEmpty()) {
@@ -509,6 +519,14 @@ fun PostDetailScreen(
                             }
                             Spacer(modifier = Modifier.height(24.dp))
 
+                            // ── Folders（作品所属画廊文件夹，可直达文件夹浏览）──
+                            // 位于标签下方：标签与文件夹同属"作品归类"信息，挨在一起
+                            // 更符合扫读顺序（此前夹在信息 chips 与统计栏之间）。
+                            if (sub.folders.isNotEmpty()) {
+                                FoldersSection(folders = sub.folders, onOpenFolder = onOpenFolder)
+                                Spacer(modifier = Modifier.height(24.dp))
+                            }
+
                             Spacer(modifier = Modifier.height(150.dp))
                             }
                         }
@@ -524,7 +542,8 @@ fun PostDetailScreen(
                                     .fillMaxHeight(),
                                 onImageClick = { showZoom = true },
                                 onOpenDocumentViewer = { showDocumentViewer = true },
-                                onOpenPdfViewer = { showPdfViewer = true }
+                                onOpenPdfViewer = { showPdfViewer = true },
+                                onReadDescription = descriptionStoryAction
                             )
                             detailBody(
                                 Modifier
@@ -546,7 +565,8 @@ fun PostDetailScreen(
                                 placeholderUrl = listThumbnailUrl,
                                 onImageClick = { showZoom = true },
                                 onOpenDocumentViewer = { showDocumentViewer = true },
-                                onOpenPdfViewer = { showPdfViewer = true }
+                                onOpenPdfViewer = { showPdfViewer = true },
+                                onReadDescription = descriptionStoryAction
                             )
                             detailBody(Modifier)
                         }
@@ -572,30 +592,8 @@ fun PostDetailScreen(
                 )
             }
 
-            // 顶栏右上角：关闭/开启标题翻译（本页生效；翻译功能未启用时不显示）
-            if (translationPrefs.enabled) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 48.dp, end = 16.dp)
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.5f))
-                        .clickable { titleTranslateHidden = !titleTranslateHidden },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Translate,
-                        contentDescription = stringResource(
-                            if (titleTranslateHidden) R.string.title_translate_enable
-                            else R.string.title_translate_disable
-                        ),
-                        tint = if (titleTranslateHidden) Color.White.copy(alpha = 0.45f)
-                        else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+            // 详情页右上角此处原有一个悬浮的标题翻译开关，已按要求移除：标题旁的
+            // 内联翻译按钮与标签区同款开关已覆盖该用途，悬浮件属冗余入口。
 
             // Bottom fade
             Box(
@@ -729,9 +727,13 @@ fun PostDetailScreen(
                 }
             }
 
-            // 全屏文档查看器（txt/docx/odt/rtf）：覆盖详情页一切层级
+            // 全屏文档查看器（txt/docx/odt/rtf/pdf）：覆盖详情页一切层级。
+            // PDF 也走这里——文本层由 PdfBox 抽取，可复制/翻译/导出 txt；
+            // 无文本层的扫描件在查看器内如实提示，并可切到"查看页面"渲染版。
             val docSubmission = submission
-            if (showDocumentViewer && docSubmission != null && isStoreDocumentSubmission(docSubmission)) {
+            if (showDocumentViewer && docSubmission != null &&
+                (isStoreDocumentSubmission(docSubmission) || isPdfSubmission(docSubmission))
+            ) {
                 DocumentViewerScreen(
                     title = docSubmission.title,
                     fileUrl = docSubmission.fileUrl.ifEmpty { docSubmission.fullImageUrl },
@@ -740,13 +742,32 @@ fun PostDetailScreen(
                 )
             }
 
-            // 全屏 PDF 查看器（缩放/跳页/持久缓存）：覆盖详情页一切层级
+            // 全屏 PDF 页面查看器（缩放/跳页/持久缓存）：覆盖详情页一切层级
             val pdfSubmission = submission
             if (showPdfViewer && pdfSubmission != null && isPdfSubmission(pdfSubmission)) {
                 PdfViewerScreen(
                     pdfUrl = pdfSubmission.fileUrl.ifEmpty { pdfSubmission.fullImageUrl },
                     title = pdfSubmission.title,
                     onClose = { showPdfViewer = false }
+                )
+            }
+
+            // 「从作品描述查看故事」：描述（HTML）转段落当正文，走文档查看器全链路
+            // （复制/查找/翻译/导出 txt），与文件正文同一套体验
+            val descSubmission = submission
+            if (showDescriptionStory && descSubmission != null &&
+                descSubmission.description.isNotBlank()
+            ) {
+                val descParagraphs = remember(descSubmission.id) {
+                    com.furflix.app.utils.DocumentTextExtractor
+                        .htmlToParagraphs(descSubmission.description)
+                }
+                DocumentViewerScreen(
+                    title = descSubmission.title,
+                    fileUrl = "",
+                    initialText = descParagraphs.joinToString("\n\n"),
+                    sourceLabel = stringResource(R.string.doc_read_description),
+                    onClose = { showDescriptionStory = false }
                 )
             }
         }
@@ -764,7 +785,8 @@ private fun TwoPaneHeroImage(
     modifier: Modifier = Modifier,
     onImageClick: () -> Unit = {},
     onOpenDocumentViewer: () -> Unit = {},
-    onOpenPdfViewer: () -> Unit = {}
+    onOpenPdfViewer: () -> Unit = {},
+    onReadDescription: (() -> Unit)? = null
 ) {
     // Flash：海报 + 播放按钮，点击进 Ruffle 全屏层
     if (sub.fileExt == "swf" || sub.fileType.equals("Flash", true)) {
@@ -786,13 +808,16 @@ private fun TwoPaneHeroImage(
         )
         return
     }
-    // PDF：同其它 store 文档一致——不自动载入原件，封面 + 「阅读文档」进全屏 PDF 查看器
+    // PDF：封面 + 「阅读文档」（文本层，可复制/翻译/导出 txt）+「查看页面」
+    // （渲染版查看器，扫描件也能翻页）
     if (isPdfSubmission(sub)) {
         DocumentHeroContent(
             fileName = sub.fileName.ifEmpty { sub.title },
             fileSize = sub.fileSize,
             coverUrl = docCoverUrl(sub, placeholderUrl),
-            onOpenViewer = onOpenPdfViewer,
+            onOpenViewer = onOpenDocumentViewer,
+            onOpenPageViewer = onOpenPdfViewer,
+            onReadDescription = onReadDescription,
             badgeLabel = "PDF",
             badgeIcon = Icons.Default.PictureAsPdf,
             modifier = modifier
@@ -806,6 +831,7 @@ private fun TwoPaneHeroImage(
             fileSize = sub.fileSize,
             coverUrl = docCoverUrl(sub, placeholderUrl),
             onOpenViewer = onOpenDocumentViewer,
+            onReadDescription = onReadDescription,
             modifier = modifier
         )
         return
@@ -926,7 +952,8 @@ private fun HeroImage(
     placeholderUrl: String?,
     onImageClick: () -> Unit = {},
     onOpenDocumentViewer: () -> Unit = {},
-    onOpenPdfViewer: () -> Unit = {}
+    onOpenPdfViewer: () -> Unit = {},
+    onReadDescription: (() -> Unit)? = null
 ) {
     // Flash：海报 + 播放按钮，点击进 Ruffle 全屏层
     if (sub.fileExt == "swf" || sub.fileType.equals("Flash", true)) {
@@ -948,13 +975,15 @@ private fun HeroImage(
         )
         return
     }
-    // PDF：同其它 store 文档一致——不自动载入原件，封面 + 「阅读文档」进全屏 PDF 查看器
+    // PDF：封面 + 「阅读文档」（文本层，可复制/翻译/导出 txt）+「查看页面」
     if (isPdfSubmission(sub)) {
         DocumentHeroContent(
             fileName = sub.fileName.ifEmpty { sub.title },
             fileSize = sub.fileSize,
             coverUrl = docCoverUrl(sub, placeholderUrl),
-            onOpenViewer = onOpenPdfViewer,
+            onOpenViewer = onOpenDocumentViewer,
+            onOpenPageViewer = onOpenPdfViewer,
+            onReadDescription = onReadDescription,
             badgeLabel = "PDF",
             badgeIcon = Icons.Default.PictureAsPdf,
             modifier = Modifier.fillMaxWidth()
@@ -968,6 +997,7 @@ private fun HeroImage(
             fileSize = sub.fileSize,
             coverUrl = docCoverUrl(sub, placeholderUrl),
             onOpenViewer = onOpenDocumentViewer,
+            onReadDescription = onReadDescription,
             modifier = Modifier.fillMaxWidth()
         )
         return

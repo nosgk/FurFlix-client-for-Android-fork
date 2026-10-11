@@ -40,6 +40,20 @@ private val K_MAX_TEXT_LENGTH = intPreferencesKey("translateMaxTextLength")
 private val K_MAX_PARAGRAPHS = intPreferencesKey("translateMaxParagraphs")
 private val K_CACHE_LIMIT = intPreferencesKey("translateCacheLimit")
 
+/**
+ * 文档查看器专用翻译服务（可选独立配置）：开启后文档/PDF 正文翻译走自己的
+ * 服务商/目标语言/密钥，与全局翻译互不干扰——长文档常用 OpenAI 类大模型，
+ * 而标签/评论等短文本仍走免密钥的 Edge，两者成本与质量诉求不同。
+ * 未开启（默认）时文档链路完全复用全局配置。
+ */
+private val K_DOC_OVERRIDE = booleanPreferencesKey("translateDocOverride")
+private val K_DOC_PROVIDER = stringPreferencesKey("translateDocProvider")
+private val K_DOC_TARGET_LANGUAGE = stringPreferencesKey("translateDocTargetLanguage")
+private val K_DOC_AZURE_KEY = stringPreferencesKey("translateDocAzureKey")
+private val K_DOC_API_KEY = stringPreferencesKey("translateDocApiKey")
+private val K_DOC_BASE_URL = stringPreferencesKey("translateDocBaseUrl")
+private val K_DOC_MODEL = stringPreferencesKey("translateDocModel")
+
 // M2 高级配置器使用：每服务商 Profile 覆盖（空 = 内置预设）。M1 仅占键位。
 @Suppress("unused")
 private val K_PROFILE_EDGE = stringPreferencesKey("translateProfileEdge")
@@ -184,6 +198,56 @@ class TranslationSettings private constructor(private val context: Context) {
             prefs[K_DISPLAY_MODES] = if (current.isEmpty()) "{}"
             else current.entries.joinToString(",", "{", "}") { (k, m) -> "\"${k.id}\":\"${m.id}\"" }
         }
+    }
+
+    // ---- 文档查看器专用翻译服务（可选覆盖全局配置）----
+
+    /** 文档链路是否启用独立翻译服务；false（默认）= 复用全局配置。 */
+    val docOverrideFlow: Flow<Boolean> = context.translationDataStore.data.map { p ->
+        p[K_DOC_OVERRIDE] ?: false
+    }
+
+    suspend fun saveDocOverride(v: Boolean) = edit { it[K_DOC_OVERRIDE] = v }
+
+    suspend fun saveDocProvider(v: TranslationProvider) = edit { it[K_DOC_PROVIDER] = v.id }
+    suspend fun saveDocTargetLanguage(v: String) = edit { it[K_DOC_TARGET_LANGUAGE] = v }
+    suspend fun saveDocAzureKey(v: String) = edit { it[K_DOC_AZURE_KEY] = v }
+    suspend fun saveDocApiKey(v: String) = edit { it[K_DOC_API_KEY] = v }
+    suspend fun saveDocBaseUrl(v: String) = edit { it[K_DOC_BASE_URL] = v }
+    suspend fun saveDocModel(v: String) = edit { it[K_DOC_MODEL] = v }
+
+    /**
+     * 文档链路实际生效的配置：开启独立服务时用它自己的服务商/语言/密钥，
+     * 未配置过的字段（空串）逐字段回落全局值，避免开箱即"缺密钥"；
+     * 未开启独立服务时等价全局配置（与旧行为一致）。
+     */
+    val documentConfig: Flow<TranslationConfig> =
+        kotlinx.coroutines.flow.combine(docConfigSnapshot, config) { doc, g ->
+            if (doc == null) g
+            else g.copy(
+                provider = doc.provider,
+                targetLanguage = doc.targetLanguage.ifBlank { g.targetLanguage },
+                azureKey = doc.azureKey.ifBlank { g.azureKey },
+                apiKey = doc.apiKey.ifBlank { g.apiKey },
+                baseUrl = doc.baseUrl.ifBlank { g.baseUrl },
+                model = doc.model.ifBlank { g.model },
+            )
+        }
+
+    /**
+     * UI 层消费的文档配置快照（设置页与查看器内配置面板共用）。返回 null =
+     * 未开启独立服务（UI 呈现"跟随全局"）。
+     */
+    val docConfigSnapshot: Flow<TranslationConfig?> = context.translationDataStore.data.map { p ->
+        if (p[K_DOC_OVERRIDE] != true) return@map null
+        TranslationConfig(
+            provider = TranslationProvider.fromId(p[K_DOC_PROVIDER] ?: ""),
+            targetLanguage = p[K_DOC_TARGET_LANGUAGE] ?: "",
+            azureKey = p[K_DOC_AZURE_KEY] ?: "",
+            apiKey = p[K_DOC_API_KEY] ?: "",
+            baseUrl = p[K_DOC_BASE_URL] ?: "",
+            model = p[K_DOC_MODEL] ?: "",
+        )
     }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {

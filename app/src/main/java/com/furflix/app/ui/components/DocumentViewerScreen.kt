@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -30,10 +29,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -67,13 +70,16 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.furflix.app.R
+import com.furflix.app.data.local.DocFileCache
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.translate.data.StoryGranularity
 import com.furflix.app.translate.data.TranslationCategory
 import com.furflix.app.translate.data.TranslationSettings
+import com.furflix.app.translate.ui.DocumentTranslationSettingsDialog
 import com.furflix.app.translate.ui.TranslationEntry
 import com.furflix.app.translate.ui.rememberTranslationPrefs
 import com.furflix.app.utils.DocumentTextExtractor
+import com.furflix.app.utils.PdfTextExtractor
 import com.furflix.app.ui.theme.BorderDark
 import com.furflix.app.ui.theme.CardBackground
 import com.furflix.app.ui.theme.MutedText
@@ -81,21 +87,28 @@ import com.furflix.app.ui.theme.SubtleGray
 import kotlinx.coroutines.launch
 
 /**
- * 自研全屏文档查看器（FA 文档/store 类作品：txt/docx/odt/rtf）。
+ * 自研全屏文档查看器（FA 文档/store 类作品：txt/docx/odt/rtf，以及 PDF）。
  * - 正文段落式排版（长文档走 LazyColumn），复用小说阅读器的翻译链路
  *   （整段/整句粒度快切 + 全文手动翻译，逐段双语渲染）；
  * - 查找：命中段落计数 + 前后跳转 + 命中高亮；
  * - 复制：长按复制单段 / 顶栏一键复制全文；
- * - 内嵌媒体图（docx/odt）在正文尾部整节展示。
- * 内容来源：详情页已载入的正文（txt storyText）优先，未载入或不支持
- * 直读的类型按扩展名抓取原件解析；.doc 等无可靠解析的类型如实降级。
+ * - 下载为 .txt：正文已解析时导出到系统 Downloads/FurFlix；
+ * - PDF：文本层由 PdfBox 抽取，可复制可翻译；无文本层（扫描件/纯图）如实
+ *   提示"该 PDF 无文本层"，仍可用详情页的 PDF 查看器看图；
+ * - 点画面空白处隐藏/唤回控制栏（顶栏 + 查找条 + 翻译条），沉浸式阅读。
+ *
+ * 内容来源优先级：调用方直接给的正文（initialText，含"从作品描述查看故事"）
+ * > 已缓存原件解析 > 下载后解析。
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DocumentViewerScreen(
     title: String,
     fileUrl: String,
     initialText: String,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    /** 描述来源（store 正文写在作品描述里）时隐藏"下载为 txt"以外的原件语义 */
+    sourceLabel: String? = null
 ) {
     BackHandler { onClose() }
     val context = LocalContext.current
@@ -103,6 +116,10 @@ fun DocumentViewerScreen(
     val scope = rememberCoroutineScope()
     val prefs = rememberTranslationPrefs()
     val settings = remember { TranslationSettings.getInstance(context) }
+    // 文档链路专用翻译配置（未开启独立服务时等价于全局配置）
+    val documentConfig by settings.documentConfig
+        .collectAsState(initial = com.furflix.app.translate.data.TranslationConfig())
+    val docOverride by settings.docOverrideFlow.collectAsState(initial = false)
 
     var attempt by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(initialText.isBlank()) }
@@ -111,6 +128,9 @@ fun DocumentViewerScreen(
     var paragraphs by remember { mutableStateOf<List<String>>(emptyList()) }
     var media by remember { mutableStateOf<List<ByteArray>>(emptyList()) }
     var unsupported by remember { mutableStateOf(false) }
+    // PDF 专属：抽到了文本层，但整篇为空（扫描件/纯图）→ 提示而非谎报成功
+    var pdfNoTextLayer by remember { mutableStateOf(false) }
+    var isPdf by remember { mutableStateOf(false) }
 
     LaunchedEffect(fileUrl, attempt) {
         if (initialText.isNotBlank()) {
@@ -120,27 +140,46 @@ fun DocumentViewerScreen(
         }
         loading = true
         failed = false
+        pdfNoTextLayer = false
         val ext = fileUrl.substringBefore('?').substringBefore('#')
             .substringAfterLast('.', "").lowercase()
-        if (!DocumentTextExtractor.isSupported(ext)) {
-            unsupported = true
+        isPdf = ext == "pdf"
+        // 原件统一走 DocFileCache：PDF 的文本抽取与页面渲染共用同一份字节
+        val file = if (isPdf || DocumentTextExtractor.isSupported(ext)) {
+            DocFileCache.obtain(context, fileUrl, ext.ifBlank { "bin" }) {
+                FurRepository.getInstance(context).fetchSubmissionFile(fileUrl)
+            }
+        } else null
+        if (file == null) {
+            unsupported = !isPdf && !DocumentTextExtractor.isSupported(ext)
+            failed = !unsupported
             loading = false
             return@LaunchedEffect
         }
-        val bytes = FurRepository.getInstance(context).fetchSubmissionFile(fileUrl)
-        if (bytes == null) {
-            failed = true
-            loading = false
-            return@LaunchedEffect
+        if (isPdf) {
+            val text = PdfTextExtractor.extract(context, file)
+            when {
+                text == null -> failed = true
+                text.isEmpty -> {
+                    // 打不开才叫失败；打得开但没文字 = 扫描件，如实说明
+                    pdfNoTextLayer = true
+                    paragraphs = emptyList()
+                }
+                else -> paragraphs = PdfTextExtractor.toParagraphs(text.pages)
+            }
+        } else {
+            val parsed = runCatching {
+                DocumentTextExtractor.parse(ext, file.readBytes())
+            }.getOrNull()
+            paragraphs = parsed?.paragraphs ?: emptyList()
+            media = parsed?.media ?: emptyList()
+            failed = paragraphs.isEmpty() && media.isEmpty()
         }
-        val parsed = runCatching { DocumentTextExtractor.parse(ext, bytes) }.getOrNull()
-        paragraphs = parsed?.paragraphs ?: emptyList()
-        media = parsed?.media ?: emptyList()
-        failed = paragraphs.isEmpty() && (media.isEmpty())
         loading = false
     }
 
-    // ── 翻译：与小说阅读器同链路，逐段 Entry，随内容重建、离屏取消 ──
+    // ── 翻译：与小说阅读器同链路，逐段 Entry，随内容重建、离屏取消；
+    //    文档链路经 configOverride 走（可选）独立翻译服务 ──
     val paragraphUnits = remember(paragraphs, prefs.storyGranularity) {
         if (prefs.storyGranularity == StoryGranularity.SENTENCE) {
             paragraphs.map { splitSentences(it) }
@@ -148,8 +187,16 @@ fun DocumentViewerScreen(
             paragraphs.map { listOf(it) }
         }
     }
-    val entriesByParagraph = remember(paragraphUnits) {
-        paragraphUnits.map { units -> units.map { TranslationEntry(it, TranslationCategory.DESCRIPTION) } }
+    val entriesByParagraph = remember(paragraphUnits, documentConfig) {
+        paragraphUnits.map { units ->
+            units.map {
+                TranslationEntry(
+                    text = it,
+                    category = TranslationCategory.DESCRIPTION,
+                    configOverride = settings.documentConfig
+                )
+            }
+        }
     }
     val allEntries = remember(entriesByParagraph) { entriesByParagraph.flatten() }
     DisposableEffect(allEntries) {
@@ -175,12 +222,22 @@ fun DocumentViewerScreen(
         }
     }
 
+    // ── 控制栏显隐：点正文空白处切换（顶栏 + 查找条 + 翻译条一起收起）──
+    var controlsVisible by remember { mutableStateOf(true) }
+
     val copiedToast = stringResource(R.string.toast_copied_to_clipboard)
     val allCopiedToast = stringResource(R.string.toast_document_full_copied)
+    var showTranslationSettings by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0A0A0C)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // ── 顶栏：返回 / 标题 / 查找 / 复制全文 ──
+            // ── 顶栏：返回 / 标题 / 查找 / 复制全文 / 下载 txt / 翻译服务 ──
+            AnimatedVisibility(
+                visible = controlsVisible,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -194,15 +251,25 @@ fun DocumentViewerScreen(
                         tint = Color.White
                     )
                 }
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (sourceLabel != null) {
+                        Text(
+                            text = sourceLabel,
+                            fontSize = 11.sp,
+                            color = SubtleGray,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
                 IconButton(onClick = { findOpen = !findOpen }) {
                     Icon(
                         Icons.Default.FindInPage,
@@ -223,6 +290,38 @@ fun DocumentViewerScreen(
                         Icons.Default.ContentCopy,
                         contentDescription = stringResource(R.string.cd_document_copy_all),
                         tint = if (paragraphs.isEmpty()) MutedText else Color.White
+                    )
+                }
+                // 下载为 .txt：正文已在手，直接导出（PDF 抽出的文本同样可导）
+                IconButton(
+                    onClick = {
+                        scope.launch {
+                            val saved = exportTextToDownloads(context, title, paragraphs)
+                            android.widget.Toast.makeText(
+                                context,
+                                if (saved != null) {
+                                    context.getString(R.string.toast_document_txt_saved, saved)
+                                } else {
+                                    context.getString(R.string.toast_document_txt_failed)
+                                },
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    },
+                    enabled = paragraphs.isNotEmpty()
+                ) {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = stringResource(R.string.cd_document_save_txt),
+                        tint = if (paragraphs.isEmpty()) MutedText else Color.White
+                    )
+                }
+                // 文档专用翻译服务入口（设置页同款配置也可从此处打开）
+                IconButton(onClick = { showTranslationSettings = true }) {
+                    Icon(
+                        Icons.Default.Translate,
+                        contentDescription = stringResource(R.string.document_translation_service),
+                        tint = if (docOverride) MaterialTheme.colorScheme.primary else Color.White
                     )
                 }
             }
@@ -264,6 +363,8 @@ fun DocumentViewerScreen(
                     }
                 }
             }
+                }
+            }
 
             when {
                 loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -272,7 +373,7 @@ fun DocumentViewerScreen(
                 failed -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            Icons.Default.Description,
+                            if (isPdf) Icons.Default.PictureAsPdf else Icons.Default.Description,
                             contentDescription = null,
                             tint = SubtleGray,
                             modifier = Modifier.size(48.dp)
@@ -296,6 +397,25 @@ fun DocumentViewerScreen(
                         )
                     }
                 }
+                pdfNoTextLayer -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.PictureAsPdf,
+                            contentDescription = null,
+                            tint = SubtleGray,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            stringResource(R.string.pdf_no_text_layer),
+                            fontSize = 13.sp,
+                            color = SubtleGray
+                        )
+                    }
+                }
                 unsupported -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
@@ -315,8 +435,16 @@ fun DocumentViewerScreen(
                 }
                 else -> {
                     // 翻译控制条（复用小说阅读器：段落数 + 粒度快切 + 全文翻译）
-                    StoryReaderHeader(allEntries, paragraphs.size, prefs, settings, scope)
-                    androidx.compose.material3.HorizontalDivider(color = BorderDark, thickness = 1.dp)
+                    AnimatedVisibility(
+                        visible = controlsVisible,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column {
+                            StoryReaderHeader(allEntries, paragraphs.size, prefs, settings, scope)
+                            androidx.compose.material3.HorizontalDivider(color = BorderDark, thickness = 1.dp)
+                        }
+                    }
 
                     LazyColumn(
                         state = listState,
@@ -332,7 +460,8 @@ fun DocumentViewerScreen(
                                 onLongPress = {
                                     clipboard.setText(AnnotatedString(paragraph))
                                     android.widget.Toast.makeText(context, copiedToast, android.widget.Toast.LENGTH_SHORT).show()
-                                }
+                                },
+                                onTap = { controlsVisible = !controlsVisible }
                             )
                             if (index != paragraphs.lastIndex || media.isNotEmpty()) {
                                 Spacer(Modifier.height(14.dp))
@@ -371,9 +500,13 @@ fun DocumentViewerScreen(
             }
         }
     }
+
+    if (showTranslationSettings) {
+        DocumentTranslationSettingsDialog(onDismiss = { showTranslationSettings = false })
+    }
 }
 
-/** 单段：命中高亮 + 长按复制 + 翻译渲染（与小说阅读器同一 StoryParagraph）。 */
+/** 单段：命中高亮 + 长按复制 + 单击切控制栏 + 翻译渲染（与小说阅读器同一 StoryParagraph）。 */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DocumentParagraph(
@@ -381,7 +514,8 @@ private fun DocumentParagraph(
     highlightQuery: String,
     entries: List<TranslationEntry>,
     prefs: com.furflix.app.translate.data.TranslationUiPrefs,
-    onLongPress: () -> Unit
+    onLongPress: () -> Unit,
+    onTap: () -> Unit
 ) {
     val annotated: AnnotatedString = remember(paragraph, highlightQuery) {
         if (highlightQuery.isEmpty()) {
@@ -407,7 +541,7 @@ private fun DocumentParagraph(
     }
 
     Column(
-        modifier = Modifier.combinedClickable(onClick = {}, onLongClick = onLongPress)
+        modifier = Modifier.combinedClickable(onClick = onTap, onLongClick = onLongPress)
     ) {
         Text(
             text = annotated,
@@ -421,5 +555,53 @@ private fun DocumentParagraph(
             entries = entries,
             prefs = prefs
         )
+    }
+}
+
+/**
+ * 正文导出为 .txt 到系统 Downloads/FurFlix（Q+ 走 MediaStore，老版本直写
+ * 公共目录并触发扫描）。返回落盘文件名，失败返回 null。
+ */
+private suspend fun exportTextToDownloads(
+    context: android.content.Context,
+    title: String,
+    paragraphs: List<String>
+): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    val safeTitle = title.trim()
+        .replace(Regex("[^\\w\\u4e00-\\u9fff\\- ]"), "_")
+        .trim().ifBlank { "document" }.take(60)
+    val name = "FurFlix_$safeTitle.txt"
+    val body = paragraphs.joinToString("\n\n")
+    try {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Download/FurFlix")
+            }
+            val uri = context.contentResolver.insert(
+                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
+            ) ?: return@withContext null
+            context.contentResolver.openOutputStream(uri)?.use { os ->
+                os.write(body.toByteArray(Charsets.UTF_8))
+            } ?: return@withContext null
+        } else {
+            @Suppress("DEPRECATION")
+            val dir = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                ),
+                "FurFlix"
+            )
+            dir.mkdirs()
+            java.io.File(dir, name).writeText(body, Charsets.UTF_8)
+            android.media.MediaScannerConnection.scanFile(
+                context, arrayOf(java.io.File(dir, name).absolutePath),
+                arrayOf("text/plain"), null
+            )
+        }
+        name
+    } catch (_: Exception) {
+        null
     }
 }

@@ -251,9 +251,12 @@ fun SearchBar(
                             }
                             if (finalQuery.isNotBlank()) {
                                 onSearch(finalQuery.trim())
-                                // 提交即清空：框内不残留上一轮查询词
-                                text = ""
-                                tags = emptyList()
+                                // 提交后保留查询内容：框内文本与标签 chips 原样留存，
+                                // 用户能接着微调再搜（此前会在提交瞬间清空，导致
+                                // 想改一个词就得整条重打）。
+                                // 文本回写为已去标签前缀的剩余词，chips 即已提交的
+                                // 关键词——两者合起来正是刚才那条查询。
+                                text = finalText
                                 onTypingWordChanged("")
                                 keyboardController?.hide()
                             }

@@ -42,6 +42,22 @@ object DocumentTextExtractor {
             .map { it.trim('\n', ' ') }
             .filter { it.isNotBlank() }
 
+    /**
+     * 作品描述（FA 详情页的 HTML）→ 段落列表，供「从作品描述查看故事」把描述
+     * 当正文送进文档查看器。块级标签与 <br> 视作换行，行内标签只剥壳——
+     * 直接 [org.jsoup.nodes.Element.text] 会把整篇压成一行，长文就没法读了。
+     */
+    fun htmlToParagraphs(html: String): List<String> {
+        if (html.isBlank()) return emptyList()
+        val withBreaks = html
+            .replace(Regex("(?i)<br\\s*/?>"), "\n")
+            .replace(Regex("(?i)</(p|div|li|h[1-6]|blockquote|tr)>"), "\n\n")
+        val doc = Jsoup.parse(withBreaks)
+        return textToParagraphs(
+            Parser.unescapeEntities(doc.wholeText(), false)
+        )
+    }
+
     private fun zipMediaEntries(entries: Map<String, ByteArray>, prefix: String): List<ByteArray> =
         entries.entries.asSequence()
             .filter { it.key.startsWith(prefix) }

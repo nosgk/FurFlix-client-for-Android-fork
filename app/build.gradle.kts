@@ -81,6 +81,11 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            // PdfBox-Android 与 BouncyCastle 各自带了许可证/依赖清单，
+            // 合并时同名冲突会让打包失败——这些元数据运行时用不到
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE*"
+            excludes += "META-INF/NOTICE*"
         }
     }
 }
@@ -122,6 +127,10 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:5.4.0")
 
     implementation("org.jsoup:jsoup:1.22.2")
+
+    // PDF 文本层抽取（文档查看器：复制/翻译 PDF 文字）。系统 PdfRenderer 只能
+    // 栅格化页面、拿不到文字，故引 Apache PDFBox 的 Android 移植版（Apache 2.0）。
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
