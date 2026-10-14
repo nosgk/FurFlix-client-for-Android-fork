@@ -103,7 +103,9 @@ fun StoryReader(sub: Submission) {
         paragraphs.forEachIndexed { pIndex, paragraph ->
             StoryParagraph(
                 paragraph = paragraph,
-                entries = entriesByParagraph[pIndex],
+                // 与段落列表同源，但仍按 getOrNull 取：两份派生列表在重建空窗里
+                // 一旦不同步就是 IndexOutOfBounds（见 DocumentViewerScreen 的同类修复）
+                entries = entriesByParagraph.getOrNull(pIndex).orEmpty(),
                 prefs = prefs
             )
             if (pIndex != paragraphs.lastIndex) Spacer(Modifier.height(14.dp))

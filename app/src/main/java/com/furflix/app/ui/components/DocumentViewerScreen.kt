@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -181,25 +180,32 @@ fun DocumentViewerScreen(
 
     // ── 翻译：与小说阅读器同链路，逐段 Entry，随内容重建、离屏取消；
     //    文档链路经 configOverride 走（可选）独立翻译服务 ──
-    val paragraphUnits = remember(paragraphs, prefs.storyGranularity) {
-        if (prefs.storyGranularity == StoryGranularity.SENTENCE) {
-            paragraphs.map { splitSentences(it) }
-        } else {
-            paragraphs.map { listOf(it) }
-        }
-    }
-    val entriesByParagraph = remember(paragraphUnits, documentConfig) {
-        paragraphUnits.map { units ->
-            units.map {
-                TranslationEntry(
-                    text = it,
-                    category = TranslationCategory.DESCRIPTION,
-                    configOverride = settings.documentConfig
-                )
+    // 段落与该段的送翻单元打包进同一个条目对象，列表项只认这一个来源。
+    // 此前段落列表和 entriesByParagraph 是两份各自 remember 的派生列表，条目
+    // 内容靠下标跨表取值（entriesByParagraph[index]）；正文段落一重建、两份
+    // 列表不在同一快照时就会 IndexOutOfBoundsException: Index 0 out of bounds
+    // for length 0（用户实测于「从作品描述查看故事」）。打包后段落与译文单元
+    // 永远同源，结构上不可能再错位。
+    val paragraphBlocks = remember(paragraphs, prefs.storyGranularity, documentConfig) {
+        paragraphs.map { paragraph ->
+            val units = if (prefs.storyGranularity == StoryGranularity.SENTENCE) {
+                splitSentences(paragraph)
+            } else {
+                listOf(paragraph)
             }
+            DocumentParagraphBlock(
+                text = paragraph,
+                entries = units.map {
+                    TranslationEntry(
+                        text = it,
+                        category = TranslationCategory.DESCRIPTION,
+                        configOverride = settings.documentConfig
+                    )
+                }
+            )
         }
     }
-    val allEntries = remember(entriesByParagraph) { entriesByParagraph.flatten() }
+    val allEntries = remember(paragraphBlocks) { paragraphBlocks.flatMap { it.entries } }
     DisposableEffect(allEntries) {
         onDispose { allEntries.forEach { it.cancel() } }
     }
@@ -452,15 +458,18 @@ fun DocumentViewerScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp)
                     ) {
-                        itemsIndexed(paragraphs, key = { idx, _ -> "p$idx" }) { index, paragraph ->
+                        // 用 items(count) 而不是 itemsIndexed(list)：后者的 key/content
+                        // 包装会再按下标回读传入的列表，条目 lambda 里只留一次 getOrNull
+                        items(count = paragraphBlocks.size, key = { idx -> "p$idx" }) { index ->
+                            val block = paragraphBlocks.getOrNull(index) ?: return@items
                             DocumentParagraph(
-                                paragraph = paragraph,
+                                paragraph = block.text,
                                 highlightQuery = findQuery.trim(),
-                                entries = entriesByParagraph[index],
+                                entries = block.entries,
                                 prefs = prefs,
                                 onTap = { controlsVisible = !controlsVisible }
                             )
-                            if (index != paragraphs.lastIndex || media.isNotEmpty()) {
+                            if (index != paragraphBlocks.lastIndex || media.isNotEmpty()) {
                                 Spacer(Modifier.height(14.dp))
                             }
                         }
@@ -474,7 +483,8 @@ fun DocumentViewerScreen(
                                     modifier = Modifier.padding(bottom = 10.dp)
                                 )
                             }
-                            itemsIndexed(media, key = { idx, _ -> "m$idx" }) { _, bytes ->
+                            items(count = media.size, key = { idx -> "m$idx" }) { index ->
+                                val bytes = media.getOrNull(index) ?: return@items
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
                                     color = CardBackground,
@@ -502,6 +512,15 @@ fun DocumentViewerScreen(
         DocumentTranslationSettingsDialog(onDismiss = { showTranslationSettings = false })
     }
 }
+
+/**
+ * 文档正文的一个条目：段落原文 + 该段切出的送翻单元（整段 = 1 个，整句 = n 个）。
+ * 两者必须在同一个对象里成对流动——列表项按条目渲染，段落与译文单元不会错位。
+ */
+private data class DocumentParagraphBlock(
+    val text: String,
+    val entries: List<TranslationEntry>
+)
 
 /**
  * 单段：命中高亮 + 原生文本选择 + 单击切控制栏 + 翻译渲染（与小说阅读器同一 StoryParagraph）。
