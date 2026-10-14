@@ -258,11 +258,13 @@ fun PostDetailScreen(
                     }
                 } else if (submission != null) {
                     val sub = submission
-                    // 「从作品描述查看故事」入口：仅当描述非空且本作品是文档/store 类
-                    // （正文写进描述的多见于 store）时提供；点开把描述当正文送进
-                    // 文档查看器（可复制/翻译/导出 txt）
+                    // 「从作品描述查看故事」入口：仅当描述非空、本作品是文档/store 类，
+                    // 且正文尚未随作品一起取到时提供（正文写进描述的多见于 store）。
+                    // 小说类（.txt）的正文在文件里、描述只是一句简介，此时该入口点开
+                    // 只会显示那一行简介（用户反馈"故事内显示不全只有一行"），正文请走
+                    // 「阅读文档」/「正文」标签——故 storyText 已到手时不再提供本入口。
                     val descriptionStoryAction: (() -> Unit)? =
-                        if (sub.description.isNotBlank() &&
+                        if (sub.description.isNotBlank() && sub.storyText.isBlank() &&
                             (isStoreDocumentSubmission(sub) || isPdfSubmission(sub))
                         ) {
                             { showDescriptionStory = true }
@@ -761,7 +763,7 @@ fun PostDetailScreen(
             if (showDescriptionStory && descSubmission != null &&
                 descSubmission.description.isNotBlank()
             ) {
-                val descParagraphs = remember(descSubmission.id) {
+                val descParagraphs = remember(descSubmission.id, descSubmission.description) {
                     com.furflix.app.utils.DocumentTextExtractor
                         .htmlToParagraphs(descSubmission.description)
                 }
