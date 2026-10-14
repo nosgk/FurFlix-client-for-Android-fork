@@ -96,6 +96,20 @@ jobs:
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           "$APKSIGNER" verify --print-certs "$APK"
 
+      # R8 混淆映射归档：release 崩溃堆栈里全是 a.b.c 之类的短名，没有
+      # mapping.txt 就无法定位。APK 内嵌的 r8-map-id 是 mapping 内容的哈希，
+      # 对得上才说明是同一构建（用于核对用户上报的堆栈归属哪次构建）。
+      - name: Archive R8 mapping
+        if: env.BUILD_TYPE != 'debug'
+        run: |
+          MAP=app/build/outputs/mapping/release/mapping.txt
+          if [ -f "$MAP" ]; then
+            echo "r8-map-id candidate: $(sha256sum "$MAP" | cut -d' ' -f1)"
+            wc -l "$MAP"
+          else
+            echo "::warning::mapping.txt not found at $MAP"
+          fi
+
       - name: Build debug APK
         if: env.BUILD_TYPE == 'debug'
         run: |
@@ -107,7 +121,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: FurFlix-release-arm64-v8a
-          path: app/build/outputs/apk/release/*.apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn
 
       - name: Upload debug APK
         if: env.BUILD_TYPE == 'debug'
