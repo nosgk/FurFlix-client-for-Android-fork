@@ -129,7 +129,7 @@ class TranscriptionService private constructor() {
         parseChatContent(execute(http, request))
     }
 
-    /** 两次调用（拉模型 / 转录）共用的最低前置条件：Base URL + API Key + 安全协议。 */
+    /** 两次调用（拉模型 / 转录）共用的最低前置条件：Base URL + API Key。 */
     private fun requireApiAccess(config: TranscriptionConfig) {
         if (config.baseUrl.isBlank() || config.apiKey.isBlank()) {
             throw TranscriptionException(
@@ -137,13 +137,9 @@ class TranscriptionService private constructor() {
                 "base url and api key are required"
             )
         }
-        if (!isSecureBaseUrl(config.baseUrl)) {
-            throw TranscriptionException(
-                TranscriptionException.Kind.INVALID_URL,
-                "base url must be https",
-                config.baseUrl
-            )
-        }
+        // 明文 http 是**允许**的：自建/本地服务（Ollama、LM Studio 等）常只提供
+        // http，network_security_config 的 base-config 已放开明文。这里只拦
+        // 无法构成合法 URL 的输入（由 buildRequest 捕获 IllegalArgumentException）。
     }
 
     /** 组请求：URL 非法时给 INVALID_URL 而不是让它冒泡成"网络错误"。 */
@@ -265,7 +261,10 @@ fun normalizeBaseUrl(raw: String): String {
     return if (lower.startsWith("http://") || lower.startsWith("https://")) trimmed else "https://$trimmed"
 }
 
-/** 明文 http 会被 network_security_config 的 base-config 拦掉，故只接受 https。 */
+/**
+ * 该地址是否为 https。**仅供参考/展示**，不再作为发起请求的门槛——明文 http 允许
+ * （本地大模型服务常只有 http，见 [requireApiAccess]）。
+ */
 fun isSecureBaseUrl(raw: String): Boolean =
     normalizeBaseUrl(raw).startsWith("https://", ignoreCase = true)
 

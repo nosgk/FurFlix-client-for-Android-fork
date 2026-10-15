@@ -5,7 +5,11 @@
         <domain includeSubdomains="true">www.furaffinity.net</domain>
         <domain includeSubdomains="true">facdn.net</domain>
     </domain-config>
-    <base-config cleartextTrafficPermitted="false">
+    <!-- 用户自配的 AI 字幕/翻译服务地址可能是明文 http（本地 Ollama/LM Studio 等），
+         故 base-config 放开明文——否则那类地址会在网络层被静默拦掉，
+         用户侧表现是"填了 http 地址却总是网络错误"。Manifest 的
+         usesCleartextTraffic="true" 本就表达同一意图，此处与其对齐。 -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

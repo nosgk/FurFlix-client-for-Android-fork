@@ -42,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -521,14 +522,22 @@ private fun FieldRow(
     onValueChange: (String) -> Unit,
     password: Boolean = false
 ) {
+    // 本地草稿 + 失焦提交。此前是"每次按键立刻写 DataStore、字段值再从 flow 读回"：
+    // 持久层往返有延迟，快速输入会丢掉尾部字符（存进去的地址被截断），用户侧表现
+    // 就是"配置改了却没生效"。改为草稿驱动显示、失焦时一次性提交。
+    var draft by remember(value) { mutableStateOf(value) }
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
         OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = draft,
+            onValueChange = { draft = it },
             label = { Text(label) },
             singleLine = true,
             visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focus ->
+                    if (!focus.isFocused && draft != value) onValueChange(draft)
+                }
         )
     }
 }
