@@ -34,6 +34,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +57,13 @@ import com.furflix.app.R
 import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.player.AudioTrack
 import com.furflix.app.player.PlaybackController
+import com.furflix.app.subtitle.SubtitleController
+import com.furflix.app.subtitle.SubtitleRequest
+import com.furflix.app.subtitle.SubtitleTrack
+import com.furflix.app.subtitle.TranscriptionConfig
+import com.furflix.app.subtitle.TranscriptionSettings
+import com.furflix.app.subtitle.ui.SubtitlePanel
+import com.furflix.app.subtitle.ui.transcriptionErrorText
 import com.furflix.app.ui.theme.DarkBackground
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.SubtleGray
@@ -88,6 +96,13 @@ fun AudioHeroContent(
     val context = LocalContext.current
     val state by PlaybackController.state.collectAsState()
     val untitledLabel = stringResource(R.string.player_untitled)
+
+    // 字幕会话跟随当前作品切换；缓存命中即直接显示，未命中等用户点生成
+    val subtitleState by SubtitleController.state.collectAsState()
+    val transcriptionConfig by remember { TranscriptionSettings.getInstance(context).config }
+        .collectAsState(initial = TranscriptionConfig())
+    LaunchedEffect(track.postId) { SubtitleController.select(context, track.postId) }
+    val subtitleTrack = if (subtitleState.postId == track.postId) subtitleState.track else SubtitleTrack.EMPTY
 
     // 本曲是否就是播放器当前曲：不是则本面板呈现"待播放"，按钮点击才真正装载队列
     val isCurrent = state.track?.postId == track.postId && state.track?.url == track.url
@@ -339,6 +354,69 @@ fun AudioHeroContent(
                     color = SubtleGray,
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+        }
+
+        // ── 字幕（AI 转录）─────────────────────────────────────────────
+        Spacer(modifier = Modifier.height(14.dp))
+        val subtitleRequest = SubtitleRequest(
+            postId = track.postId,
+            title = track.title,
+            description = track.description,
+            audioUrl = track.url
+        )
+        if (!subtitleTrack.isEmpty) {
+            SubtitlePanel(
+                track = subtitleTrack,
+                positionMs = if (isCurrent) state.positionMs else 0L,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        val subtitleError = subtitleState.errorKind
+        when {
+            subtitleState.generating -> Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.subtitle_generating),
+                    fontSize = 12.sp,
+                    color = SubtleGray
+                )
+            }
+
+            subtitleError != null -> Text(
+                text = transcriptionErrorText(subtitleError),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            subtitleTrack.isEmpty -> if (transcriptionConfig.isConfigured) {
+                TextButton(onClick = { SubtitleController.generate(context, subtitleRequest) }) {
+                    Text(text = stringResource(R.string.subtitle_generate), fontSize = 12.sp)
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.subtitle_hint_not_configured),
+                    fontSize = 12.sp,
+                    color = SubtleGray,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            else -> TextButton(
+                onClick = { SubtitleController.generate(context, subtitleRequest, forceRefresh = true) }
+            ) {
+                Text(text = stringResource(R.string.subtitle_regenerate), fontSize = 12.sp)
             }
         }
 

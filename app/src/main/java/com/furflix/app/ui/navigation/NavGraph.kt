@@ -41,6 +41,7 @@ object Routes {
     const val APPEARANCE_SETTINGS = "appearance_settings"
     const val FILTERS_SETTINGS = "filters_settings"
     const val TRANSLATION_SETTINGS = "translation_settings"
+    const val SUBTITLE_SETTINGS = "subtitle_settings"
     const val LOGIN = "login"
     // 可选 folder* 参数：作品详情页 Folders 区块直达“用户页内文件夹浏览”；
     // 可选 tab 参数：别人的收藏夹等入口直达“用户页收藏 tab”（值 favorites）
@@ -314,6 +315,7 @@ fun FurFlixNavGraph(
                 onNavigateToAppearance = { navController.navigate(Routes.APPEARANCE_SETTINGS) },
                 onNavigateToFilters = { navController.navigate(Routes.FILTERS_SETTINGS) },
                 onNavigateToTranslation = { navController.navigate(Routes.TRANSLATION_SETTINGS) },
+                onNavigateToSubtitles = { navController.navigate(Routes.SUBTITLE_SETTINGS) },
                 onNavigateToAbout = { navController.navigate(Routes.ABOUT_DEVELOPER) },
                 onNavigateToStorage = { navController.navigate(Routes.STORAGE_SETTINGS) },
                 viewModel = mainViewModel
@@ -328,6 +330,12 @@ fun FurFlixNavGraph(
 
         composable(Routes.TRANSLATION_SETTINGS) {
             com.furflix.app.translate.ui.TranslationSettingsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.SUBTITLE_SETTINGS) {
+            com.furflix.app.subtitle.ui.TranscriptionSettingsScreen(
                 onBack = { navController.popBackStack() }
             )
         }

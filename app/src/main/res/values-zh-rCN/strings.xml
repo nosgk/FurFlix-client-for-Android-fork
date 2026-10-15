@@ -696,4 +696,44 @@
     <!-- %1$d = 声道数（大于 2） -->
     <string name="player_stream_channel_count">%1$d 声道</string>
     <string name="player_error">播放失败，点击播放重试</string>
+
+    <!-- AI 字幕（OpenAI 兼容的音频转录） -->
+    <string name="settings_subtitles">AI 字幕</string>
+    <string name="settings_subtitles_desc">把音频作品转录成带时间轴的字幕</string>
+    <string name="subtitle_title">AI 字幕</string>
+    <string name="subtitle_enabled">启用转录</string>
+    <string name="subtitle_enabled_desc">在音频作品上显示生成字幕入口</string>
+    <string name="subtitle_section_service">服务（OpenAI 兼容）</string>
+    <string name="subtitle_base_url">Base URL</string>
+    <string name="subtitle_api_key">API Key</string>
+    <string name="subtitle_model">模型</string>
+    <string name="subtitle_fetch_models">拉取模型</string>
+    <string name="subtitle_pick_model">选择模型</string>
+    <string name="subtitle_section_presets">风格预设</string>
+    <string name="subtitle_presets_desc">启用中的预设会拼进提示词</string>
+    <string name="subtitle_preset_add">新增预设</string>
+    <string name="subtitle_preset_edit">编辑预设</string>
+    <string name="subtitle_preset_delete">删除预设</string>
+    <string name="subtitle_preset_name">名称</string>
+    <string name="subtitle_preset_prompt">额外风格提示词</string>
+    <string name="subtitle_preset_untitled">未命名预设</string>
+    <string name="subtitle_preset_builtin">内置预设</string>
+    <string name="subtitle_preset_reset">恢复内置预设</string>
+    <string name="subtitle_section_template">提示词模板</string>
+    <string name="subtitle_template">系统提示词模板</string>
+    <string name="subtitle_template_save">保存模板</string>
+    <string name="subtitle_template_reset">恢复默认</string>
+    <string name="subtitle_action_save">保存</string>
+    <string name="subtitle_action_cancel">取消</string>
+    <string name="subtitle_generate">生成字幕</string>
+    <string name="subtitle_regenerate">重新生成字幕</string>
+    <string name="subtitle_generating">正在转录…</string>
+    <string name="subtitle_hint_not_configured">请先在 设置 → AI 字幕 里配置转录服务</string>
+    <string name="subtitle_error_not_configured">未配置转录服务</string>
+    <string name="subtitle_error_invalid_key">API 密钥无效</string>
+    <string name="subtitle_error_rate_limited">请求过于频繁</string>
+    <string name="subtitle_error_server">服务器错误</string>
+    <string name="subtitle_error_network">网络错误</string>
+    <string name="subtitle_error_bad_response">未能从响应中解析出字幕</string>
+    <string name="subtitle_error_too_large">音频过大，无法上传</string>
 </resources>

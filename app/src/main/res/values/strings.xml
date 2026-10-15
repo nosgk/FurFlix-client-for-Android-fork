@@ -684,4 +684,44 @@
     <!-- %1$d = channel count greater than 2 -->
     <string name="player_stream_channel_count">%1$d ch</string>
     <string name="player_error">Playback failed. Tap play to retry.</string>
+
+    <!-- AI subtitles: OpenAI-compatible audio transcription -->
+    <string name="settings_subtitles">AI subtitles</string>
+    <string name="settings_subtitles_desc">Transcribe audio works into timestamped subtitles</string>
+    <string name="subtitle_title">AI subtitles</string>
+    <string name="subtitle_enabled">Enable transcription</string>
+    <string name="subtitle_enabled_desc">Show the generate action on audio works</string>
+    <string name="subtitle_section_service">Service (OpenAI compatible)</string>
+    <string name="subtitle_base_url">Base URL</string>
+    <string name="subtitle_api_key">API key</string>
+    <string name="subtitle_model">Model</string>
+    <string name="subtitle_fetch_models">Fetch models</string>
+    <string name="subtitle_pick_model">Pick a model</string>
+    <string name="subtitle_section_presets">Style presets</string>
+    <string name="subtitle_presets_desc">Enabled presets are injected into the prompt</string>
+    <string name="subtitle_preset_add">Add preset</string>
+    <string name="subtitle_preset_edit">Edit preset</string>
+    <string name="subtitle_preset_delete">Delete preset</string>
+    <string name="subtitle_preset_name">Name</string>
+    <string name="subtitle_preset_prompt">Extra style prompt</string>
+    <string name="subtitle_preset_untitled">Untitled preset</string>
+    <string name="subtitle_preset_builtin">Built-in preset</string>
+    <string name="subtitle_preset_reset">Restore built-in presets</string>
+    <string name="subtitle_section_template">Prompt template</string>
+    <string name="subtitle_template">System prompt template</string>
+    <string name="subtitle_template_save">Save template</string>
+    <string name="subtitle_template_reset">Restore default</string>
+    <string name="subtitle_action_save">Save</string>
+    <string name="subtitle_action_cancel">Cancel</string>
+    <string name="subtitle_generate">Generate subtitles</string>
+    <string name="subtitle_regenerate">Regenerate subtitles</string>
+    <string name="subtitle_generating">Transcribing…</string>
+    <string name="subtitle_hint_not_configured">Set up a transcription service in Settings → AI subtitles</string>
+    <string name="subtitle_error_not_configured">Transcription service not configured</string>
+    <string name="subtitle_error_invalid_key">Invalid API key</string>
+    <string name="subtitle_error_rate_limited">Rate limited</string>
+    <string name="subtitle_error_server">Server error</string>
+    <string name="subtitle_error_network">Network error</string>
+    <string name="subtitle_error_bad_response">Could not parse subtitles from the response</string>
+    <string name="subtitle_error_too_large">Audio is too large to upload</string>
 </resources>
