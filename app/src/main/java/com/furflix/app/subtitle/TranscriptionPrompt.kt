@@ -73,16 +73,56 @@ $VAR_EXTRA_STYLE
         )
     )
 
-    /** 占位符替换。[extraStyle] 为空表示未启用任何风格预设。 */
+    /** 占位符取值缺失时的占位文案（提示词面向模型，不参与本地化）。 */
+    const val NO_VALUE = "（无）"
+
+    /**
+     * 变量注入。三个键名的语义：
+     *  - [VAR_EXTRA_STYLE] 填入**已启用风格预设**的值（多选则按顺序拼接）
+     *  - [VAR_TITLE] 自动填入作品的**原始标题**
+     *  - [VAR_DESCRIPTION] 自动填入作品的**描述**（已纯文本化）
+     *
+     * 半角与全角花括号都认——中文输入法下极易打出全角 `｛｝`，只认半角会让变量
+     * 原样漏给模型。
+     */
     fun render(
         template: String,
         extraStyle: String,
         title: String,
         description: String
-    ): String = template
-        .replace(VAR_EXTRA_STYLE, extraStyle.ifBlank { "（无）" })
-        .replace(VAR_TITLE, title.ifBlank { "（无）" })
-        .replace(VAR_DESCRIPTION, description.ifBlank { "（无）" })
+    ): String {
+        var out = template
+        out = replaceVar(out, VAR_EXTRA_STYLE, extraStyle.ifBlank { NO_VALUE })
+        out = replaceVar(out, VAR_TITLE, title.ifBlank { NO_VALUE })
+        out = replaceVar(out, VAR_DESCRIPTION, description.ifBlank { NO_VALUE })
+        return out
+    }
+
+    private fun replaceVar(text: String, token: String, value: String): String {
+        val fullWidth = token.replace('{', '｛').replace('}', '｝')
+        return text.replace(token, value).replace(fullWidth, value)
+    }
+
+    /**
+     * 作品描述是 HTML（详情页用 HtmlTextView 渲染），直接塞进提示词会带一堆标签，
+     * 既占 token 又干扰模型。这里纯文本化：去标签 → 解常见实体 → 压空白。
+     */
+    fun plainDescription(html: String): String {
+        if (html.isBlank()) return ""
+        val withoutTags = html.replace(TAG_REGEX, " ")
+        return withoutTags
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace(WHITESPACE_REGEX, " ")
+            .trim()
+    }
+
+    private val TAG_REGEX = Regex("<[^>]*>")
+    private val WHITESPACE_REGEX = Regex("\\s+")
 
     /** 把启用中的预设拼成一段额外风格提示词（按 [presets] 的顺序）。 */
     fun combinePresets(presets: List<StylePreset>, activeIds: Set<String>): String =

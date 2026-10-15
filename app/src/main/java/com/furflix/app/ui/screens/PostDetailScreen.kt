@@ -148,6 +148,7 @@ fun PostDetailScreen(
     onTagClick: (String) -> Unit = {},
     onTagAppend: (String) -> Unit = {},
     onOpenFolder: (GalleryFolder) -> Unit = {},
+    onOpenSubtitleSettings: () -> Unit = {},
     viewModel: MainViewModel
 ) {
     val submissionDetailsMap by viewModel.submissionDetails.collectAsState()
@@ -552,6 +553,7 @@ fun PostDetailScreen(
                                 sub = sub,
                                 placeholderUrl = listThumbnailUrl,
                                 audioQueue = audioQueue,
+                                onOpenSubtitleSettings = onOpenSubtitleSettings,
                                 modifier = Modifier
                                     .weight(detailSplit.toFloat())
                                     .fillMaxHeight(),
@@ -579,6 +581,7 @@ fun PostDetailScreen(
                                 sub,
                                 placeholderUrl = listThumbnailUrl,
                                 audioQueue = audioQueue,
+                                onOpenSubtitleSettings = onOpenSubtitleSettings,
                                 onImageClick = { showZoom = true },
                                 onOpenDocumentViewer = { showDocumentViewer = true },
                                 onOpenPdfViewer = { showPdfViewer = true },
@@ -803,6 +806,7 @@ private fun TwoPaneHeroImage(
     sub: Submission,
     placeholderUrl: String?,
     audioQueue: List<AudioTrack> = emptyList(),
+    onOpenSubtitleSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
     onImageClick: () -> Unit = {},
     onOpenDocumentViewer: () -> Unit = {},
@@ -826,6 +830,7 @@ private fun TwoPaneHeroImage(
             track = sub.toAudioTrack(),
             queue = audioQueue,
             coverUrl = placeholderUrl,
+            onOpenSubtitleSettings = onOpenSubtitleSettings,
             modifier = modifier
         )
         return
@@ -968,6 +973,7 @@ private fun HeroImage(
     sub: Submission,
     placeholderUrl: String?,
     audioQueue: List<AudioTrack> = emptyList(),
+    onOpenSubtitleSettings: () -> Unit = {},
     onImageClick: () -> Unit = {},
     onOpenDocumentViewer: () -> Unit = {},
     onOpenPdfViewer: () -> Unit = {},
@@ -990,6 +996,7 @@ private fun HeroImage(
             track = sub.toAudioTrack(),
             queue = audioQueue,
             coverUrl = placeholderUrl,
+            onOpenSubtitleSettings = onOpenSubtitleSettings,
             modifier = Modifier.fillMaxWidth()
         )
         return

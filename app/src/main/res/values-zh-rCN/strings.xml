@@ -730,6 +730,11 @@
     <string name="subtitle_generating">正在转录…</string>
     <string name="subtitle_hint_not_configured">请先在 设置 → AI 字幕 里配置转录服务</string>
     <string name="subtitle_error_not_configured">未配置转录服务</string>
+    <string name="subtitle_error_invalid_url">Base URL 必须是合法的 https:// 地址</string>
+    <string name="subtitle_hint_loading">音频完整载入后即可生成</string>
+    <string name="subtitle_open_settings">打开转录设置</string>
+    <!-- %1$s/%2$s/%3$s = 三个模板变量键名 -->
+    <string name="subtitle_template_keys_hint">可用变量：%1$s 会填入已启用风格预设的值，%2$s 自动填入作品原始标题，%3$s 自动填入作品描述。</string>
     <string name="subtitle_error_invalid_key">API 密钥无效</string>
     <string name="subtitle_error_rate_limited">请求过于频繁</string>
     <string name="subtitle_error_server">服务器错误</string>

@@ -36,7 +36,19 @@ fun Submission.toAudioTrack(): AudioTrack = AudioTrack(
     postId = id,
     title = title.ifEmpty { fileName.ifEmpty { id } },
     artist = author,
-    coverUrl = thumbnailUrl.takeIf { it.isNotEmpty() },
+    coverUrl = audioCoverUrl(this),
     url = fileUrl.ifEmpty { fullImageUrl },
     description = description
 )
+
+/**
+ * 音频作品的封面候选。
+ *
+ * 关键坑：列表/详情页给音频作品的 `thumbnailUrl` 有时就是**音频直链本身**
+ * （与文档类同源的兜底行为，见详情页 docCoverUrl 的注释）。把它当图片交给
+ * Coil 必然解码失败，表现就是"封面不显示"。故排除掉与直链相同的候选。
+ */
+fun audioCoverUrl(sub: Submission): String? {
+    val direct = setOf(sub.fileUrl, sub.fullImageUrl).filter { it.isNotEmpty() }
+    return sub.thumbnailUrl.takeIf { it.isNotEmpty() && it !in direct }
+}

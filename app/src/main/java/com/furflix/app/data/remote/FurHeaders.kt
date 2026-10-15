@@ -46,4 +46,19 @@ object FurHeaders {
                 "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
             )
     }
+
+    /**
+     * 媒体文件请求（音频/视频直链取流）：与图片集同族，但 dest 是 media 语义。
+     * 不能复用 [applyImageHints]——对 mp3 声明 `accept: image/*` 语义不符，
+     * 可能被 CDN/CF 判为异常流量。
+     */
+    fun applyMediaHints(builder: Request.Builder) {
+        builder.header("sec-ch-ua", UserAgent.secChUa())
+            .header("sec-ch-ua-mobile", "?1")
+            .header("sec-ch-ua-platform", "\"Android\"")
+            .header("sec-fetch-dest", "audio")
+            .header("sec-fetch-mode", "no-cors")
+            .header("sec-fetch-site", "cross-site")
+            .header("accept", "*/*")
+    }
 }

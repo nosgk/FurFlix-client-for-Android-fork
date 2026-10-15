@@ -11,10 +11,11 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
-import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.furflix.app.data.remote.FaMediaClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -70,10 +71,13 @@ object PlaybackController {
         exo?.let { return it }
         val app = context.applicationContext
         appContext = app
-        // 音频走磁盘缓存数据源：首次边下边播并落盘，重播零网络，中断可续传
+        // 音频走磁盘缓存数据源：首次边下边播并落盘，重播零网络，中断可续传。
+        // upstream 必须用带 FA 会话头的 OkHttp 数据源：d.furaffinity.net 直链对
+        // 无会话请求返回 403，默认的 DefaultHttpDataSource 不带 Cookie/UA/Referer，
+        // 音频必然播放失败。
         val cacheFactory = CacheDataSource.Factory()
             .setCache(AudioCache.get(app))
-            .setUpstreamDataSourceFactory(DefaultDataSource.Factory(app))
+            .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(FaMediaClient.client()))
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         val p = ExoPlayer.Builder(app)
             .setMediaSourceFactory(DefaultMediaSourceFactory(cacheFactory))
@@ -91,6 +95,9 @@ object PlaybackController {
         p.setWakeMode(C.WAKE_MODE_NETWORK)
         p.addListener(listener)
         exo = p
+        // 常驻进度轮询：不随暂停而停，否则"暂停时后台仍在缓冲"的进度（含
+        // fullyLoaded 判定）会僵在暂停那一刻。空闲时值不变，StateFlow 自动去重。
+        startTicker()
         return p
     }
 
@@ -170,7 +177,6 @@ object PlaybackController {
     /** 停止并清空队列（迷你条关闭按钮）。 */
     fun stop() {
         val p = exo ?: return
-        stopTicker()
         p.stop()
         p.clearMediaItems()
         queue.clear()
@@ -191,7 +197,7 @@ object PlaybackController {
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _state.update { it.copy(isPlaying = isPlaying) }
-            if (isPlaying) startTicker() else { stopTicker(); syncProgress() }
+            syncProgress()
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -264,11 +270,6 @@ object PlaybackController {
                 delay(500)
             }
         }
-    }
-
-    private fun stopTicker() {
-        ticker?.cancel()
-        ticker = null
     }
 
     /** 从已选中的音轨 Format 读真实流参数。 */

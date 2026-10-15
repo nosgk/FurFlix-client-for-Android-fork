@@ -17,6 +17,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.furflix.app.data.remote.FaMediaClient
 import java.io.IOException
 import java.util.Base64
 import java.util.concurrent.TimeUnit
@@ -30,6 +31,7 @@ class TranscriptionException(
 ) : Exception(message, cause) {
     enum class Kind {
         NOT_CONFIGURED,
+        INVALID_URL,
         INVALID_KEY,
         RATE_LIMITED,
         SERVER,
@@ -84,14 +86,19 @@ class TranscriptionService private constructor() {
         }
     }
 
-    /** 拉取可用模型 id 列表（供设置页下拉选择）。 */
+    /**
+     * 拉取可用模型 id 列表（供设置页下拉选择）。
+     *
+     * 只要求 Base URL + API Key：模型正是要被"拉"出来的东西，若把模型也算进前置
+     * 条件就会变成死锁（拉取按钮永远不可用）。
+     */
     suspend fun listModels(config: TranscriptionConfig): List<String> = withContext(Dispatchers.IO) {
-        requireConfigured(config)
-        val request = Request.Builder()
-            .url(endpointFor(config.baseUrl, "/v1/models"))
-            .header("Authorization", "Bearer ${config.apiKey}")
-            .get()
-            .build()
+        requireApiAccess(config)
+        val request = buildRequest(
+            url = endpointFor(config.baseUrl, "/v1/models"),
+            apiKey = config.apiKey,
+            body = null
+        )
         parseModelIds(execute(clientFor(config), request))
     }
 
@@ -104,39 +111,64 @@ class TranscriptionService private constructor() {
         systemPrompt: String,
         audioUrl: String
     ): String = withContext(Dispatchers.IO) {
-        requireConfigured(config)
+        requireApiAccess(config)
+        if (config.model.isBlank()) {
+            throw TranscriptionException(
+                TranscriptionException.Kind.NOT_CONFIGURED,
+                "model is not selected"
+            )
+        }
         val http = clientFor(config)
-        val (bytes, format) = fetchAudio(http, audioUrl)
+        val (bytes, format) = fetchAudio(audioUrl)
         val payload = buildChatPayload(config.model, systemPrompt, bytes, format)
-        val request = Request.Builder()
-            .url(endpointFor(config.baseUrl, "/v1/chat/completions"))
-            .header("Authorization", "Bearer ${config.apiKey}")
-            .post(payload.toRequestBody("application/json".toMediaTypeOrNull()))
-            .build()
+        val request = buildRequest(
+            url = endpointFor(config.baseUrl, "/v1/chat/completions"),
+            apiKey = config.apiKey,
+            body = payload.toRequestBody("application/json".toMediaTypeOrNull())
+        )
         parseChatContent(execute(http, request))
     }
 
-    private fun requireConfigured(config: TranscriptionConfig) {
-        if (!config.isConfigured) {
+    /** 两次调用（拉模型 / 转录）共用的最低前置条件：Base URL + API Key + 安全协议。 */
+    private fun requireApiAccess(config: TranscriptionConfig) {
+        if (config.baseUrl.isBlank() || config.apiKey.isBlank()) {
             throw TranscriptionException(
                 TranscriptionException.Kind.NOT_CONFIGURED,
-                "transcription service is not configured"
+                "base url and api key are required"
+            )
+        }
+        if (!isSecureBaseUrl(config.baseUrl)) {
+            throw TranscriptionException(
+                TranscriptionException.Kind.INVALID_URL,
+                "base url must be https",
+                config.baseUrl
             )
         }
     }
 
-    private fun fetchAudio(http: OkHttpClient, audioUrl: String): Pair<ByteArray, String> {
-        // 音频直链在 FA 的 CDN 上：按全链路 UA 单一来源带上运行时真实 UA，
-        // 别用 OkHttp 默认 UA 去撞站点的 UA 校验。注意仅此一处——发给大模型的
-        // /v1/* 请求不带站点 UA/Referer。
+    /** 组请求：URL 非法时给 INVALID_URL 而不是让它冒泡成"网络错误"。 */
+    private fun buildRequest(url: String, apiKey: String, body: okhttp3.RequestBody?): Request =
+        try {
+            Request.Builder()
+                .url(url)
+                .header("Authorization", "Bearer $apiKey")
+                .apply { if (body == null) get() else post(body) }
+                .build()
+        } catch (e: IllegalArgumentException) {
+            throw TranscriptionException(
+                TranscriptionException.Kind.INVALID_URL,
+                e.message ?: "invalid url",
+                url,
+                e
+            )
+        }
+
+    private fun fetchAudio(audioUrl: String): Pair<ByteArray, String> {
+        // 走 FA 媒体专用客户端：d.furaffinity.net 直链对无会话请求返回 403，
+        // 必须带会话 Cookie + 真实 UA + Referer。发给大模型的 /v1/* 请求走另一套
+        // 客户端，不带任何站点头。
         val bytes = try {
-            http.newCall(
-                Request.Builder()
-                    .url(audioUrl)
-                    .header("User-Agent", com.furflix.app.data.remote.UserAgent.current())
-                    .get()
-                    .build()
-            ).execute().use { response ->
+            FaMediaClient.newCall(audioUrl).execute().use { response ->
                 if (!response.isSuccessful) {
                     throw TranscriptionException(
                         TranscriptionException.Kind.NETWORK,
@@ -146,6 +178,13 @@ class TranscriptionService private constructor() {
                 }
                 response.body.bytes()
             }
+        } catch (e: IllegalArgumentException) {
+            throw TranscriptionException(
+                TranscriptionException.Kind.INVALID_URL,
+                e.message ?: "invalid audio url",
+                audioUrl,
+                e
+            )
         } catch (e: IOException) {
             throw TranscriptionException(
                 TranscriptionException.Kind.NETWORK,
@@ -166,6 +205,12 @@ class TranscriptionService private constructor() {
     private fun execute(http: OkHttpClient, request: Request): String {
         val response = try {
             http.newCall(request).execute()
+        } catch (e: IllegalArgumentException) {
+            throw TranscriptionException(
+                TranscriptionException.Kind.INVALID_URL,
+                e.message ?: "invalid url",
+                cause = e
+            )
         } catch (e: IOException) {
             throw TranscriptionException(
                 TranscriptionException.Kind.NETWORK,
@@ -209,11 +254,27 @@ fun parseModelIds(raw: String): List<String> {
 }
 
 /**
- * Base URL 容错拼接：用户可能填 `https://host`、`https://host/` 或
- * `https://host/v1`，都可能再带一层 `/v1` 后缀，这里统一收敛。
+ * Base URL 规范化：用户常只填主机名（`api.openai.com`）或带尾斜杠。缺协议头时
+ * OkHttp 的 `Request.Builder().url()` 会直接抛 IllegalArgumentException——此前它
+ * 冒泡到 UI 被笼统报成"网络错误"，这是"拉取模型总是网络错误"的主因之一。
+ */
+fun normalizeBaseUrl(raw: String): String {
+    val trimmed = raw.trim().trimEnd('/')
+    if (trimmed.isEmpty()) return ""
+    val lower = trimmed.lowercase()
+    return if (lower.startsWith("http://") || lower.startsWith("https://")) trimmed else "https://$trimmed"
+}
+
+/** 明文 http 会被 network_security_config 的 base-config 拦掉，故只接受 https。 */
+fun isSecureBaseUrl(raw: String): Boolean =
+    normalizeBaseUrl(raw).startsWith("https://", ignoreCase = true)
+
+/**
+ * 端点拼接：`https://host`、`https://host/`、`https://host/v1` 都收敛到同一结果，
+ * 不会拼出 `/v1/v1/models`。
  */
 fun endpointFor(baseUrl: String, path: String): String {
-    val base = baseUrl.trim().trimEnd('/')
+    val base = normalizeBaseUrl(baseUrl)
     if (base.isEmpty()) return path
     val suffix = if (base.endsWith("/v1") && path.startsWith("/v1/")) path.removePrefix("/v1") else path
     return base + suffix

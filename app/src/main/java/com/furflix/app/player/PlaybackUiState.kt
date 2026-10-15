@@ -23,4 +23,13 @@ data class PlaybackUiState(
     /** 进度条用的 0..1 比例（时长未知时为 0）。 */
     val progress: Float
         get() = if (durationMs > 0L) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+
+    /**
+     * 整条音频是否已完整落到本地（缓冲覆盖到时长）。
+     *
+     * 用于"字幕生成"这类需要再次读取整个音频的操作：只有全量在本地时才允许发起，
+     * 否则转录链路要么重复下载、要么在半截数据上失败。
+     */
+    val fullyLoaded: Boolean
+        get() = durationMs > 0L && bufferedMs >= durationMs
 }

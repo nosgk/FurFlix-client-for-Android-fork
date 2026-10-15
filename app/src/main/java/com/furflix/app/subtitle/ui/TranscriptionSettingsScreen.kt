@@ -147,7 +147,7 @@ fun TranscriptionSettingsScreen(onBack: () -> Unit) {
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
                     TextButton(
-                        enabled = !fetching && current?.isConfigured == true,
+                        enabled = !fetching && current?.canFetchModels == true,
                         onClick = {
                             val snapshot = current ?: return@TextButton
                             fetching = true
@@ -407,6 +407,18 @@ private fun TemplateEditor(
 ) {
     var draft by remember(template) { mutableStateOf(template) }
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+        // 把三个键名直接摊开写清楚：它们不是"示例文本"，而是会被软件替换的占位符
+        Text(
+            text = stringResource(
+                R.string.subtitle_template_keys_hint,
+                TranscriptionPrompt.VAR_EXTRA_STYLE,
+                TranscriptionPrompt.VAR_TITLE,
+                TranscriptionPrompt.VAR_DESCRIPTION
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
         OutlinedTextField(
             value = draft,
             onValueChange = { draft = it },

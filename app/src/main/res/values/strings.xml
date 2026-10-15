@@ -718,6 +718,11 @@
     <string name="subtitle_generating">Transcribing…</string>
     <string name="subtitle_hint_not_configured">Set up a transcription service in Settings → AI subtitles</string>
     <string name="subtitle_error_not_configured">Transcription service not configured</string>
+    <string name="subtitle_error_invalid_url">Base URL must be a valid https:// address</string>
+    <string name="subtitle_hint_loading">Available once the audio has fully loaded</string>
+    <string name="subtitle_open_settings">Open transcription settings</string>
+    <!-- %1$s/%2$s/%3$s = the three template variable key names -->
+    <string name="subtitle_template_keys_hint">Variables: %1$s is replaced with the values of the enabled style presets, %2$s with the work\'s original title, %3$s with the work description.</string>
     <string name="subtitle_error_invalid_key">Invalid API key</string>
     <string name="subtitle_error_rate_limited">Rate limited</string>
     <string name="subtitle_error_server">Server error</string>

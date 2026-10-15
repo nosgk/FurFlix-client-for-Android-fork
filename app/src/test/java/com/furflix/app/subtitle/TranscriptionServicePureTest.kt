@@ -5,6 +5,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -33,6 +34,28 @@ class TranscriptionServicePureTest {
             "https://api.openai.com/v1/chat/completions",
             endpointFor("https://api.openai.com/v1/", "/v1/chat/completions")
         )
+    }
+
+    @Test
+    fun `normalizeBaseUrl adds the https scheme and strips trailing slashes`() {
+        assertEquals("https://api.openai.com", normalizeBaseUrl("api.openai.com"))
+        assertEquals("https://api.openai.com", normalizeBaseUrl("  https://api.openai.com/  "))
+        assertEquals("http://localhost:11434", normalizeBaseUrl("http://localhost:11434"))
+        assertEquals("", normalizeBaseUrl("   "))
+    }
+
+    @Test
+    fun `isSecureBaseUrl rejects cleartext and blank`() {
+        assertTrue(isSecureBaseUrl("api.openai.com"))
+        assertTrue(isSecureBaseUrl("https://api.openai.com/v1"))
+        assertFalse(isSecureBaseUrl("http://localhost:11434"))
+        assertFalse(isSecureBaseUrl(""))
+    }
+
+    @Test
+    fun `endpointFor works with a scheme-less base`() {
+        // 用户只填主机名时不能拼出非法 URL（此前会抛 IllegalArgumentException 被误报成网络错误）
+        assertEquals("https://api.groq.com/v1/models", endpointFor("api.groq.com/v1", "/v1/models"))
     }
 
     @Test

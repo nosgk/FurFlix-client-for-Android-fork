@@ -61,6 +61,7 @@ import com.furflix.app.subtitle.SubtitleController
 import com.furflix.app.subtitle.SubtitleRequest
 import com.furflix.app.subtitle.SubtitleTrack
 import com.furflix.app.subtitle.TranscriptionConfig
+import com.furflix.app.subtitle.TranscriptionPrompt
 import com.furflix.app.subtitle.TranscriptionSettings
 import com.furflix.app.subtitle.ui.SubtitlePanel
 import com.furflix.app.subtitle.ui.transcriptionErrorText
@@ -91,6 +92,7 @@ fun AudioHeroContent(
     track: AudioTrack,
     queue: List<AudioTrack>,
     coverUrl: String?,
+    onOpenSubtitleSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -106,7 +108,10 @@ fun AudioHeroContent(
 
     // 本曲是否就是播放器当前曲：不是则本面板呈现"待播放"，按钮点击才真正装载队列
     val isCurrent = state.track?.postId == track.postId && state.track?.url == track.url
-    val displayCover = coverUrl?.takeIf { it.isNotEmpty() } ?: track.coverUrl
+    // 封面候选：列表缩略图优先，但**音频直链不能当图渲染**（列表对音频作品的
+    // thumbnailUrl 兜底值可能就是音频直链，交给 Coil 必然解码失败 → 封面空白）
+    val displayCover = listOfNotNull(coverUrl, track.coverUrl)
+        .firstOrNull { it.isNotEmpty() && it != track.url }
 
     var speedMenuOpen by remember { mutableStateOf(false) }
     // 拖动中的本地回显值，避免被轮询进度顶回
@@ -362,7 +367,10 @@ fun AudioHeroContent(
         val subtitleRequest = SubtitleRequest(
             postId = track.postId,
             title = track.title,
-            description = track.description,
+            // 描述是 HTML，塞进提示词前先纯文本化
+            description = remember(track.description) {
+                TranscriptionPrompt.plainDescription(track.description)
+            },
             audioUrl = track.url
         )
         if (!subtitleTrack.isEmpty) {
@@ -374,6 +382,8 @@ fun AudioHeroContent(
             Spacer(modifier = Modifier.height(8.dp))
         }
         val subtitleError = subtitleState.errorKind
+        // 音频全量落到本地后才允许转录：半截数据上转录要么重复下载、要么失败
+        val canTranscribe = isCurrent && state.fullyLoaded
         when {
             subtitleState.generating -> Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -393,24 +403,51 @@ fun AudioHeroContent(
                 )
             }
 
-            subtitleError != null -> Text(
-                text = transcriptionErrorText(subtitleError),
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.error,
+            subtitleTrack.isEmpty && !transcriptionConfig.isConfigured -> Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
-            )
-
-            subtitleTrack.isEmpty -> if (transcriptionConfig.isConfigured) {
-                TextButton(onClick = { SubtitleController.generate(context, subtitleRequest) }) {
-                    Text(text = stringResource(R.string.subtitle_generate), fontSize = 12.sp)
-                }
-            } else {
+            ) {
                 Text(
                     text = stringResource(R.string.subtitle_hint_not_configured),
                     fontSize = 12.sp,
-                    color = SubtleGray,
-                    modifier = Modifier.fillMaxWidth()
+                    color = SubtleGray
                 )
+                TextButton(onClick = onOpenSubtitleSettings) {
+                    Text(text = stringResource(R.string.subtitle_open_settings), fontSize = 12.sp)
+                }
+            }
+
+            subtitleError != null -> Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = transcriptionErrorText(subtitleError),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.error
+                )
+                TextButton(onClick = onOpenSubtitleSettings) {
+                    Text(text = stringResource(R.string.subtitle_open_settings), fontSize = 12.sp)
+                }
+            }
+
+            subtitleTrack.isEmpty -> Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    enabled = canTranscribe,
+                    onClick = { SubtitleController.generate(context, subtitleRequest) }
+                ) {
+                    Text(text = stringResource(R.string.subtitle_generate), fontSize = 12.sp)
+                }
+                if (isCurrent && !state.fullyLoaded) {
+                    Text(
+                        text = stringResource(R.string.subtitle_hint_loading),
+                        fontSize = 11.sp,
+                        color = SubtleGray
+                    )
+                }
             }
 
             else -> TextButton(

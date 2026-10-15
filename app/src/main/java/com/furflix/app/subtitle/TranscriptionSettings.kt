@@ -40,9 +40,13 @@ data class TranscriptionConfig(
     val template: String = TranscriptionPrompt.DEFAULT_TEMPLATE,
     val timeoutSeconds: Int = DEFAULT_TIMEOUT_SECONDS
 ) {
-    /** 三项齐备才算可用：缺任一项发起请求只会得到 4xx。 */
+    /** 三项齐备才算可转录：缺任一项发起请求只会得到 4xx。 */
     val isConfigured: Boolean
         get() = baseUrl.isNotBlank() && apiKey.isNotBlank() && model.isNotBlank()
+
+    /** 拉模型只需 URL + Key——模型正是要被"拉"出来的东西，不该成为前置条件。 */
+    val canFetchModels: Boolean
+        get() = baseUrl.isNotBlank() && apiKey.isNotBlank()
 
     companion object {
         const val DEFAULT_BASE_URL = "https://api.openai.com"

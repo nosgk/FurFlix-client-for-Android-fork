@@ -139,6 +139,9 @@ dependencies {
     // 提供 MediaSessionService：后台保活 + 系统媒体通知栏/锁屏控制。
     implementation("androidx.media3:media3-exoplayer:1.11.1")
     implementation("androidx.media3:media3-session:1.11.1")
+    // 音频取流必须带 FA 会话头（d.furaffinity.net 原件直链对无会话请求 403），
+    // 故用 OkHttp 数据源替换 ExoPlayer 默认的 DefaultHttpDataSource。
+    implementation("androidx.media3:media3-datasource-okhttp:1.11.1")
 
     // Baseline profile installer: applies the compiled profile at install/first-run
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")

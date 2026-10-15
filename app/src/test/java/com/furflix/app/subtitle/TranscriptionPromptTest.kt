@@ -47,4 +47,24 @@ class TranscriptionPromptTest {
         assertTrue(TranscriptionPrompt.PRESET_ID_VORE in ids)
         assertTrue(TranscriptionPrompt.PRESET_ID_BILINGUAL in ids)
     }
+
+    @Test
+    fun `render also accepts full width braces`() {
+        // 中文输入法下极易打出全角花括号，只认半角会把变量原样漏给模型
+        assertEquals(
+            "T/d",
+            TranscriptionPrompt.render("｛@作品标题｝/｛@作品描述｝", "", "T", "d")
+        )
+    }
+
+    @Test
+    fun `plainDescription strips tags entities and collapses whitespace`() {
+        val html = "<p>Hello &amp; welcome</p>\n\n<div>line <b>two</b></div>"
+        assertEquals("Hello & welcome line two", TranscriptionPrompt.plainDescription(html))
+    }
+
+    @Test
+    fun `plainDescription passes through plain text`() {
+        assertEquals("just words", TranscriptionPrompt.plainDescription("just words"))
+    }
 }

@@ -73,6 +73,7 @@ fun subtitleFontSize(length: Int): TextUnit = when {
 @Composable
 fun transcriptionErrorText(kind: TranscriptionException.Kind): String = when (kind) {
     TranscriptionException.Kind.NOT_CONFIGURED -> stringResource(R.string.subtitle_error_not_configured)
+    TranscriptionException.Kind.INVALID_URL -> stringResource(R.string.subtitle_error_invalid_url)
     TranscriptionException.Kind.INVALID_KEY -> stringResource(R.string.subtitle_error_invalid_key)
     TranscriptionException.Kind.RATE_LIMITED -> stringResource(R.string.subtitle_error_rate_limited)
     TranscriptionException.Kind.SERVER -> stringResource(R.string.subtitle_error_server)

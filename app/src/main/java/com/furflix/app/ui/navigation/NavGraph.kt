@@ -289,6 +289,8 @@ fun FurFlixNavGraph(
                 onTagClick = { tag ->
                     navController.navigate(Routes.tagSearch("@keywords $tag"))
                 },
+                // 音频面板里"前往配置"直达转录服务设置
+                onOpenSubtitleSettings = { navController.navigate(Routes.SUBTITLE_SETTINGS) },
                 onTagAppend = { tag ->
                     // 追加搜索：以来源列表的标签集为基础并入新标签，重开标签搜索；
                     // 来源是主搜索且无 @keywords 组时，退化为单标签搜索
