@@ -63,6 +63,8 @@ import com.furflix.app.data.model.UserProfile
 import com.furflix.app.data.model.WatchlistUser
 import com.furflix.app.data.local.UserBannerStore
 import com.furflix.app.data.repository.FurRepository
+import com.furflix.app.player.PlaybackController
+import com.furflix.app.player.PlaylistBuilder
 import com.furflix.app.ui.components.*
 import com.furflix.app.ui.theme.*
 import com.furflix.app.viewmodel.MainViewModel
@@ -154,6 +156,9 @@ fun UserProfileScreen(
     val userNotes by repository.userNotesFlow.collectAsState(initial = emptyMap())
     var noteEditingUser by remember { mutableStateOf<WatchlistUser?>(null) }
     val screenScope = rememberCoroutineScope()
+    // "播放该画师 / 该文件夹全部音乐"：扫描期间显示进度圈
+    val activeFolder by viewModel.activeFolder.collectAsState()
+    var playlistScanning by remember { mutableStateOf(false) }
     // 画廊三视图与列数偏好与画廊全局共用（一处设置全局生效）
     val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
@@ -346,6 +351,45 @@ fun UserProfileScreen(
                     }
                 },
                 actions = {
+                    // 一键把该画师（或当前打开的文件夹）里的全部音频作品聚合成播放列表
+                    if (!selectionActive) {
+                        IconButton(
+                            enabled = !playlistScanning,
+                            onClick = {
+                                playlistScanning = true
+                                screenScope.launch {
+                                    val folder = activeFolder
+                                    val list = if (folder != null) {
+                                        PlaylistBuilder.folderMusic(context, username, folder)
+                                    } else {
+                                        PlaylistBuilder.artistMusic(context, username)
+                                    }
+                                    if (list.items.isEmpty()) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.getString(R.string.playlist_no_music),
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        PlaybackController.playPlaylist(context, list, 0)
+                                    }
+                                    playlistScanning = false
+                                }
+                            }
+                        ) {
+                            if (playlistScanning) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.QueueMusic,
+                                    contentDescription = stringResource(R.string.playlist_play_artist)
+                                )
+                            }
+                        }
+                    }
                     if (selectionActive) {
                         val batchQueuedText = stringResource(R.string.toast_batch_download_queued, selection.ids.size)
                         // 与首页多选同一套动作：全选 / 批量收藏 / 批量下载 / 退出
