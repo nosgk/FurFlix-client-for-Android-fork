@@ -48,7 +48,6 @@ fun SettingsScreen(
     onNavigateToAppearance: () -> Unit,
     onNavigateToFilters: () -> Unit,
     onNavigateToTranslation: () -> Unit,
-    onNavigateToSubtitles: () -> Unit,
     onNavigateToAbout: () -> Unit,
     onNavigateToStorage: () -> Unit = {},
     viewModel: MainViewModel = viewModel()
@@ -145,14 +144,6 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_translation),
                         subtitle = stringResource(R.string.settings_translation_desc),
                         onClick = onNavigateToTranslation
-                    )
-                    SettingsDivider()
-                    SettingsRow(
-                        icon = Icons.Default.Subtitles,
-                        iconColor = Color(0xFF7C4DFF),
-                        title = stringResource(R.string.settings_subtitles),
-                        subtitle = stringResource(R.string.settings_subtitles_desc),
-                        onClick = onNavigateToSubtitles
                     )
                     SettingsDivider()
                     SettingsRow(

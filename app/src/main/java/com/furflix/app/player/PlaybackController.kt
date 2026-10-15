@@ -269,7 +269,7 @@ object PlaybackController {
         ticker = scope.launch {
             while (isActive) {
                 syncProgress()
-                delay(500)
+                delay(200)
             }
         }
     }

@@ -32,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,14 +56,6 @@ import com.furflix.app.R
 import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.player.AudioTrack
 import com.furflix.app.player.PlaybackController
-import com.furflix.app.subtitle.HtmlPlainText
-import com.furflix.app.subtitle.SubtitleController
-import com.furflix.app.subtitle.SubtitleRequest
-import com.furflix.app.subtitle.SubtitleTrack
-import com.furflix.app.subtitle.TranscriptionConfig
-import com.furflix.app.subtitle.TranscriptionSettings
-import com.furflix.app.subtitle.ui.SubtitlePanel
-import com.furflix.app.subtitle.ui.transcriptionErrorText
 import com.furflix.app.ui.theme.DarkBackground
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.SubtleGray
@@ -92,19 +83,11 @@ fun AudioHeroContent(
     track: AudioTrack,
     queue: List<AudioTrack>,
     coverUrl: String?,
-    onOpenSubtitleSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val state by PlaybackController.state.collectAsState()
     val untitledLabel = stringResource(R.string.player_untitled)
-
-    // 字幕会话跟随当前作品切换；缓存命中即直接显示，未命中等用户点生成
-    val subtitleState by SubtitleController.state.collectAsState()
-    val transcriptionConfig by remember { TranscriptionSettings.getInstance(context).config }
-        .collectAsState(initial = TranscriptionConfig())
-    LaunchedEffect(track.postId) { SubtitleController.select(context, track.postId) }
-    val subtitleTrack = if (subtitleState.postId == track.postId) subtitleState.track else SubtitleTrack.EMPTY
 
     // 本曲是否就是播放器当前曲：不是则本面板呈现"待播放"，按钮点击才真正装载队列
     val isCurrent = state.track?.postId == track.postId && state.track?.url == track.url
@@ -116,6 +99,13 @@ fun AudioHeroContent(
     var speedMenuOpen by remember { mutableStateOf(false) }
     // 拖动中的本地回显值，避免被轮询进度顶回
     var draggingValue by remember { mutableStateOf<Float?>(null) }
+    // 刚 seek 完的本地回显：进度轮询有延迟，不顶住的话松手后会先弹回旧位置再跳过去
+    // （用户看到的就是"快速拖动时进度条卡住不动"）。状态追上目标后交还。
+    var seekOverrideMs by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(state.positionMs) {
+        val target = seekOverrideMs
+        if (target != null && kotlin.math.abs(state.positionMs - target) < 1500L) seekOverrideMs = null
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -251,14 +241,16 @@ fun AudioHeroContent(
 
         // ── 进度 ────────────────────────────────────────────────────────
         val durationMs = if (isCurrent) state.durationMs else 0L
-        val positionMs = if (isCurrent) state.positionMs else 0L
+        val positionMs = seekOverrideMs ?: if (isCurrent) state.positionMs else 0L
         val sliderValue = draggingValue ?: if (durationMs > 0L) (positionMs.toFloat() / durationMs) else 0f
         Slider(
             value = sliderValue.coerceIn(0f, 1f),
             onValueChange = { draggingValue = it },
             onValueChangeFinished = {
                 if (isCurrent && durationMs > 0L) {
-                    PlaybackController.seekTo(((draggingValue ?: 0f) * durationMs).toLong())
+                    val target = ((draggingValue ?: 0f) * durationMs).toLong()
+                    PlaybackController.seekTo(target)
+                    seekOverrideMs = target
                 }
                 draggingValue = null
             },
@@ -367,112 +359,6 @@ fun AudioHeroContent(
                     color = SubtleGray,
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
-        }
-
-        // ── 字幕（AI 转录）─────────────────────────────────────────────
-        Spacer(modifier = Modifier.height(14.dp))
-        val subtitleRequest = SubtitleRequest(
-            postId = track.postId,
-            title = track.title,
-            // 描述是 HTML，塞进提示词前先转纯文本（HtmlPlainText 是唯一实现）
-            description = remember(track.description) {
-                HtmlPlainText.toPlainText(track.description)
-            },
-            audioUrl = track.url
-        )
-        if (!subtitleTrack.isEmpty) {
-            SubtitlePanel(
-                track = subtitleTrack,
-                positionMs = if (isCurrent) state.positionMs else 0L,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-        val subtitleError = subtitleState.errorKind
-        // 音频就绪（可播）后即可转录。不要求整条缓冲完毕——ExoPlayer 只向前预读
-        // 有限缓冲，长音频永远"没缓冲完"，那样按钮会长期灰着
-        val canTranscribe = isCurrent && state.isReady
-        when {
-            subtitleState.generating -> Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    strokeWidth = 2.dp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.subtitle_generating),
-                    fontSize = 12.sp,
-                    color = SubtleGray
-                )
-            }
-
-            subtitleTrack.isEmpty && !transcriptionConfig.isConfigured -> Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = stringResource(R.string.subtitle_hint_not_configured),
-                    fontSize = 12.sp,
-                    color = SubtleGray
-                )
-                TextButton(onClick = onOpenSubtitleSettings) {
-                    Text(text = stringResource(R.string.subtitle_open_settings), fontSize = 12.sp)
-                }
-            }
-
-            subtitleError != null -> Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = transcriptionErrorText(subtitleError),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.error
-                )
-                // 直接把细节摊在界面上（HTTP 状态码/服务端响应片段/异常信息），
-                // 免得"网络错误"四个字什么也说明不了
-                subtitleState.errorDetail?.let { detail ->
-                    Text(
-                        text = detail,
-                        fontSize = 10.sp,
-                        color = SubtleGray,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                TextButton(onClick = onOpenSubtitleSettings) {
-                    Text(text = stringResource(R.string.subtitle_open_settings), fontSize = 12.sp)
-                }
-            }
-
-            subtitleTrack.isEmpty -> Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                TextButton(
-                    enabled = canTranscribe,
-                    onClick = { SubtitleController.generate(context, subtitleRequest) }
-                ) {
-                    Text(text = stringResource(R.string.subtitle_generate), fontSize = 12.sp)
-                }
-                if (isCurrent && !state.isReady) {
-                    Text(
-                        text = stringResource(R.string.subtitle_hint_loading),
-                        fontSize = 11.sp,
-                        color = SubtleGray
-                    )
-                }
-            }
-
-            else -> TextButton(
-                onClick = { SubtitleController.generate(context, subtitleRequest, forceRefresh = true) }
-            ) {
-                Text(text = stringResource(R.string.subtitle_regenerate), fontSize = 12.sp)
             }
         }
 

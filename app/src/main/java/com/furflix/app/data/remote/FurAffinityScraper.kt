@@ -29,6 +29,29 @@ private val IMAGE_URL_REGEX = Regex(
     RegexOption.IGNORE_CASE
 )
 
+/** 原件直链里"上传时间戳"那一段：`.../music/1792030318/1791988079.xxx.mp3` → 1792030318 */
+private val FILE_TS_REGEX = Regex("/(\\d{9,})/[^/]*$")
+
+/**
+ * 由作品号 + 原件直链推导作品缩略图地址。
+ *
+ * FA 的缩略图地址形如 `t.furaffinity.net/<postId>@<tier>-<uploadTs>.jpg`，而
+ * **`<uploadTs>` 正是原件直链里类型目录之后的那一段**。两个实测样本：
+ *  - `/art/dragons-and-drawings/music/1792030318/1791988079.….mp3`
+ *    ↔ `t.furaffinity.net/66696429@200-1792030318.jpg`
+ *  - `/art/grgle/music/1664406930/1664406930.….mp3`
+ *    ↔ `t.furaffinity.net/49183907@600-1664406930.jpg`
+ *
+ * 这条推导是音频/文档/Flash 类作品拿到封面的可靠兜底：这类作品的 fullImageUrl 会落成
+ * 原件直链（不能当图渲染），而**详情页对没有封面的作品不给封面**（og:image 会回落成
+ * 站点 logo 横幅，实测 /view/66696429/）。
+ */
+fun faDerivedThumbnailUrl(postId: String, fileUrl: String): String? {
+    if (postId.isBlank()) return null
+    val ts = FILE_TS_REGEX.find(fileUrl)?.groupValues?.get(1) ?: return null
+    return "https://t.furaffinity.net/$postId@300-$ts.jpg"
+}
+
 object FurAffinityScraper {
 
     // 会话与 cookie 管理已抽至 FurSession(REFACTOR-004):本对象只做抓取与解析,
@@ -1129,22 +1152,15 @@ object FurAffinityScraper {
         // 作品所属画廊文件夹（sidebar-lower 的 Folders 区块）
         val folders = parseSubmissionFolders(doc)
 
-        // 封面：优先用站点给作品渲染的缩略图（og:image 指向 t.furaffinity.net 时才是
-        // 作品封面）。**注意 og:image 对"没有封面"的作品会回落成站点 logo 横幅**
-        // （实测 /view/66696429/：og:image = .../themes/beta/img/banners/fa_logo.png?v2），
-        // 那不是封面——不排除掉就会把 FA logo 当作品封面显示。
-        // 而 fullImageUrl 对音频/文档/Flash 类会落成**原件直链**（mp3/pdf/swf），
-        // 当封面渲染必然失败。故：派生封面是图片就用它，否则用真正的 og:image 缩略图，
-        // 两者都没有就保持直链（上层按"无封面"处理，显示占位图标）。
-        val ogImage = doc.select("meta[property=og:image]").firstOrNull()
-            ?.attr("content")?.trim()
-            ?.takeIf { it.contains("t.furaffinity.net/") }
-            ?.let { if (it.startsWith("//")) "https:$it" else it }
+        // 封面：音频/文档/Flash 类作品的 fullImageUrl 会落成**原件直链**（mp3/pdf/swf），
+        // 当封面渲染必然失败；而这类作品的详情页往往不给封面（og:image 会回落成站点
+        // logo 横幅，实测 /view/66696429/）。故按"作品号 + 原件直链里的上传时间戳"
+        // 推导缩略图地址——见 [faDerivedThumbnailUrl]。
         val derivedCover = fullImageUrl.ifEmpty { authorAvatar }
         val coverUrl = if (IMAGE_URL_REGEX.containsMatchIn(derivedCover)) {
             derivedCover
         } else {
-            ogImage ?: derivedCover
+            faDerivedThumbnailUrl(submissionId, fileUrl) ?: derivedCover
         }
 
         return Submission(

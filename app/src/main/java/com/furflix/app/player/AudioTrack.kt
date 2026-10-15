@@ -14,9 +14,7 @@ data class AudioTrack(
     val title: String,
     val artist: String,
     val coverUrl: String?,
-    val url: String,
-    /** 作品描述（纯文本）：字幕生成的提示词要注入它做上下文。 */
-    val description: String = ""
+    val url: String
 )
 
 /** 音频类作品的扩展名集合（与详情页判定同源，避免两处漂移）。 */
@@ -36,9 +34,11 @@ fun Submission.toAudioTrack(): AudioTrack = AudioTrack(
     postId = id,
     title = title.ifEmpty { fileName.ifEmpty { id } },
     artist = author,
-    coverUrl = audioCoverUrl(this),
-    url = fileUrl.ifEmpty { fullImageUrl },
-    description = description
+    // 详情页给的 thumbnailUrl 对音频作品常是原件直链（不能当图渲染）→ 过滤掉后
+    // 用"作品号 + 直链时间戳"推导缩略图地址兜底，保证任何入口都有封面
+    coverUrl = audioCoverUrl(this)
+        ?: com.furflix.app.data.remote.faDerivedThumbnailUrl(id, fileUrl.ifEmpty { fullImageUrl }),
+    url = fileUrl.ifEmpty { fullImageUrl }
 )
 
 /**

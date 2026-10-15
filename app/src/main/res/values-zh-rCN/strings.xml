@@ -405,7 +405,6 @@
     <string name="filter_sort_popular">最热门</string>
     <string name="filter_perpage">每页结果数</string>
 
-
     <string name="profile_following_list">正在关注</string>
     <string name="profile_followers_list">关注者</string>
     <string name="nav_tab_downloads">下载</string>
@@ -697,48 +696,4 @@
     <string name="player_stream_channel_count">%1$d 声道</string>
     <string name="player_error">播放失败，点击播放重试</string>
 
-    <!-- AI 字幕（OpenAI 兼容的音频转录） -->
-    <string name="settings_subtitles">AI 字幕</string>
-    <string name="settings_subtitles_desc">把音频作品转录成带时间轴的字幕</string>
-    <string name="subtitle_title">AI 字幕</string>
-    <string name="subtitle_enabled">启用转录</string>
-    <string name="subtitle_enabled_desc">在音频作品上显示生成字幕入口</string>
-    <string name="subtitle_section_service">服务（OpenAI 兼容）</string>
-    <string name="subtitle_base_url">Base URL</string>
-    <string name="subtitle_api_key">API Key</string>
-    <string name="subtitle_model">模型</string>
-    <string name="subtitle_fetch_models">拉取模型</string>
-    <string name="subtitle_pick_model">选择模型</string>
-    <string name="subtitle_section_presets">风格预设</string>
-    <string name="subtitle_presets_desc">启用中的预设会拼进提示词</string>
-    <string name="subtitle_preset_add">新增预设</string>
-    <string name="subtitle_preset_edit">编辑预设</string>
-    <string name="subtitle_preset_delete">删除预设</string>
-    <string name="subtitle_preset_name">名称</string>
-    <string name="subtitle_preset_prompt">额外风格提示词</string>
-    <string name="subtitle_preset_untitled">未命名预设</string>
-    <string name="subtitle_preset_builtin">内置预设</string>
-    <string name="subtitle_preset_reset">恢复内置预设</string>
-    <string name="subtitle_section_template">提示词模板</string>
-    <string name="subtitle_template">系统提示词模板</string>
-    <string name="subtitle_template_save">保存模板</string>
-    <string name="subtitle_template_reset">恢复默认</string>
-    <string name="subtitle_action_save">保存</string>
-    <string name="subtitle_action_cancel">取消</string>
-    <string name="subtitle_generate">生成字幕</string>
-    <string name="subtitle_regenerate">重新生成字幕</string>
-    <string name="subtitle_generating">正在转录…</string>
-    <string name="subtitle_hint_not_configured">请先在 设置 → AI 字幕 里配置转录服务</string>
-    <string name="subtitle_error_not_configured">未配置转录服务</string>
-    <string name="subtitle_error_invalid_url">Base URL 必须是合法的 https:// 地址</string>
-    <string name="subtitle_hint_loading">音频完整载入后即可生成</string>
-    <string name="subtitle_open_settings">打开转录设置</string>
-    <!-- %1$s/%2$s/%3$s = 三个模板变量键名 -->
-    <string name="subtitle_template_keys_hint">可用变量：%1$s 会填入已启用风格预设的值，%2$s 自动填入作品原始标题，%3$s 自动填入作品描述。</string>
-    <string name="subtitle_error_invalid_key">API 密钥无效</string>
-    <string name="subtitle_error_rate_limited">请求过于频繁</string>
-    <string name="subtitle_error_server">服务器错误</string>
-    <string name="subtitle_error_network">网络错误</string>
-    <string name="subtitle_error_bad_response">未能从响应中解析出字幕</string>
-    <string name="subtitle_error_too_large">音频过大，无法上传</string>
 </resources>
