@@ -102,7 +102,6 @@ $VAR_EXTRA_STYLE
         val fullWidth = token.replace('{', '｛').replace('}', '｝')
         return text.replace(token, value).replace(fullWidth, value)
     }
-}
 
     /** 把启用中的预设拼成一段额外风格提示词（按 [presets] 的顺序）。 */
     fun combinePresets(presets: List<StylePreset>, activeIds: Set<String>): String =

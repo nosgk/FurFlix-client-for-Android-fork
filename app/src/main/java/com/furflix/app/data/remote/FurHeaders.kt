@@ -48,8 +48,8 @@ object FurHeaders {
     }
 
     /**
-     * 媒体文件请求（音频/视频直链取流）：与图片集同族，但 dest 是 media 语义。
-     * 不能复用 [applyImageHints]——对 mp3 声明 `accept: image/*` 语义不符，
+     * 媒体文件请求（音频/视频直链取流）：与图片集同族，但 dest 是 audio 语义。
+     * 不能复用 [applyImageHints]——对 mp3 声明图片类 accept 语义不符，
      * 可能被 CDN/CF 判为异常流量。
      */
     fun applyMediaHints(builder: Request.Builder) {
