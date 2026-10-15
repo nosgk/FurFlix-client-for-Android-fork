@@ -126,8 +126,17 @@ class TranscriptionService private constructor() {
     }
 
     private fun fetchAudio(http: OkHttpClient, audioUrl: String): Pair<ByteArray, String> {
+        // 音频直链在 FA 的 CDN 上：按全链路 UA 单一来源带上运行时真实 UA，
+        // 别用 OkHttp 默认 UA 去撞站点的 UA 校验。注意仅此一处——发给大模型的
+        // /v1/* 请求不带站点 UA/Referer。
         val bytes = try {
-            http.newCall(Request.Builder().url(audioUrl).get().build()).execute().use { response ->
+            http.newCall(
+                Request.Builder()
+                    .url(audioUrl)
+                    .header("User-Agent", com.furflix.app.data.remote.UserAgent.current())
+                    .get()
+                    .build()
+            ).execute().use { response ->
                 if (!response.isSuccessful) {
                     throw TranscriptionException(
                         TranscriptionException.Kind.NETWORK,
