@@ -1,11 +1,14 @@
 package com.furflix.app.subtitle
 
+import kotlinx.serialization.Serializable
+
 /**
  * 风格预设：一段拼进系统提示词的"额外风格提示词"。
  *
  * [builtIn] 的内置预设名字按"预设标签"处理、不参与本地化（用户可另存为自定义预设
  * 再改名），与语言选择器里恒显母语名同理。
  */
+@Serializable
 data class StylePreset(
     val id: String,
     val name: String,
