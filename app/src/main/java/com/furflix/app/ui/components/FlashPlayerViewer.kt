@@ -2,6 +2,8 @@ package com.furflix.app.ui.components
 
 import android.annotation.SuppressLint
 import android.view.ViewGroup
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -36,6 +38,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.furflix.app.R
+import com.furflix.app.data.local.DocFileCache
+import kotlinx.coroutines.runBlocking
 
 /**
  * Flash 全屏播放器：FA 自己用 Ruffle 模拟 SWF（ruffle.js 与 SWF 同在
@@ -72,6 +76,35 @@ fun FlashPlayerViewer(
                     settings.mediaPlaybackRequiresUserGesture = false
                     setBackgroundColor(android.graphics.Color.BLACK)
                     webViewClient = object : WebViewClient() {
+                        /**
+                         * SWF 走本地缓存：Ruffle 是按 URL 直接 fetch 的，这里拦下来改成
+                         * 读缓存文件（未缓存则用带 FA 会话头的客户端下载一次）。
+                         * 缓存复用文档类那套 [DocFileCache]（同样是"URL 哈希 + 落盘 + TTL/LRU
+                         * 由 CacheJanitor 修剪"），不再另造一份。
+                         *
+                         * 注意本回调在**非主线程**执行，故可以阻塞等待下载；失败返回 null
+                         * 交给 WebView 自己走网络，不影响可播放性。
+                         */
+                        override fun shouldInterceptRequest(
+                            view: WebView?,
+                            request: WebResourceRequest?
+                        ): WebResourceResponse? {
+                            val url = request?.url?.toString() ?: return null
+                            if (!url.equals(swfUrl, ignoreCase = true)) return null
+                            val file = runCatching {
+                                runBlocking {
+                                    DocFileCache.obtain(context, url, "swf") {
+                                        com.furflix.app.data.remote.FurAffinityScraper.fetchBinary(url)
+                                    }
+                                }
+                            }.getOrNull() ?: return null
+                            return WebResourceResponse(
+                                "application/x-shockwave-flash",
+                                null,
+                                file.inputStream()
+                            )
+                        }
+
                         override fun onPageFinished(view: WebView?, url: String?) {
                             pageReady = true
                         }
