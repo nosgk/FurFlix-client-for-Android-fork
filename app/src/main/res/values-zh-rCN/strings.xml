@@ -675,4 +675,25 @@
     <string name="translation_error_no_key">未配置 API 密钥</string>
     <!-- %1$d = HTTP 状态码, %2$s = 服务器响应摘录 -->
     <string name="translation_error_http_detail">HTTP %1$d · %2$s</string>
+
+    <!-- 音频播放器（详情页面板 + 全局迷你条） -->
+    <string name="player_untitled">未命名音频</string>
+    <string name="player_unknown_artist">未知作者</string>
+    <string name="player_play">播放</string>
+    <string name="player_pause">暂停</string>
+    <string name="player_previous">上一首</string>
+    <string name="player_next">下一首</string>
+    <string name="player_close">关闭播放器</string>
+    <string name="player_repeat_one">单曲循环</string>
+    <!-- %1$s = 倍速值，如 1.25 -->
+    <string name="player_speed_value">%1$s 倍速</string>
+    <!-- %1$s = 采样率（kHz），如 44.1 -->
+    <string name="player_stream_sample_rate_value">%1$s kHz</string>
+    <!-- %1$d = 比特率（kbps） -->
+    <string name="player_stream_bitrate_value">%1$d kbps</string>
+    <string name="player_stream_channel_mono">单声道</string>
+    <string name="player_stream_channel_stereo">立体声</string>
+    <!-- %1$d = 声道数（大于 2） -->
+    <string name="player_stream_channel_count">%1$d 声道</string>
+    <string name="player_error">播放失败，点击播放重试</string>
 </resources>

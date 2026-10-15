@@ -1,27 +1,33 @@
 package com.furflix.app.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.data.remote.FaLink
 import com.furflix.app.data.remote.parseFaLink
 import com.furflix.app.data.repository.FurRepository
+import com.furflix.app.player.PlaybackController
 import com.furflix.app.ui.components.LocalDetailImageQuality
 import com.furflix.app.ui.components.LocalImageFidelity
 import com.furflix.app.ui.components.LocalImageFidelityThumbnails
 import com.furflix.app.ui.components.LocalImageInterpolation
 import com.furflix.app.ui.components.LocalThumbnailQuality
+import com.furflix.app.ui.components.MiniPlayerOverlay
 import com.furflix.app.ui.screens.*
 import com.furflix.app.viewmodel.MainViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -132,6 +138,8 @@ fun FurFlixNavGraph(
                 onDismiss = { com.furflix.app.data.remote.CloudflareGate.cancel() }
             )
         }
+        // Box 让全局迷你播放器能悬浮在 NavHost 之上、跨所有路由存活
+        Box(modifier = Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
@@ -452,6 +460,21 @@ fun FurFlixNavGraph(
                 onNavigateToPost = { postId -> navController.navigate(Routes.postDetail(postId, "tag_${tag.replace("@keywords ", "")}")) },
                 onNavigateToUser = { user -> navController.navigate(Routes.userProfile(user)) },
                 cardStats = mainViewModel.cardStats.collectAsState().value
+            )
+        }
+        }
+
+        // 全局迷你播放器：有当前曲目即悬浮显示。停在"本曲自己的详情页"时隐藏——
+        // 那里已有完整播放面板，重复入口只会挡内容。
+        val playbackState by PlaybackController.state.collectAsState()
+        val currentEntry by navController.currentBackStackEntryAsState()
+        val onOwnDetailPage = currentEntry?.destination?.route == Routes.POST_DETAIL &&
+            currentEntry?.arguments?.getString("postId") == playbackState.track?.postId
+        if (playbackState.track != null && !onOwnDetailPage) {
+            MiniPlayerOverlay(
+                onOpenTrack = { track ->
+                    navController.navigate(Routes.postDetail(track.postId, "main"))
+                }
             )
         }
         }

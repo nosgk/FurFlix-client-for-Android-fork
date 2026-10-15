@@ -104,6 +104,9 @@ import com.furflix.app.ui.components.StoryReader
 import com.furflix.app.ui.components.FlashPlayerViewer
 import com.furflix.app.ui.components.GifFrameViewer
 import com.furflix.app.ui.components.AudioHeroContent
+import com.furflix.app.player.AudioTrack
+import com.furflix.app.player.isAudioWork
+import com.furflix.app.player.toAudioTrack
 import com.furflix.app.ui.components.DocumentHeroContent
 import com.furflix.app.ui.components.DocumentViewerScreen
 import com.furflix.app.ui.theme.*
@@ -176,6 +179,12 @@ fun PostDetailScreen(
 
     val initialIndex = remember(effectiveSubmissions) {
         effectiveSubmissions.indexOfFirst { it.id == initialPostId }.takeIf { it >= 0 } ?: 0
+    }
+
+    // 可播放队列：当前分页列表里的全部音频作品。播放器的上一首/下一首按此顺序走，
+    // 于是"在画师作品流里连着听"成为默认行为，无需额外建歌单。
+    val audioQueue = remember(effectiveSubmissions) {
+        effectiveSubmissions.filter { it.isAudioWork() }.map { it.toAudioTrack() }
     }
 
     val pagerState = rememberPagerState(
@@ -542,6 +551,7 @@ fun PostDetailScreen(
                             TwoPaneHeroImage(
                                 sub = sub,
                                 placeholderUrl = listThumbnailUrl,
+                                audioQueue = audioQueue,
                                 modifier = Modifier
                                     .weight(detailSplit.toFloat())
                                     .fillMaxHeight(),
@@ -568,6 +578,7 @@ fun PostDetailScreen(
                             HeroImage(
                                 sub,
                                 placeholderUrl = listThumbnailUrl,
+                                audioQueue = audioQueue,
                                 onImageClick = { showZoom = true },
                                 onOpenDocumentViewer = { showDocumentViewer = true },
                                 onOpenPdfViewer = { showPdfViewer = true },
@@ -791,6 +802,7 @@ fun PostDetailScreen(
 private fun TwoPaneHeroImage(
     sub: Submission,
     placeholderUrl: String?,
+    audioQueue: List<AudioTrack> = emptyList(),
     modifier: Modifier = Modifier,
     onImageClick: () -> Unit = {},
     onOpenDocumentViewer: () -> Unit = {},
@@ -811,7 +823,8 @@ private fun TwoPaneHeroImage(
     // Music/音频：主媒体区内嵌播放器（fullImageUrl 的兜底值是音频直链，不能当图渲染）
     if (isAudioSubmission(sub)) {
         AudioHeroContent(
-            audioUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
+            track = sub.toAudioTrack(),
+            queue = audioQueue,
             coverUrl = placeholderUrl,
             modifier = modifier
         )
@@ -921,12 +934,7 @@ private fun TwoPaneHeroImage(
 // -----------------------------------------------------------------------------------------
 
 /** 音频作品（FA Music/Podcast 类）：详情页以 <audio> 直链渲染，必须走播放器而非图片渲染。 */
-private val AUDIO_EXTS = setOf("mp3", "m4a", "ogg", "wav", "flac", "aac", "mid", "midi")
-
-private fun isAudioSubmission(sub: Submission): Boolean =
-    sub.fileExt.lowercase() in AUDIO_EXTS ||
-        sub.fileType.equals("Music", ignoreCase = true) ||
-        sub.fileType.equals("Podcast", ignoreCase = true)
+private fun isAudioSubmission(sub: Submission): Boolean = sub.isAudioWork()
 
 /** PDF 文档（FA Story/Poetry 类可上传 pdf 原件）：与其它文档类同待遇，不自动载入。 */
 private fun isPdfSubmission(sub: Submission): Boolean =
@@ -959,6 +967,7 @@ private fun docCoverUrl(sub: Submission, listThumbnailUrl: String?): String? =
 private fun HeroImage(
     sub: Submission,
     placeholderUrl: String?,
+    audioQueue: List<AudioTrack> = emptyList(),
     onImageClick: () -> Unit = {},
     onOpenDocumentViewer: () -> Unit = {},
     onOpenPdfViewer: () -> Unit = {},
@@ -978,7 +987,8 @@ private fun HeroImage(
     // Music/音频：主媒体区内嵌播放器（fullImageUrl 的兜底值是音频直链，不能当图渲染）
     if (isAudioSubmission(sub)) {
         AudioHeroContent(
-            audioUrl = sub.fileUrl.ifEmpty { sub.fullImageUrl },
+            track = sub.toAudioTrack(),
+            queue = audioQueue,
             coverUrl = placeholderUrl,
             modifier = Modifier.fillMaxWidth()
         )

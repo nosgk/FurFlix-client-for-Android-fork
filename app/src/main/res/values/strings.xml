@@ -663,4 +663,25 @@
     <string name="translation_error_no_key">API key not configured</string>
     <!-- %1$d = HTTP status, %2$s = server response excerpt -->
     <string name="translation_error_http_detail">HTTP %1$d · %2$s</string>
+
+    <!-- Audio player: detail-page panel + global mini player -->
+    <string name="player_untitled">Untitled audio</string>
+    <string name="player_unknown_artist">Unknown artist</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_previous">Previous track</string>
+    <string name="player_next">Next track</string>
+    <string name="player_close">Close player</string>
+    <string name="player_repeat_one">Repeat one</string>
+    <!-- %1$s = speed multiplier, e.g. 1.25 -->
+    <string name="player_speed_value">%1$s×</string>
+    <!-- %1$s = sample rate in kHz, e.g. 44.1 -->
+    <string name="player_stream_sample_rate_value">%1$s kHz</string>
+    <!-- %1$d = bitrate in kbps -->
+    <string name="player_stream_bitrate_value">%1$d kbps</string>
+    <string name="player_stream_channel_mono">Mono</string>
+    <string name="player_stream_channel_stereo">Stereo</string>
+    <!-- %1$d = channel count greater than 2 -->
+    <string name="player_stream_channel_count">%1$d ch</string>
+    <string name="player_error">Playback failed. Tap play to retry.</string>
 </resources>
