@@ -81,7 +81,7 @@ object SubtitleController {
                         description = request.description
                     )
                     val content = TranscriptionService.getInstance()
-                        .transcribe(app, config, prompt, request.audioUrl)
+                        .transcribe(config, prompt, request.audioUrl)
                     val body = SrtParser.extractFencedBlock(content)
                     runCatching { cache.put(request.postId, body) }
                     body
