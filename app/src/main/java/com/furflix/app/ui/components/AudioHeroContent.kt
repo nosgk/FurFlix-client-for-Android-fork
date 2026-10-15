@@ -1,7 +1,11 @@
 package com.furflix.app.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +25,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -29,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -39,6 +45,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +63,11 @@ import coil3.compose.AsyncImage
 import com.furflix.app.R
 import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.player.AudioTrack
+import com.furflix.app.player.CustomPlaylistStore
 import com.furflix.app.player.PlaybackController
+import com.furflix.app.player.PlaylistBuilder
+import com.furflix.app.player.StoredPlaylistItem
+import kotlinx.coroutines.launch
 import com.furflix.app.ui.theme.DarkBackground
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.SubtleGray
@@ -327,6 +338,74 @@ fun AudioHeroContent(
             }
         }
 
+        // ── 播放列表：聚合该画师全部音乐 / 加入自定义列表 ──────────────────
+        val scope = rememberCoroutineScope()
+        var scanning by remember { mutableStateOf(false) }
+        var showListPicker by remember { mutableStateOf(false) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            TextButton(
+                enabled = !scanning && track.artistUsername.isNotEmpty(),
+                onClick = {
+                    scanning = true
+                    scope.launch {
+                        val list = PlaylistBuilder.artistMusic(context, track.artistUsername)
+                        if (list.items.isEmpty()) {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.playlist_no_music),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            PlaybackController.playPlaylist(context, list, 0)
+                        }
+                        scanning = false
+                    }
+                }
+            ) {
+                Text(
+                    text = stringResource(
+                        if (scanning) R.string.playlist_scanning else R.string.playlist_play_artist
+                    ),
+                    fontSize = 12.sp
+                )
+            }
+            TextButton(onClick = { showListPicker = true }) {
+                Text(text = stringResource(R.string.playlist_add_to), fontSize = 12.sp)
+            }
+        }
+
+        if (showListPicker) {
+            PlaylistPickerDialog(
+                onDismiss = { showListPicker = false },
+                onPick = { listId, listName ->
+                    val store = CustomPlaylistStore.getInstance(context)
+                    scope.launch {
+                        store.addItem(
+                            listId,
+                            StoredPlaylistItem(
+                                postId = track.postId,
+                                title = track.title,
+                                artist = track.artist,
+                                coverUrl = track.coverUrl,
+                                url = track.url,
+                                artistUsername = track.artistUsername
+                            )
+                        )
+                    }
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.playlist_added, listName),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    showListPicker = false
+                }
+            )
+        }
+
         // ── 流元数据：编解码器 / 采样率 / 比特率 / 声道 ───────────────────
         if (isCurrent && !state.stream.isEmpty) {
             Spacer(modifier = Modifier.height(14.dp))
@@ -417,4 +496,76 @@ private fun PlayerChip(
         }
         Text(text = label, fontSize = 12.sp, color = tint)
     }
+}
+
+/**
+ * "加入播放列表"选择器：列出全部自定义列表（含内置收藏），也可当场新建。
+ * 列表名是用户数据；内置列表按 id 显示本地化名。
+ */
+@Composable
+private fun PlaylistPickerDialog(
+    onDismiss: () -> Unit,
+    onPick: (listId: String, listName: String) -> Unit
+) {
+    val context = LocalContext.current
+    val store = remember { CustomPlaylistStore.getInstance(context) }
+    val playlists by store.playlists.collectAsState(initial = emptyList())
+    val scope = rememberCoroutineScope()
+    val builtInLabel = stringResource(R.string.playlist_builtin_favorites)
+    var creating by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.playlist_add_to)) },
+        text = {
+            if (creating) {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text(stringResource(R.string.playlist_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    playlists.forEach { list ->
+                        val name = if (list.isBuiltIn) builtInLabel else list.name
+                        Text(
+                            text = stringResource(R.string.playlist_track_count, list.items.size)
+                                .let { "$name  ·  $it" },
+                            fontSize = 14.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(list.id, name) }
+                                .padding(vertical = 12.dp)
+                        )
+                    }
+                    TextButton(onClick = { creating = true }) {
+                        Text(stringResource(R.string.playlist_create))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (creating) {
+                TextButton(
+                    enabled = newName.isNotBlank(),
+                    onClick = {
+                        val name = newName.trim()
+                        scope.launch { onPick(store.create(name), name) }
+                    }
+                ) {
+                    Text(stringResource(R.string.playlist_action_save))
+                }
+            } else {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.playlist_action_cancel)) }
+            }
+        },
+        dismissButton = if (creating) {
+            { TextButton(onClick = { creating = false }) { Text(stringResource(R.string.playlist_action_cancel)) } }
+        } else {
+            null
+        }
+    )
 }

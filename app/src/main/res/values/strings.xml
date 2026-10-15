@@ -685,4 +685,28 @@
     <string name="player_stream_channel_count">%1$d ch</string>
     <string name="player_error">Playback failed. Tap play to retry.</string>
 
+    <!-- Playlists (artist / folder / custom) -->
+    <string name="playlist_title">Playlists</string>
+    <string name="settings_playlists_desc">Artist, folder and custom audio playlists</string>
+    <string name="playlist_create">New playlist</string>
+    <string name="playlist_rename">Rename</string>
+    <string name="playlist_delete">Delete</string>
+    <string name="playlist_play">Play</string>
+    <string name="playlist_name">Name</string>
+    <!-- %1$d = track count -->
+    <string name="playlist_track_count">%1$d tracks</string>
+    <string name="playlist_builtin_favorites">Favorites</string>
+    <string name="playlist_action_save">Save</string>
+    <string name="playlist_action_cancel">Cancel</string>
+    <string name="playlist_add_to">Add to playlist</string>
+    <string name="playlist_play_artist">Play all music by this artist</string>
+    <string name="playlist_play_folder">Play all music in this folder</string>
+    <string name="playlist_scanning">Collecting music…</string>
+    <string name="playlist_empty">No tracks yet</string>
+    <!-- %1$s = playlist name -->
+    <string name="playlist_added">Added to %1$s</string>
+    <string name="playlist_no_music">No audio works found</string>
+    <!-- %1$s = playlist / source name -->
+    <string name="playlist_now_playing_from">From %1$s</string>
+
 </resources>

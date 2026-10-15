@@ -48,6 +48,7 @@ fun SettingsScreen(
     onNavigateToAppearance: () -> Unit,
     onNavigateToFilters: () -> Unit,
     onNavigateToTranslation: () -> Unit,
+    onNavigateToPlaylists: () -> Unit,
     onNavigateToAbout: () -> Unit,
     onNavigateToStorage: () -> Unit = {},
     viewModel: MainViewModel = viewModel()
@@ -144,6 +145,14 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_translation),
                         subtitle = stringResource(R.string.settings_translation_desc),
                         onClick = onNavigateToTranslation
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = Icons.Default.QueueMusic,
+                        iconColor = Color(0xFF00E5FF),
+                        title = stringResource(R.string.playlist_title),
+                        subtitle = stringResource(R.string.settings_playlists_desc),
+                        onClick = onNavigateToPlaylists
                     )
                     SettingsDivider()
                     SettingsRow(

@@ -6,6 +6,8 @@ package com.furflix.app.player
  */
 data class PlaybackUiState(
     val track: AudioTrack? = null,
+    /** 当前播放列表名（单作品时即曲名）；迷你条据此显示"来自哪个列表"。 */
+    val playlistName: String? = null,
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
     val positionMs: Long = 0L,

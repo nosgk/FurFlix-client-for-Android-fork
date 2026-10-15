@@ -696,4 +696,28 @@
     <string name="player_stream_channel_count">%1$d 声道</string>
     <string name="player_error">播放失败，点击播放重试</string>
 
+    <!-- 播放列表（画师 / 文件夹 / 自定义） -->
+    <string name="playlist_title">播放列表</string>
+    <string name="settings_playlists_desc">画师 / 文件夹 / 自定义音频播放列表</string>
+    <string name="playlist_create">新建列表</string>
+    <string name="playlist_rename">重命名</string>
+    <string name="playlist_delete">删除</string>
+    <string name="playlist_play">播放</string>
+    <string name="playlist_name">名称</string>
+    <!-- %1$d = 曲目数 -->
+    <string name="playlist_track_count">%1$d 首</string>
+    <string name="playlist_builtin_favorites">收藏</string>
+    <string name="playlist_action_save">保存</string>
+    <string name="playlist_action_cancel">取消</string>
+    <string name="playlist_add_to">加入播放列表</string>
+    <string name="playlist_play_artist">播放该画师全部音乐</string>
+    <string name="playlist_play_folder">播放该文件夹全部音乐</string>
+    <string name="playlist_scanning">正在收集音频作品…</string>
+    <string name="playlist_empty">还没有曲目</string>
+    <!-- %1$s = 列表名 -->
+    <string name="playlist_added">已加入 %1$s</string>
+    <string name="playlist_no_music">没有找到音频作品</string>
+    <!-- %1$s = 列表/来源名 -->
+    <string name="playlist_now_playing_from">来自 %1$s</string>
+
 </resources>

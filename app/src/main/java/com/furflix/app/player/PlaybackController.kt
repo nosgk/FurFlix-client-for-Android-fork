@@ -61,7 +61,17 @@ object PlaybackController {
     private var appContext: Context? = null
 
     /** 与播放器内 MediaItem 顺序一一对应的队列（ExoPlayer 不保存我们的业务模型）。 */
-    private val queue = mutableListOf<AudioTrack>()
+    private val queue = mutableListOf<PlaylistItem>()
+
+    /** 当前播放列表：供迷你条显示来源名，也用于"下一首"预取。 */
+    @Volatile
+    private var currentPlaylist: Playlist? = null
+
+    /** 队列懒解析任务：切列表时取消上一个，避免旧列表继续往播放器里塞。 */
+    private var resolveJob: Job? = null
+
+    /** 一次最多往播放器里补多少条：画师可能有几百条音频，没必要一次全解析。 */
+    private const val MAX_RESOLVED_QUEUE = 60
 
     private val _state = MutableStateFlow(PlaybackUiState())
     val state: StateFlow<PlaybackUiState> = _state.asStateFlow()
@@ -107,7 +117,6 @@ object PlaybackController {
      */
     fun play(context: Context, track: AudioTrack, tracks: List<AudioTrack> = emptyList()) {
         val p = player(context)
-        val list = tracks.ifEmpty { listOf(track) }
         val alreadyCurrent = queue.getOrNull(p.currentMediaItemIndex)
             ?.let { it.postId == track.postId && it.url == track.url } == true
         if (alreadyCurrent) {
@@ -115,16 +124,66 @@ object PlaybackController {
             ensureService()
             return
         }
-        val index = list.indexOfFirst { it.postId == track.postId && it.url == track.url }
+        val list = tracks.ifEmpty { listOf(track) }
+        val items = list.map {
+            PlaylistItem(it.postId, it.title, it.artist, it.coverUrl, it.url, it.artistUsername)
+        }
+        val start = items.indexOfFirst { it.postId == track.postId && it.url == track.url }
             .takeIf { it >= 0 } ?: 0
-        queue.clear()
-        queue.addAll(list)
-        p.setMediaItems(list.map { it.toMediaItem() }, index, 0L)
-        p.playWhenReady = true
-        p.prepare()
-        ensureService()
-        syncTrack()
+        playPlaylist(context, Playlist(track.title, PlaylistSource.Single, items), start)
     }
+
+    /**
+     * 播放整个列表（画师 / 文件夹 / 自定义）。
+     *
+     * 起始项解析出来后立刻起播，其余条目在后台**按序解析并 append 进播放器队列**：
+     * 这样系统通知栏的"下一首"、自动续播都沿用 ExoPlayer 原生队列语义，不必自己造
+     * 一套。列表项没有直链时按 postId 抓详情解析（见 [AudioUrlResolver]）。
+     */
+    fun playPlaylist(
+        context: Context,
+        playlist: Playlist,
+        startIndex: Int = 0,
+        playWhenReady: Boolean = true
+    ) {
+        if (playlist.items.isEmpty()) return
+        val p = player(context)
+        val app = context.applicationContext
+        val from = startIndex.coerceIn(0, playlist.items.lastIndex)
+        currentPlaylist = playlist
+        resolveJob?.cancel()
+        queue.clear()
+        p.stop()
+        p.clearMediaItems()
+        _state.update { it.copy(track = null) }
+        resolveJob = scope.launch {
+            val start = playlist.items[from]
+            val startUrl = resolveItemUrl(app, start) ?: run {
+                android.util.Log.w("PlaybackController", "playlist start item has no audio url: ${start.postId}")
+                _state.update { it.copy(failed = true) }
+                return@launch
+            }
+            queue.add(start.copy(url = startUrl))
+            p.setMediaItem(start.toMediaItem(startUrl))
+            p.playWhenReady = playWhenReady
+            p.prepare()
+            ensureService()
+            syncTrack()
+            // 其余按"起始项之后 → 起始项之前"补齐（从当前曲往后听更符合直觉）
+            val order = (from + 1 until playlist.size) + (0 until from).toList()
+            for (i in order) {
+                if (queue.size >= MAX_RESOLVED_QUEUE) break
+                val item = playlist.items[i]
+                val url = resolveItemUrl(app, item) ?: continue
+                queue.add(item.copy(url = url))
+                p.addMediaItem(item.toMediaItem(url))
+            }
+        }
+    }
+
+    /** 已知直链直接用，否则按 postId 抓详情解析。 */
+    private suspend fun resolveItemUrl(context: Context, item: PlaylistItem): String? =
+        item.url?.takeIf { it.isNotEmpty() } ?: AudioUrlResolver.resolve(context, item.postId)
 
     fun togglePlayPause() {
         val p = exo ?: return
@@ -177,14 +236,17 @@ object PlaybackController {
     /** 停止并清空队列（迷你条关闭按钮）。 */
     fun stop() {
         val p = exo ?: return
+        resolveJob?.cancel()
+        resolveJob = null
+        currentPlaylist = null
         p.stop()
         p.clearMediaItems()
         queue.clear()
         _state.value = PlaybackUiState()
     }
 
-    /** 队列是否包含下一首/上一首（UI 显隐切歌键）。 */
-    fun queueSnapshot(): List<AudioTrack> = queue.toList()
+    /** 队列快照（已解析出直链的那些）。 */
+    fun queueSnapshot(): List<PlaylistItem> = queue.toList()
 
     // ── 内部 ────────────────────────────────────────────────────────────────
 
@@ -238,10 +300,11 @@ object PlaybackController {
 
     private fun syncTrack() {
         val p = exo ?: return
-        val track = queue.getOrNull(p.currentMediaItemIndex)
+        val item = queue.getOrNull(p.currentMediaItemIndex)
         _state.update {
             it.copy(
-                track = track,
+                track = item?.toAudioTrack(),
+                playlistName = currentPlaylist?.name,
                 durationMs = p.duration.coerceAtLeast(0L),
                 hasNext = p.hasNextMediaItem(),
                 hasPrevious = p.hasPreviousMediaItem(),
@@ -292,7 +355,10 @@ object PlaybackController {
         return AudioStreamInfo()
     }
 
-    private fun AudioTrack.toMediaItem(): MediaItem =
+    private fun PlaylistItem.toAudioTrack(): AudioTrack =
+        AudioTrack(postId, title, artist, coverUrl, url.orEmpty(), artistUsername)
+
+    private fun PlaylistItem.toMediaItem(url: String): MediaItem =
         MediaItem.Builder()
             .setMediaId(postId)
             .setUri(url)
