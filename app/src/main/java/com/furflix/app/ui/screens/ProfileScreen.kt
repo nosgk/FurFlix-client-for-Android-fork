@@ -4,8 +4,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.res.stringResource
 import com.furflix.app.R
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -93,6 +98,8 @@ fun ProfileScreen(
     onOpenCollectedFavorites: (String) -> Unit = {},
     scrollToTopTrigger: Int = 0,
     onRegisterScrollSource: (((() -> Pair<Int, Int>?)?)) -> Unit = {},
+    /** 顶底栏是否可见（由外层随滚动显隐状态驱动）；本页自有的页签行跟随它一起收起 */
+    barsVisible: Boolean = true,
     viewModel: WatchlistViewModel = viewModel()
 ) {
     val followingList by viewModel.followingList.collectAsState()
@@ -243,14 +250,22 @@ fun ProfileScreen(
             }
         }
 
-        CustomTabRow(
-            tabs = topTabs,
-            selectedTab = pagerState.currentPage,
-            onTabSelected = { index ->
-                coroutineScope.launch { pagerState.animateScrollToPage(index) }
-            },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-        )
+        // 「我的」页的页签行是页面自有的头部（不是共享 HazeTopAppBar），必须自己跟随
+        // 滚动显隐，否则共享顶栏收起了、这行还杵在那儿，看起来就是"顶栏没隐藏"。
+        AnimatedVisibility(
+            visible = barsVisible,
+            enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it },
+            exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it }
+        ) {
+            CustomTabRow(
+                tabs = topTabs,
+                selectedTab = pagerState.currentPage,
+                onTabSelected = { index ->
+                    coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+            )
+        }
 
         HorizontalPager(
             state = pagerState,

@@ -16,6 +16,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -249,6 +250,52 @@ fun GalleryTimelineScrubber(
             }
         }
     }
+}
+
+/**
+ * 画廊滚动条 + 上次浏览位置记忆的一体化接线。
+ *
+ * 把列表包进 `Box` 并在右侧叠加滚动条，同时接上"数据到位恢复一次 / 停滚防抖写回"
+ * 的位置记忆。调用方只需给出 [galleryKey]（每个画廊或子栏目唯一）、列表句柄
+ * [handle] 与时间轴节点 [nodes]，不必各画廊各写一遍 Box + 两个 effect 的样板。
+ *
+ * [handle] 必须是 `remember(懒状态) { ...Handle(懒状态) }` 得到的**稳定对象**
+ * （理由见 [RememberGalleryScrollPosition]）。
+ */
+@Composable
+fun GalleryScrollMemory(
+    galleryKey: String,
+    handle: GalleryScrollHandle,
+    nodes: List<TimelineNode>,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val repository = remember { com.furflix.app.data.repository.FurRepository.getInstance(context) }
+    val rememberPosition by repository.rememberTimelinePositionFlow.collectAsState(initial = true)
+    val savedPositions by repository.scrollPositionsFlow.collectAsState(initial = emptyMap())
+    val scope = rememberCoroutineScope()
+    val active = enabled && rememberPosition
+
+    Box(modifier = modifier) {
+        content()
+        if (active && nodes.isNotEmpty()) {
+            GalleryTimelineScrubber(
+                handle = handle,
+                nodes = nodes,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            )
+        }
+    }
+
+    RememberGalleryScrollPosition(
+        galleryKey = galleryKey,
+        handle = handle,
+        savedIndex = savedPositions[galleryKey]?.toIntOrNull(),
+        enabled = active,
+        onSave = { index -> scope.launch { repository.saveScrollPosition(galleryKey, index) } }
+    )
 }
 
 /**

@@ -102,27 +102,7 @@ $VAR_EXTRA_STYLE
         val fullWidth = token.replace('{', '｛').replace('}', '｝')
         return text.replace(token, value).replace(fullWidth, value)
     }
-
-    /**
-     * 作品描述是 HTML（详情页用 HtmlTextView 渲染），直接塞进提示词会带一堆标签，
-     * 既占 token 又干扰模型。这里纯文本化：去标签 → 解常见实体 → 压空白。
-     */
-    fun plainDescription(html: String): String {
-        if (html.isBlank()) return ""
-        val withoutTags = html.replace(TAG_REGEX, " ")
-        return withoutTags
-            .replace("&nbsp;", " ")
-            .replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", "\"")
-            .replace("&#39;", "'")
-            .replace(WHITESPACE_REGEX, " ")
-            .trim()
-    }
-
-    private val TAG_REGEX = Regex("<[^>]*>")
-    private val WHITESPACE_REGEX = Regex("\\s+")
+}
 
     /** 把启用中的预设拼成一段额外风格提示词（按 [presets] 的顺序）。 */
     fun combinePresets(presets: List<StylePreset>, activeIds: Set<String>): String =

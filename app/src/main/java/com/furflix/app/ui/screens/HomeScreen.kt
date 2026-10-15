@@ -214,7 +214,13 @@ fun HomeScreen(
     // container (grid or staggered grid) currently owns the page.
     val scrollers = remember { mutableMapOf<Int, suspend () -> Unit>() }
     // 各 tab 当前列表的滚动位置源，供顶底栏显隐判定；值可为 null = 当前 tab 无存活列表
-    val scrollSources = remember { mutableMapOf<Int, (() -> Pair<Int, Int>?)?>() }
+    //
+    // 必须是**快照状态表**：rememberBarsVisibility 内部用 snapshotFlow { provider() }
+    // 求值，provider 读的就是这张表。普通 MutableMap 不是可观察状态——首访时列表
+    // 还没组合（先出骨架屏），首次求值为 null 后 flow 永不再算，顶底栏于是永不隐藏，
+    // 只有"开一个作品再退回来"（此时数据已在内存、列表首帧即组合）才正常。
+    // 换成 SnapshotStateMap 后，列表容器注册的那一刻 flow 就会重估。
+    val scrollSources = remember { mutableStateMapOf<Int, (() -> Pair<Int, Int>?)?>() }
 
         fun registerScrollSource(tab: Int, source: (() -> Pair<Int, Int>?)?) {
             if (source == null) scrollSources.remove(tab) else scrollSources[tab] = source
@@ -1257,6 +1263,7 @@ fun HomeScreen(
                             onOpenCollectedFavorites = onOpenCollectedFavorites,
                             scrollToTopTrigger = profileScrollToTopTrigger,
                             onRegisterScrollSource = { source -> registerScrollSource(3, source) },
+                            barsVisible = barsVisible,
                             viewModel = watchlistViewModel
                         )
                     }

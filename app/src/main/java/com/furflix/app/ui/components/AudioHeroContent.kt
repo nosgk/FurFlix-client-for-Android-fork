@@ -57,11 +57,11 @@ import com.furflix.app.R
 import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.player.AudioTrack
 import com.furflix.app.player.PlaybackController
+import com.furflix.app.subtitle.HtmlPlainText
 import com.furflix.app.subtitle.SubtitleController
 import com.furflix.app.subtitle.SubtitleRequest
 import com.furflix.app.subtitle.SubtitleTrack
 import com.furflix.app.subtitle.TranscriptionConfig
-import com.furflix.app.subtitle.TranscriptionPrompt
 import com.furflix.app.subtitle.TranscriptionSettings
 import com.furflix.app.subtitle.ui.SubtitlePanel
 import com.furflix.app.subtitle.ui.transcriptionErrorText
@@ -367,9 +367,9 @@ fun AudioHeroContent(
         val subtitleRequest = SubtitleRequest(
             postId = track.postId,
             title = track.title,
-            // 描述是 HTML，塞进提示词前先纯文本化
+            // 描述是 HTML，塞进提示词前先转纯文本（HtmlPlainText 是唯一实现）
             description = remember(track.description) {
-                TranscriptionPrompt.plainDescription(track.description)
+                HtmlPlainText.toPlainText(track.description)
             },
             audioUrl = track.url
         )
