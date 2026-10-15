@@ -382,8 +382,9 @@ fun AudioHeroContent(
             Spacer(modifier = Modifier.height(8.dp))
         }
         val subtitleError = subtitleState.errorKind
-        // 音频全量落到本地后才允许转录：半截数据上转录要么重复下载、要么失败
-        val canTranscribe = isCurrent && state.fullyLoaded
+        // 音频就绪（可播）后即可转录。不要求整条缓冲完毕——ExoPlayer 只向前预读
+        // 有限缓冲，长音频永远"没缓冲完"，那样按钮会长期灰着
+        val canTranscribe = isCurrent && state.isReady
         when {
             subtitleState.generating -> Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -441,7 +442,7 @@ fun AudioHeroContent(
                 ) {
                     Text(text = stringResource(R.string.subtitle_generate), fontSize = 12.sp)
                 }
-                if (isCurrent && !state.fullyLoaded) {
+                if (isCurrent && !state.isReady) {
                     Text(
                         text = stringResource(R.string.subtitle_hint_loading),
                         fontSize = 11.sp,

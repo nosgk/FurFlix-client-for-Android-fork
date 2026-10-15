@@ -95,8 +95,8 @@ object PlaybackController {
         p.setWakeMode(C.WAKE_MODE_NETWORK)
         p.addListener(listener)
         exo = p
-        // 常驻进度轮询：不随暂停而停，否则"暂停时后台仍在缓冲"的进度（含
-        // fullyLoaded 判定）会僵在暂停那一刻。空闲时值不变，StateFlow 自动去重。
+        // 常驻进度轮询：不随暂停而停，否则"暂停时后台仍在缓冲"的进度会僵在暂停
+        // 那一刻（缓冲进度也喂给进度条）。空闲时值不变，StateFlow 自动去重。
         startTicker()
         return p
     }
@@ -204,6 +204,7 @@ object PlaybackController {
             _state.update {
                 it.copy(
                     isBuffering = playbackState == Player.STATE_BUFFERING,
+                    isReady = playbackState == Player.STATE_READY,
                     failed = if (playbackState == Player.STATE_IDLE) it.failed else false,
                     durationMs = exo?.duration?.coerceAtLeast(0L) ?: it.durationMs
                 )
@@ -244,6 +245,7 @@ object PlaybackController {
                 durationMs = p.duration.coerceAtLeast(0L),
                 hasNext = p.hasNextMediaItem(),
                 hasPrevious = p.hasPreviousMediaItem(),
+                isReady = p.playbackState == Player.STATE_READY,
                 failed = false
             )
         }

@@ -23,6 +23,12 @@ import java.util.concurrent.TimeUnit
  */
 class GuestBlockedException(message: String = "Guest gate page") : Exception(message)
 
+/** 图片类 URL 判据：用于判断"派生封面能否当图渲染"（音频/文档类会落成原件直链）。 */
+private val IMAGE_URL_REGEX = Regex(
+    "\\.(jpe?g|png|gif|webp|avif|bmp)([?#]|$)",
+    RegexOption.IGNORE_CASE
+)
+
 object FurAffinityScraper {
 
     // 会话与 cookie 管理已抽至 FurSession(REFACTOR-004):本对象只做抓取与解析,
@@ -1123,13 +1129,29 @@ object FurAffinityScraper {
         // 作品所属画廊文件夹（sidebar-lower 的 Folders 区块）
         val folders = parseSubmissionFolders(doc)
 
+        // 封面：站点给**每件作品**都渲染 og:image（音频/文档/Flash 类也有，实测
+        // 形如 https://t.furaffinity.net/<postId>@600-<ts>.jpg），而 fullImageUrl 对
+        // 这类作品会落成**原件直链**（mp3/pdf/swf），当封面渲染必然失败——这正是
+        // "音频播放器封面不显示"的根因。
+        // 只在派生封面不是图片地址时才改用 og:image：普通图片作品的封面行为不变。
+        val ogImage = doc.select("meta[property=og:image]").firstOrNull()
+            ?.attr("content")?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { if (it.startsWith("//")) "https:$it" else it }
+        val derivedCover = fullImageUrl.ifEmpty { authorAvatar }
+        val coverUrl = if (IMAGE_URL_REGEX.containsMatchIn(derivedCover)) {
+            derivedCover
+        } else {
+            ogImage ?: derivedCover
+        }
+
         return Submission(
             id = submissionId,
             title = title,
             author = author,
             authorUsername = authorUsername,
             authorAvatar = authorAvatar,
-            thumbnailUrl = fullImageUrl.ifEmpty { authorAvatar },
+            thumbnailUrl = coverUrl,
             fullImageUrl = fullImageUrl,
             description = description,
             rating = rating,

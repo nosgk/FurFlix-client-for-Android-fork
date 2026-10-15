@@ -18,18 +18,18 @@ data class PlaybackUiState(
     /** 始终为 1.0 表示"变速不变调"；保留字段以便将来单独变调。 */
     val pitch: Float = 1f,
     val stream: AudioStreamInfo = AudioStreamInfo(),
-    val failed: Boolean = false
+    val failed: Boolean = false,
+    /**
+     * 音频是否已就绪可播（解码器就绪、时长已知）。
+     *
+     * 用于"字幕生成"这类要再次读取音频的操作门禁。刻意**不要求整条缓冲完毕**：
+     * ExoPlayer 默认只向前预读有限缓冲（数十秒），长音频的 bufferedPosition 在
+     * 播到接近结尾前永远追不上 duration —— 那样门禁会把按钮长期压在灰态，用户侧
+     * 表现就是"音频都能播了，转录按钮还是灰的"。
+     */
+    val isReady: Boolean = false
 ) {
     /** 进度条用的 0..1 比例（时长未知时为 0）。 */
     val progress: Float
         get() = if (durationMs > 0L) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
-
-    /**
-     * 整条音频是否已完整落到本地（缓冲覆盖到时长）。
-     *
-     * 用于"字幕生成"这类需要再次读取整个音频的操作：只有全量在本地时才允许发起，
-     * 否则转录链路要么重复下载、要么在半截数据上失败。
-     */
-    val fullyLoaded: Boolean
-        get() = durationMs > 0L && bufferedMs >= durationMs
 }
