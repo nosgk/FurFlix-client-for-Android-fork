@@ -1,6 +1,7 @@
 package com.furflix.app.ui.components
 
 import android.widget.Toast
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,6 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -67,6 +70,7 @@ import com.furflix.app.player.CustomPlaylistStore
 import com.furflix.app.player.PlaybackController
 import com.furflix.app.player.PlaylistBuilder
 import com.furflix.app.player.StoredPlaylistItem
+import com.furflix.app.player.WaveformExtractor
 import kotlinx.coroutines.launch
 import com.furflix.app.ui.theme.DarkBackground
 import com.furflix.app.ui.theme.DarkSurfaceVariant
@@ -117,6 +121,14 @@ fun AudioHeroContent(
     LaunchedEffect(state.positionMs) {
         val target = seekOverrideMs
         if (target != null && kotlin.math.abs(state.positionMs - target) < 1500L) seekOverrideMs = null
+    }
+
+    // 波形：音频就绪后解一次（结果落盘缓存，同一作品不再重复解码）。
+    // 解码失败/机型不支持就保持 null，界面自动退回普通进度条。
+    var peaks by remember(track.url) { mutableStateOf<FloatArray?>(null) }
+    LaunchedEffect(track.url, state.isReady) {
+        if (peaks != null || !state.isReady) return@LaunchedEffect
+        peaks = WaveformExtractor.peaks(context, track.url)
     }
 
     Column(
@@ -255,6 +267,14 @@ fun AudioHeroContent(
         val durationMs = if (isCurrent) state.durationMs else 0L
         val positionMs = seekOverrideMs ?: if (isCurrent) state.positionMs else 0L
         val sliderValue = draggingValue ?: if (durationMs > 0L) (positionMs.toFloat() / durationMs) else 0f
+        // 波形画在进度条上方：拖动仍走 Slider（手势逻辑不重写，风险最小）
+        peaks?.let { data ->
+            WaveformBar(
+                peaks = data,
+                progress = sliderValue.coerceIn(0f, 1f),
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
         Slider(
             value = sliderValue.coerceIn(0f, 1f),
             onValueChange = { draggingValue = it },
@@ -495,6 +515,36 @@ private fun PlayerChip(
             Spacer(modifier = Modifier.width(6.dp))
         }
         Text(text = label, fontSize = 12.sp, color = tint)
+    }
+}
+
+/**
+ * 波形条：已播放部分用主色，其余用灰；中点上下对称画柱。
+ * 只做展示——拖动进度仍由上面的 Slider 承担，避免再写一套手势。
+ */
+@Composable
+private fun WaveformBar(
+    peaks: FloatArray,
+    progress: Float,
+    modifier: Modifier = Modifier
+) {
+    val activeColor = MaterialTheme.colorScheme.primary
+    val idleColor = SubtleGray.copy(alpha = 0.45f)
+    Canvas(modifier = modifier.fillMaxWidth().height(44.dp)) {
+        val count = peaks.size
+        if (count == 0 || size.width <= 0f) return@Canvas
+        val slot = size.width / count
+        val barWidth = (slot * 0.62f).coerceAtLeast(1f)
+        val mid = size.height / 2f
+        val playedUntil = progress * count
+        for (i in 0 until count) {
+            val h = (peaks[i] * size.height * 0.92f).coerceAtLeast(1.5f)
+            drawRect(
+                color = if (i <= playedUntil) activeColor else idleColor,
+                topLeft = Offset(i * slot + (slot - barWidth) / 2f, mid - h / 2f),
+                size = Size(barWidth, h)
+            )
+        }
     }
 }
 
