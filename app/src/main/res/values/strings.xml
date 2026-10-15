@@ -111,6 +111,9 @@
     <!-- Auto-hide top/bottom bars while scrolling -->
     <string name="settings_auto_hide_bars">Auto-hide bars while scrolling</string>
     <string name="settings_auto_hide_bars_desc">Expand more content while browsing</string>
+    <!-- Remember + restore the last scroll position of each gallery -->
+    <string name="settings_remember_timeline">Remember last gallery position</string>
+    <string name="settings_remember_timeline_desc">Reopen a gallery where you left off</string>
     <!-- Splash site banner (full display; placement per orientation) -->
     <string name="settings_splash_banner">Splash Site Banner</string>
     <string name="settings_splash_banner_desc">Today\'s FA banner on the splash screen</string>

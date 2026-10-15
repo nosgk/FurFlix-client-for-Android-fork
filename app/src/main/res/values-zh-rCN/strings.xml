@@ -115,6 +115,9 @@
     <!-- 滚动时自动隐藏顶/底栏 -->
     <string name="settings_auto_hide_bars">滚动时自动隐藏顶底栏</string>
     <string name="settings_auto_hide_bars_desc">浏览时腾出更多内容视野</string>
+    <!-- 记住并恢复每个画廊的最后浏览位置 -->
+    <string name="settings_remember_timeline">记住最后浏览的时间线位置</string>
+    <string name="settings_remember_timeline_desc">再次进入画廊时回到上次浏览处</string>
     <!-- Splash site banner (full display; placement per orientation) -->
     <string name="settings_splash_banner">启动页横幅</string>
     <string name="settings_splash_banner_desc">启动页展示的 FA 今日横幅</string>

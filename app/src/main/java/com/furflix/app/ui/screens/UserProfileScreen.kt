@@ -232,6 +232,30 @@ fun UserProfileScreen(
     // Show the artist's name in the top bar once the hero header is scrolled away
     val showBarTitle by remember { derivedStateOf { listState.firstVisibleItemIndex >= 2 } }
 
+    // 时间线滚动条 + 最后浏览位置：句柄按懒状态 remember，保证下面保存协程不被重组重启
+    val timelineHandle = remember(listState) {
+        com.furflix.app.ui.components.lazyStaggeredHandle(listState)
+    }
+    val galleryTimelineNodes = remember(submissions, userProfile) {
+        com.furflix.app.ui.components.buildTimelineNodes(
+            items = submissions,
+            // 作品条目之前有横幅/资料卡等固定头部，节点下标要加上它们
+            indexOffset = contentFirstIndex(userProfile)
+        )
+    }
+    val rememberTimelinePosition by repository.rememberTimelinePositionFlow
+        .collectAsState(initial = true)
+    val savedScrollPositions by repository.scrollPositionsFlow.collectAsState(initial = emptyMap())
+    val galleryScrollKey = "user_${username.lowercase()}_$selectedTab"
+    com.furflix.app.ui.components.RememberGalleryScrollPosition(
+        galleryKey = galleryScrollKey,
+        handle = timelineHandle,
+        savedIndex = savedScrollPositions[galleryScrollKey]?.toIntOrNull(),
+        enabled = rememberTimelinePosition &&
+            (selectedTab == UserViewModel.TAB_GALLERY || selectedTab == UserViewModel.TAB_FAVORITES),
+        onSave = { index -> screenScope.launch { repository.saveScrollPosition(galleryScrollKey, index) } }
+    )
+
     // Infinite scroll
     val hasContent by rememberUpdatedState(
         when (selectedTab) {
@@ -364,6 +388,7 @@ fun UserProfileScreen(
                     onRefresh = { viewModel.refresh() },
                     modifier = Modifier.weight(1f)
                 ) {
+                Box(modifier = Modifier.fillMaxSize()) {
                 LazyVerticalStaggeredGrid(
                     columns = if (mode == GalleryViewMode.LIST) {
                         StaggeredGridCells.Fixed(1)
@@ -715,6 +740,16 @@ fun UserProfileScreen(
                         }
                     }
                 }
+                    if (selectedTab == UserViewModel.TAB_GALLERY ||
+                        selectedTab == UserViewModel.TAB_FAVORITES
+                    ) {
+                        com.furflix.app.ui.components.GalleryTimelineScrubber(
+                            handle = timelineHandle,
+                            nodes = galleryTimelineNodes,
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        )
+                    }
+                } // close scrubber overlay Box
                 }
             }
         } // close Column

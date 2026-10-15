@@ -774,6 +774,31 @@ fun AppearanceSettingsScreen(
                 )
             }
 
+            // --- 记住最后浏览的时间线位置 ---
+            val rememberTimeline by repository.rememberTimelinePositionFlow.collectAsState(initial = true)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_remember_timeline),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.settings_remember_timeline_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = rememberTimeline,
+                    onCheckedChange = { scope.launch { repository.saveRememberTimelinePosition(it) } }
+                )
+            }
+
             // --- 启动页横幅：联网刷新开关 + 横屏上/下 + 竖屏左/右 ---
             val splashBannerRefresh by repository.splashBannerRefreshFlow.collectAsState(initial = true)
             val splashBannerLandscapeTop by repository.splashBannerLandscapeTopFlow.collectAsState(initial = true)

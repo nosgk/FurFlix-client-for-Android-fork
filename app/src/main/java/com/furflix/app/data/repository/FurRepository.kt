@@ -99,6 +99,8 @@ class FurRepository(private val context: Context) {
     private val WATCHLIST_BANNER_SOURCE_KEY = stringPreferencesKey("watchlist_banner_source")
     private val WATCHLIST_BANNER_BLUR_KEY = floatPreferencesKey("watchlist_banner_blur_dp")
     private val USER_NOTES_KEY = stringPreferencesKey("user_notes")
+    private val SCROLL_POSITIONS_KEY = stringPreferencesKey("gallery_scroll_positions")
+    private val REMEMBER_TIMELINE_KEY = booleanPreferencesKey("remember_timeline_position")
     private val TEXT_SCALE_KEY = floatPreferencesKey("text_scale")
     private val HIDE_BARS_KEY = booleanPreferencesKey("hide_bars_on_scroll")
     private val CLIPBOARD_LINK_KEY = booleanPreferencesKey("clipboard_link_enabled")
@@ -445,6 +447,33 @@ class FurRepository(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[HIDE_BARS_KEY] = enabled
         }
+    }
+
+    /**
+     * 画廊最后浏览位置：galleryKey → 首个可见条目的下标。
+     * 与用户备注共用同一套 Map<String,String> JSON 编解码（同一个序列化器）。
+     */
+    val scrollPositionsFlow: kotlinx.coroutines.flow.Flow<Map<String, String>> =
+        context.dataStore.data.map { prefs -> decodeUserNotes(prefs[SCROLL_POSITIONS_KEY]) }
+
+    suspend fun saveScrollPosition(galleryKey: String, index: Int) {
+        context.dataStore.edit { prefs ->
+            val current = decodeUserNotes(prefs[SCROLL_POSITIONS_KEY]).toMutableMap()
+            current[galleryKey] = index.coerceAtLeast(0).toString()
+            prefs[SCROLL_POSITIONS_KEY] = json.encodeToString(userNotesSerializer, current)
+        }
+    }
+
+    suspend fun clearScrollPositions() {
+        context.dataStore.edit { prefs -> prefs[SCROLL_POSITIONS_KEY] = "" }
+    }
+
+    /** 记住最后浏览的时间线位置（默认开）。关闭后不再写入/恢复各画廊位置。 */
+    val rememberTimelinePositionFlow: kotlinx.coroutines.flow.Flow<Boolean> =
+        context.dataStore.data.map { prefs -> prefs[REMEMBER_TIMELINE_KEY] ?: true }
+
+    suspend fun saveRememberTimelinePosition(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[REMEMBER_TIMELINE_KEY] = enabled }
     }
 
     /** 剪贴板链接识别（回前台检测 FA 链接并询问跳转；默认开）。 */
