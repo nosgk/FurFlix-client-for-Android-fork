@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -192,6 +193,24 @@ fun PostDetailScreen(
         initialPage = initialIndex,
         pageCount = { effectiveSubmissions.size.coerceAtLeast(1) }
     )
+
+    // 离开本页再返回时（去用户页/设置/点别的作品）Pager 可能被重建，且列表可能短暂为空
+    // —— pageCount 一旦塌到 1，Pager 会把当前页钳成 0，数据回来后也回不去，表现就是
+    // "返回后回到第一张图"。这里按 **postId** 记住离开前看的那一件（不按 index：列表
+    // 内容变化时 index 会指错作品），数据到位后恢复一次；恢复标记用普通 remember，
+    // 只在本次进入页面时生效，不会在页内翻页时与用户抢滚动。
+    var lastViewedPostId by rememberSaveable { mutableStateOf(initialPostId) }
+    var pagerRestored by remember { mutableStateOf(false) }
+    LaunchedEffect(pagerState.currentPage, effectiveSubmissions) {
+        effectiveSubmissions.getOrNull(pagerState.currentPage)?.id?.let { lastViewedPostId = it }
+    }
+    LaunchedEffect(effectiveSubmissions) {
+        if (pagerRestored) return@LaunchedEffect
+        val target = effectiveSubmissions.indexOfFirst { it.id == lastViewedPostId }
+        if (target < 0) return@LaunchedEffect
+        pagerRestored = true
+        if (target != pagerState.currentPage) pagerState.scrollToPage(target)
+    }
 
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage >= effectiveSubmissions.size - 3) {
