@@ -1129,14 +1129,16 @@ object FurAffinityScraper {
         // 作品所属画廊文件夹（sidebar-lower 的 Folders 区块）
         val folders = parseSubmissionFolders(doc)
 
-        // 封面：站点给**每件作品**都渲染 og:image（音频/文档/Flash 类也有，实测
-        // 形如 https://t.furaffinity.net/<postId>@600-<ts>.jpg），而 fullImageUrl 对
-        // 这类作品会落成**原件直链**（mp3/pdf/swf），当封面渲染必然失败——这正是
-        // "音频播放器封面不显示"的根因。
-        // 只在派生封面不是图片地址时才改用 og:image：普通图片作品的封面行为不变。
+        // 封面：优先用站点给作品渲染的缩略图（og:image 指向 t.furaffinity.net 时才是
+        // 作品封面）。**注意 og:image 对"没有封面"的作品会回落成站点 logo 横幅**
+        // （实测 /view/66696429/：og:image = .../themes/beta/img/banners/fa_logo.png?v2），
+        // 那不是封面——不排除掉就会把 FA logo 当作品封面显示。
+        // 而 fullImageUrl 对音频/文档/Flash 类会落成**原件直链**（mp3/pdf/swf），
+        // 当封面渲染必然失败。故：派生封面是图片就用它，否则用真正的 og:image 缩略图，
+        // 两者都没有就保持直链（上层按"无封面"处理，显示占位图标）。
         val ogImage = doc.select("meta[property=og:image]").firstOrNull()
             ?.attr("content")?.trim()
-            ?.takeIf { it.isNotEmpty() }
+            ?.takeIf { it.contains("t.furaffinity.net/") }
             ?.let { if (it.startsWith("//")) "https:$it" else it }
         val derivedCover = fullImageUrl.ifEmpty { authorAvatar }
         val coverUrl = if (IMAGE_URL_REGEX.containsMatchIn(derivedCover)) {

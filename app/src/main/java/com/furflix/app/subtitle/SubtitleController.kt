@@ -23,7 +23,9 @@ data class SubtitleUiState(
     val postId: String? = null,
     val track: SubtitleTrack = SubtitleTrack.EMPTY,
     val generating: Boolean = false,
-    val errorKind: TranscriptionException.Kind? = null
+    val errorKind: TranscriptionException.Kind? = null,
+    /** 错误细节（HTTP 状态码 / 响应片段 / 异常信息），供界面与排查直接看到。 */
+    val errorDetail: String? = null
 )
 
 /**
@@ -79,7 +81,7 @@ object SubtitleController {
                         description = request.description
                     )
                     val content = TranscriptionService.getInstance()
-                        .transcribe(config, prompt, request.audioUrl)
+                        .transcribe(app, config, prompt, request.audioUrl)
                     val body = SrtParser.extractFencedBlock(content)
                     runCatching { cache.put(request.postId, body) }
                     body
@@ -93,12 +95,18 @@ object SubtitleController {
                     errorKind = if (track.isEmpty) TranscriptionException.Kind.BAD_RESPONSE else null
                 )
             } catch (e: TranscriptionException) {
-                SubtitleUiState(postId = request.postId, generating = false, errorKind = e.kind)
+                SubtitleUiState(
+                    postId = request.postId,
+                    generating = false,
+                    errorKind = e.kind,
+                    errorDetail = e.detail ?: e.message
+                )
             } catch (e: Exception) {
                 SubtitleUiState(
                     postId = request.postId,
                     generating = false,
-                    errorKind = TranscriptionException.Kind.NETWORK
+                    errorKind = TranscriptionException.Kind.NETWORK,
+                    errorDetail = "${e.javaClass.simpleName}: ${e.message}"
                 )
             }
             // 请求在飞期间用户已切到别的作品：丢弃这次结果，别覆盖新会话

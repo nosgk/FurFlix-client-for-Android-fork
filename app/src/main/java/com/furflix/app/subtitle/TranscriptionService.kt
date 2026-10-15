@@ -17,12 +17,18 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import android.content.Context
+import android.util.Log
 import com.furflix.app.data.remote.FaMediaClient
+import com.furflix.app.player.AudioCache
 import java.io.IOException
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 
-/** 转录链路错误。[kind] 供 UI 映射文案，[detail] 保留响应片段便于排查。 */
+/** 诊断日志 tag：出问题时 `adb logcat -s Transcription` 即可看到完整往返。 */
+private const val TAG = "Transcription"
+
+/** 转录链路错误。[kind] 供 UI 映射文案，[detail] 保留响应片段/异常信息便于排查。 */
 class TranscriptionException(
     val kind: Kind,
     message: String,
@@ -107,6 +113,7 @@ class TranscriptionService private constructor() {
      * 返回模型原始回复（调用方用 [SrtParser] 抽字幕）。
      */
     suspend fun transcribe(
+        context: Context,
         config: TranscriptionConfig,
         systemPrompt: String,
         audioUrl: String
@@ -119,14 +126,21 @@ class TranscriptionService private constructor() {
             )
         }
         val http = clientFor(config)
-        val (bytes, format) = fetchAudio(audioUrl)
+        val endpoint = endpointFor(config.baseUrl, "/v1/chat/completions")
+        Log.i(TAG, "start endpoint=$endpoint model=${config.model} apiKeyChars=${config.apiKey.length}")
+        Log.i(TAG, "prompt chars=${systemPrompt.length} head=${systemPrompt.take(400).replace('\n', ' ')}")
+        val (bytes, format, source) = fetchAudio(context, audioUrl)
+        Log.i(TAG, "audio source=$source bytes=${bytes.size} format=$format")
         val payload = buildChatPayload(config.model, systemPrompt, bytes, format)
+        Log.i(TAG, "request body chars=${payload.length}")
         val request = buildRequest(
-            url = endpointFor(config.baseUrl, "/v1/chat/completions"),
+            url = endpoint,
             apiKey = config.apiKey,
             body = payload.toRequestBody("application/json".toMediaTypeOrNull())
         )
-        parseChatContent(execute(http, request))
+        val raw = execute(http, request)
+        Log.i(TAG, "response chars=${raw.length} head=${raw.take(400).replace('\n', ' ')}")
+        parseChatContent(raw)
     }
 
     /** 两次调用（拉模型 / 转录）共用的最低前置条件：Base URL + API Key。 */
@@ -159,12 +173,18 @@ class TranscriptionService private constructor() {
             )
         }
 
-    private fun fetchAudio(audioUrl: String): Pair<ByteArray, String> {
-        // 走 FA 媒体专用客户端：d.furaffinity.net 直链对无会话请求返回 403，
-        // 必须带会话 Cookie + 真实 UA + Referer。发给大模型的 /v1/* 请求走另一套
-        // 客户端，不带任何站点头。
+    private fun fetchAudio(context: Context, audioUrl: String): Triple<ByteArray, String, String> {
+        val format = audioFormat(audioUrl)
+        // 本地缓存优先：播放时已缓存过，转录不必再向 CDN 请求一次（既省流量，
+        // 也避开"CDN 对第二次请求再次发 CF 挑战"导致的假网络错误）
+        val cached = AudioCache.readCached(context, audioUrl)
+        if (cached != null && cached.isNotEmpty()) {
+            requireUploadable(cached)
+            return Triple(cached, format, "cache")
+        }
         val bytes = try {
             FaMediaClient.newCall(audioUrl).execute().use { response ->
+                Log.i(TAG, "audio GET HTTP ${response.code} url=$audioUrl")
                 if (!response.isSuccessful) {
                     throw TranscriptionException(
                         TranscriptionException.Kind.NETWORK,
@@ -182,20 +202,26 @@ class TranscriptionService private constructor() {
                 e
             )
         } catch (e: IOException) {
+            Log.w(TAG, "audio GET failed: ${e.javaClass.simpleName}: ${e.message}", e)
             throw TranscriptionException(
                 TranscriptionException.Kind.NETWORK,
                 e.message ?: "audio fetch failed",
-                cause = e
+                "${e.javaClass.simpleName}: ${e.message}",
+                e
             )
         }
+        requireUploadable(bytes)
+        return Triple(bytes, format, "network")
+    }
+
+    private fun requireUploadable(bytes: ByteArray) {
         if (bytes.size > MAX_AUDIO_BYTES) {
             throw TranscriptionException(
                 TranscriptionException.Kind.AUDIO_TOO_LARGE,
                 "audio exceeds upload limit",
-                "${bytes.size / (1024 * 1024)}MB"
+                "${bytes.size / (1024 * 1024)}MB > ${MAX_AUDIO_BYTES / (1024 * 1024)}MB"
             )
         }
-        return bytes to audioFormat(audioUrl)
     }
 
     private fun execute(http: OkHttpClient, request: Request): String {
@@ -205,17 +231,21 @@ class TranscriptionService private constructor() {
             throw TranscriptionException(
                 TranscriptionException.Kind.INVALID_URL,
                 e.message ?: "invalid url",
-                cause = e
+                request.url.toString(),
+                e
             )
         } catch (e: IOException) {
+            Log.w(TAG, "request failed: ${e.javaClass.simpleName}: ${e.message} url=${request.url}", e)
             throw TranscriptionException(
                 TranscriptionException.Kind.NETWORK,
                 e.message ?: "network error",
-                cause = e
+                "${e.javaClass.simpleName}: ${e.message}",
+                e
             )
         }
         return response.use { resp ->
             val text = runCatching { resp.body.string() }.getOrDefault("")
+            Log.i(TAG, "HTTP ${resp.code} chars=${text.length} url=${request.url}")
             if (resp.isSuccessful) {
                 text
             } else {

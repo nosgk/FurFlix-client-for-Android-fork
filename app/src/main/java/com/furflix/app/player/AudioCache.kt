@@ -50,6 +50,30 @@ object AudioCache {
     }
 
     /**
+     * 读取已缓存的音频字节；未缓存/只有半截返回 null。
+     *
+     * 转录要**再读一遍整条音频**：本地已有（播放时就缓存了）就直接读盘——既不重复
+     * 消耗流量，也避开对 CDN 的第二次请求（那条链路可能再次被 CF 挑战，用户侧表现
+     * 就是"音频能播但转录报网络错误"）。
+     */
+    fun readCached(context: Context, url: String): ByteArray? = runCatching {
+        val cache = get(context)
+        val span = androidx.media3.datasource.cache.CacheUtil.getCached(
+            cache,
+            url,
+            androidx.media3.datasource.DataSpec.Builder().setUri(url).build()
+        ) ?: return null
+        val file = span.file ?: return null
+        if (span.length <= 0L) return null
+        java.io.RandomAccessFile(file, "r").use { raf ->
+            raf.seek(span.offset.coerceAtLeast(0L))
+            val out = ByteArray(span.length.toInt())
+            raf.readFully(out)
+            out
+        }
+    }.getOrNull()
+
+    /**
      * 清空缓存：先释放实例（否则文件被占用删不掉），再删目录，下次访问自动重建。
      * **调用前必须先停止播放**（[PlaybackController.stop]）——播放器仍持有该缓存时
      * 释放会打断读取。
