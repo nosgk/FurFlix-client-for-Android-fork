@@ -18,7 +18,11 @@ import java.io.File
  *
  * SimpleCache 要求同一目录在进程内只有一个实例（目录里含索引与锁文件，重复打开
  * 会抛异常），故这里做进程级单例。
+ *
+ * SimpleCache / StandaloneDatabaseProvider 等均标了 media3 的 `@UnstableApi`，
+ * 本对象整体接受该 opt-in。
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 object AudioCache {
 
     private const val DIR_NAME = "audio_cache"

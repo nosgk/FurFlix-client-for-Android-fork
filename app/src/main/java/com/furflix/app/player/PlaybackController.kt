@@ -42,7 +42,10 @@ import kotlinx.coroutines.launch
  *  - **网络**：ExoPlayer 自带 DefaultHttpDataSource，不经 App 的 OkHttp 抓取链路，
  *    因此不受 [com.furflix.app.data.lifecycle.AppLifecycleTracker] 的前后台闸门影响，
  *    后台续播不会被拦。
+ *
+ * `Tracks` / `C` 等 media3 声明标了 `@UnstableApi`：本类整体接受该 opt-in。
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 object PlaybackController {
 
     /** 倍速档位（UI 与外部共用一份）。 */
