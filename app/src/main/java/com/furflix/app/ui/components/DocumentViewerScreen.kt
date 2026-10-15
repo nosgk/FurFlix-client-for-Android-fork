@@ -35,8 +35,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.Translateimport androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -67,6 +66,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.furflix.app.R
@@ -74,9 +74,11 @@ import com.furflix.app.data.local.DocFileCache
 import com.furflix.app.data.repository.FurRepository
 import com.furflix.app.translate.data.StoryGranularity
 import com.furflix.app.translate.data.TranslationCategory
+import com.furflix.app.translate.data.TranslationDisplayMode
 import com.furflix.app.translate.data.TranslationSettings
 import com.furflix.app.translate.ui.DocumentTranslationSettingsDialog
 import com.furflix.app.translate.ui.TranslationEntry
+import com.furflix.app.translate.ui.TranslationUiState
 import com.furflix.app.translate.ui.rememberTranslationPrefs
 import com.furflix.app.utils.DocumentTextExtractor
 import com.furflix.app.utils.PdfTextExtractor
@@ -566,6 +568,16 @@ private fun DocumentParagraph(
         }
     }
 
+    // 译文显示模式（翻译设置里可选双语对照 / 仅显示译文）。此前本组件恒显原文，
+    // 于是"仅显示译文"在文档查看器里根本不生效——这里与 StoryParagraph 的判据对齐：
+    // 只有当本段所有送翻单元都成功且正在展示译文时，才允许隐藏原文。
+    val states = entries.map { it.state.collectAsStateWithLifecycle().value }
+    val allSuccess = states.isNotEmpty() && states.all { it is TranslationUiState.Success }
+    val translationShowing = allSuccess &&
+        states.all { (it as TranslationUiState.Success).showing }
+    val translationOnly = prefs.displayMode(TranslationCategory.DESCRIPTION) ==
+        TranslationDisplayMode.TRANSLATION_ONLY
+
     Column(
         modifier = Modifier.clickable(
             interactionSource = remember { MutableInteractionSource() },
@@ -576,13 +588,15 @@ private fun DocumentParagraph(
     ) {
         SelectionContainer {
             Column {
-                Text(
-                    text = annotated,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        lineHeight = 26.sp,
-                        color = Color(0xFFE0E0E0)
+                if (!(translationOnly && translationShowing)) {
+                    Text(
+                        text = annotated,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            lineHeight = 26.sp,
+                            color = Color(0xFFE0E0E0)
+                        )
                     )
-                )
+                }
                 StoryParagraph(
                     paragraph = "",
                     entries = entries,

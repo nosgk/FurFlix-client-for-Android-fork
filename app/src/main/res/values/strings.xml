@@ -485,6 +485,20 @@
     <string name="meta_species">Species</string>
     <string name="meta_gender">Gender</string>
     <string name="profile_no_favorites">No favorites yet.</string>
+    <!-- Client-side search/filter bar for favorites & viewing-history lists -->
+    <string name="list_filter_search_hint">Search title or author</string>
+    <string name="list_filter_count">%d works</string>
+    <string name="list_filter_type_all">All</string>
+    <string name="list_filter_type_image">Image</string>
+    <string name="list_filter_type_text">Story</string>
+    <string name="list_filter_type_music">Music</string>
+    <string name="list_filter_type_flash">Flash</string>
+    <string name="list_filter_type_document">Document</string>
+    <string name="list_filter_type_other">Other</string>
+    <string name="list_filter_sort_time_desc">Newest first</string>
+    <string name="list_filter_sort_time_asc">Oldest first</string>
+    <string name="list_filter_sort_title">Title A–Z</string>
+    <string name="list_filter_empty">No matching works</string>
     <string name="share_via">Share via</string>
     <string name="post_author_gallery">Author Gallery</string>
     <string name="downloads_delete_confirm">Delete this image?</string>

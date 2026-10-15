@@ -56,6 +56,9 @@ import com.furflix.app.ui.components.LiveScrollSourceEffect
 import com.furflix.app.ui.components.LoadingMoreFooter
 import com.furflix.app.ui.components.PawPullRefreshBox
 import com.furflix.app.ui.components.SubmissionCard
+import com.furflix.app.ui.components.SubmissionFilterBar
+import com.furflix.app.ui.components.SubmissionFilterState
+import com.furflix.app.ui.components.applySubmissionFilter
 import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.ui.components.masonryGridCells
 import com.furflix.app.ui.components.UserNoteDialog
@@ -154,7 +157,10 @@ fun ProfileScreen(
                 views = stats.views,
                 favorites = stats.favorites,
                 comments = stats.comments,
-                isFavorited = stats.favorited
+                isFavorited = stats.favorited,
+                // 类型筛选要用：历史条目同样只能靠统计快照里的类型/扩展名判断
+                fileType = stats.fileType,
+                fileExt = stats.fileExt
             )
         }.asReversed()
     }
@@ -358,6 +364,12 @@ private fun FavoritesContent(
     scrollToTopTrigger: Int = 0
 ) {
     var favSubTab by remember { mutableIntStateOf(0) }
+    // 检索筛选只作用于"我的收藏"子栏目；筛选/排序均在已加载列表上做（FA 收藏夹
+    // 后端不接受筛选参数，站点侧也没有收藏夹搜索）
+    var favFilter by remember { mutableStateOf(SubmissionFilterState()) }
+    val favVisible = remember(submissions, favFilter) {
+        applySubmissionFilter(submissions, favFilter)
+    }
     Column(modifier = Modifier.fillMaxSize()) {
         CustomTabRow(
             tabs = listOf(
@@ -368,6 +380,13 @@ private fun FavoritesContent(
             onTabSelected = { favSubTab = it },
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
+        if (favSubTab == 0 && submissions.isNotEmpty()) {
+            SubmissionFilterBar(
+                state = favFilter,
+                onStateChange = { favFilter = it },
+                resultCount = favVisible.size
+            )
+        }
         Crossfade(targetState = favSubTab, animationSpec = tween(300), label = "favSubTab") { subTab ->
             when (subTab) {
                 1 -> OthersFavoritesContent(
@@ -377,8 +396,14 @@ private fun FavoritesContent(
                     onRegisterScrollSource = onRegisterScrollSource,
                     scrollToTopTrigger = scrollToTopTrigger
                 )
-                else -> MyFavoritesContent(
+                else -> if (submissions.isNotEmpty() && favVisible.isEmpty() && !isLoadingMore) {
+                    EmptyState(
+                        message = stringResource(R.string.list_filter_empty),
+                        icon = Icons.Default.Search
+                    )
+                } else MyFavoritesContent(
                     submissions = submissions,
+                    displaySubmissions = favVisible,
                     isLoading = isLoading,
                     isLoadingMore = isLoadingMore,
                     errorMessage = errorMessage,
@@ -404,6 +429,7 @@ private fun FavoritesContent(
 @Composable
 private fun MyFavoritesContent(
     submissions: List<com.furflix.app.data.model.Submission>,
+    displaySubmissions: List<com.furflix.app.data.model.Submission> = submissions,
     isLoading: Boolean,
     isLoadingMore: Boolean,
     errorMessage: String?,
@@ -467,7 +493,7 @@ private fun MyFavoritesContent(
                             verticalItemSpacing = 4.dp
                         ) {
                             staggeredItems(
-                                items = submissions,
+                                items = displaySubmissions,
                                 key = { it.id },
                                 contentType = { "submission" }
                             ) { submission ->
@@ -528,7 +554,7 @@ private fun MyFavoritesContent(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        items(submissions, key = { it.id }, contentType = { "submission" }) { submission ->
+                        items(displaySubmissions, key = { it.id }, contentType = { "submission" }) { submission ->
                             SubmissionCard(
                                 modifier = Modifier.animateItem(),
                                 submission = submission,
@@ -579,7 +605,7 @@ private fun MyFavoritesContent(
                         contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 120.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(submissions, key = { it.id }, contentType = { "submission" }) { submission ->
+                        items(displaySubmissions, key = { it.id }, contentType = { "submission" }) { submission ->
                             SubmissionCard(
                                 modifier = Modifier.animateItem(),
                                 submission = submission,
@@ -693,6 +719,11 @@ private fun HistoryContent(
     // 小栏目：0 = 作品（沿用全局视图模式），1 = 用户（到访过的用户页，列表呈现）
     var historyTab by remember { mutableIntStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
+    // 检索筛选只作用于"作品"子栏目（浏览记录本就是纯本地数据，客户端筛选是唯一做法）
+    var histFilter by remember { mutableStateOf(SubmissionFilterState()) }
+    val histVisible = remember(entries, histFilter) {
+        applySubmissionFilter(entries, histFilter)
+    }
     LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // 本地列表本身即时回流；刷新动作顺带把作品栏第一屏的统计重新预热，
@@ -712,6 +743,13 @@ private fun HistoryContent(
             onTabSelected = { historyTab = it },
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
+        if (historyTab == 0 && entries.isNotEmpty()) {
+            SubmissionFilterBar(
+                state = histFilter,
+                onStateChange = { histFilter = it },
+                resultCount = histVisible.size
+            )
+        }
         PawPullRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = { isRefreshing = true }
@@ -729,9 +767,12 @@ private fun HistoryContent(
                     )
                     else -> if (entries.isEmpty()) {
                         EmptyState(message = stringResource(R.string.history_empty), icon = Icons.Default.History)
+                    } else if (histVisible.isEmpty()) {
+                        EmptyState(message = stringResource(R.string.list_filter_empty), icon = Icons.Default.Search)
                     } else {
                         HistorySubmissionsContent(
                             entries = entries,
+                            displaySubmissions = histVisible,
                             viewMode = viewMode,
                             columnsPref = columnsPref,
                             showTitles = showTitles,
@@ -755,6 +796,7 @@ private fun HistoryContent(
 @Composable
 private fun HistorySubmissionsContent(
     entries: List<com.furflix.app.data.model.Submission>,
+    displaySubmissions: List<com.furflix.app.data.model.Submission> = entries,
     viewMode: GalleryViewMode,
     columnsPref: Int,
     showTitles: Boolean,
@@ -791,7 +833,7 @@ private fun HistorySubmissionsContent(
                         contentType = "header"
                     ) { HistoryHeader(entries.size, onClear) }
                     staggeredItems(
-                        items = entries,
+                        items = displaySubmissions,
                         key = { it.id },
                         contentType = { "submission" }
                     ) { submission ->
@@ -835,7 +877,7 @@ private fun HistorySubmissionsContent(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
-                    items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
+                    items(displaySubmissions, key = { it.id }, contentType = { "submission" }) { submission ->
                         SubmissionCard(
                             modifier = Modifier.animateItem(),
                             submission = submission,
@@ -873,7 +915,7 @@ private fun HistorySubmissionsContent(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item(key = "header", contentType = "header") { HistoryHeader(entries.size, onClear) }
-                    items(entries, key = { it.id }, contentType = { "submission" }) { submission ->
+                    items(displaySubmissions, key = { it.id }, contentType = { "submission" }) { submission ->
                         SubmissionCard(
                             modifier = Modifier.animateItem(),
                             submission = submission,

@@ -378,7 +378,19 @@ fun UserProfileScreen(
                 ) {
                     item(key = "header", span = StaggeredGridItemSpan.FullLine) {
                         val profile = userProfile
-                        if (profile != null) ProfileHeader(profile) else HeaderSkeleton()
+                        if (profile != null) {
+                            // 收藏 tab 下顶部背景默认改用该用户收藏夹里**最新一部作品**的
+                            // 缩略图：列表本身即"最近收藏在前"，首条就是最新，无需额外请求。
+                            // 尚未加载到或收藏为空时回落资料页横幅。
+                            val favThumb = if (selectedTab == UserViewModel.TAB_FAVORITES) {
+                                submissions.firstOrNull()?.thumbnailUrl?.takeIf { it.isNotEmpty() }
+                            } else {
+                                null
+                            }
+                            ProfileHeader(profile, bannerOverride = favThumb)
+                        } else {
+                            HeaderSkeleton()
+                        }
                     }
                     userProfile?.let { profile ->
                         item(key = "actions", span = StaggeredGridItemSpan.FullLine) {
@@ -1022,7 +1034,18 @@ private fun CollectFavoritesCard(collected: Boolean, onClick: () -> Unit) {
 // -----------------------------------------------------------------------------------------
 
 @Composable
-private fun ProfileHeader(profile: UserProfile) {
+private fun ProfileHeader(profile: UserProfile, bannerOverride: String? = null) {
+    // 背景优先用调用方给的覆盖图（收藏 tab = 最新收藏作品的缩略图），否则资料页横幅。
+    // 站点缩略图按显示尺寸向 CDN 协商更高档位，避免 180dp 高的背景被放大到发虚；
+    // 资料页横幅本身不是档位化 URL，DynamicThumbnail 会原样返回。
+    val rawBanner = bannerOverride?.takeIf { it.isNotEmpty() } ?: profile.bannerUrl
+    val bannerModel = remember(rawBanner) {
+        if (rawBanner.isEmpty()) {
+            rawBanner
+        } else {
+            com.furflix.app.data.remote.DynamicThumbnail(rawBanner).bestThumbnailUrl(1200f, 400f)
+        }
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // Banner
@@ -1031,9 +1054,9 @@ private fun ProfileHeader(profile: UserProfile) {
                     .fillMaxWidth()
                     .height(180.dp)
             ) {
-                if (profile.bannerUrl.isNotEmpty()) {
+                if (bannerModel.isNotEmpty()) {
                     AsyncImage(
-                        model = profile.bannerUrl,
+                        model = bannerModel,
                         contentDescription = stringResource(R.string.cd_banner),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()

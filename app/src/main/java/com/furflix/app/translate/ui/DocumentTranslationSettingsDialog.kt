@@ -42,9 +42,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.text.KeyboardOptions
 import com.furflix.app.R
 import com.furflix.app.translate.data.TRANSLATION_LANGUAGES
+import com.furflix.app.translate.data.TranslationCategory
 import com.furflix.app.translate.data.TranslationConfig
+import com.furflix.app.translate.data.TranslationDisplayMode
 import com.furflix.app.translate.data.TranslationProvider
 import com.furflix.app.translate.data.TranslationSettings
+import com.furflix.app.translate.data.TranslationUiPrefs
 import com.furflix.app.translate.data.languageNativeName
 import kotlinx.coroutines.launch
 
@@ -66,6 +69,9 @@ fun DocumentTranslationSettingsDialog(onDismiss: () -> Unit) {
     val enabled by settings.docOverrideFlow.collectAsState(initial = false)
     val snapshot by settings.docConfigSnapshot.collectAsState(initial = null)
     val global by settings.config.collectAsState(initial = TranslationConfig())
+    // 文档与小说阅读器共用 DESCRIPTION 类别，故这里改的显示模式同时作用于两者
+    val prefs by settings.uiPrefs.collectAsState(initial = TranslationUiPrefs.DEFAULT)
+    val docDisplayMode = prefs.displayMode(TranslationCategory.DESCRIPTION)
 
     // 展示值：独立配置留空时呈现全局值，避免面板看起来"没配置"
     val provider = snapshot?.provider ?: global.provider
@@ -77,6 +83,7 @@ fun DocumentTranslationSettingsDialog(onDismiss: () -> Unit) {
 
     var showProviderMenu by remember { androidx.compose.runtime.mutableStateOf(false) }
     var showLanguageMenu by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showModeMenu by remember { androidx.compose.runtime.mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -231,6 +238,71 @@ fun DocumentTranslationSettingsDialog(onDismiss: () -> Unit) {
                                     onClick = {
                                         scope.launch { settings.saveDocTargetLanguage(code) }
                                         showLanguageMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // 译文显示模式：双语对照（原文 + 译文）/ 仅显示译文（译文就绪后隐藏原文）。
+                    // 与设置页"显示方式"里的 DESCRIPTION 项是同一个持久化设置。
+                    Column {
+                        Text(
+                            stringResource(R.string.translation_display_modes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clickable { showModeMenu = true }
+                                    .padding(horizontal = 14.dp, vertical = 12.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Translate,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = stringResource(
+                                        if (docDisplayMode == TranslationDisplayMode.TRANSLATION_ONLY) {
+                                            R.string.translation_mode_translation_only
+                                        } else {
+                                            R.string.translation_mode_bilingual
+                                        }
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                        androidx.compose.material3.DropdownMenu(
+                            expanded = showModeMenu,
+                            onDismissRequest = { showModeMenu = false },
+                            modifier = Modifier.fillMaxWidth(0.85f)
+                        ) {
+                            listOf(
+                                TranslationDisplayMode.BILINGUAL to R.string.translation_mode_bilingual,
+                                TranslationDisplayMode.TRANSLATION_ONLY to R.string.translation_mode_translation_only
+                            ).forEach { (mode, labelRes) ->
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text(stringResource(labelRes)) },
+                                    onClick = {
+                                        scope.launch {
+                                            settings.saveDisplayMode(TranslationCategory.DESCRIPTION, mode)
+                                        }
+                                        showModeMenu = false
                                     }
                                 )
                             }

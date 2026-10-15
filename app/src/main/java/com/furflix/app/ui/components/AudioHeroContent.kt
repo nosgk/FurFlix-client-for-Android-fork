@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,10 +42,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.furflix.app.data.remote.DynamicThumbnail
 import com.furflix.app.ui.theme.DarkBackground
 import com.furflix.app.ui.theme.DarkSurfaceVariant
 import com.furflix.app.ui.theme.SubtleGray
@@ -130,18 +131,25 @@ fun AudioHeroContent(
             .background(DarkBackground)
             .padding(horizontal = 24.dp, vertical = 28.dp)
     ) {
+        // 音频类作品的站点缩略图原始分辨率普遍偏低（多为 200/300px），详情页按屏宽
+        // 比例放大铺满会明显发虚。这里把封面固定为较小尺寸，并按显示像素向 CDN
+        // 协商更高档位（DynamicThumbnail），从源头减少放大损耗。
+        val coverSize = 180.dp
+        val coverPx = with(LocalDensity.current) { coverSize.toPx() }
+        val coverModel = coverUrl
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { DynamicThumbnail(it).bestThumbnailUrl(coverPx, coverPx) }
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .fillMaxWidth(0.62f)
-                .aspectRatio(1f)
+                .size(coverSize)
                 .clip(RoundedCornerShape(24.dp))
                 .background(DarkSurfaceVariant)
                 .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
         ) {
-            if (!coverUrl.isNullOrEmpty()) {
+            if (coverModel != null) {
                 AsyncImage(
-                    model = coverUrl,
+                    model = coverModel,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()

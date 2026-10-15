@@ -494,6 +494,20 @@
     <string name="meta_species">种类</string>
     <string name="meta_gender">性别</string>
     <string name="profile_no_favorites">暂无收藏。</string>
+    <!-- 收藏夹 / 浏览记录列表的客户端检索筛选栏 -->
+    <string name="list_filter_search_hint">搜索标题或作者</string>
+    <string name="list_filter_count">%d 件作品</string>
+    <string name="list_filter_type_all">全部</string>
+    <string name="list_filter_type_image">图片</string>
+    <string name="list_filter_type_text">小说文本</string>
+    <string name="list_filter_type_music">音乐</string>
+    <string name="list_filter_type_flash">Flash</string>
+    <string name="list_filter_type_document">文档</string>
+    <string name="list_filter_type_other">其他</string>
+    <string name="list_filter_sort_time_desc">最新在前</string>
+    <string name="list_filter_sort_time_asc">最早在前</string>
+    <string name="list_filter_sort_title">标题 A–Z</string>
+    <string name="list_filter_empty">没有匹配的作品</string>
     <string name="share_via">分享至</string>
     <!-- 宽屏右栏的作者作品条带 -->
     <string name="post_author_gallery">作者画廊</string>
