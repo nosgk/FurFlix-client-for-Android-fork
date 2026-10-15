@@ -77,6 +77,27 @@ class CloudflareChallengeTest {
     }
 
     @Test
+    fun `user content that merely mentions the phrases is not a challenge`() {
+        // 扫正文会把这类正常页面误判成挑战——用户侧表现就是"浏览中莫名弹出安全检查"，
+        // 而且弹出的 WebView 加载的是正常页面，看起来"根本不是真正的 CF 检查"。
+        val journal = "<html><head><title>My journal -- Fur Affinity [dot] net</title></head><body>" +
+            "<div class=\"journal-body\"><p>I kept getting &quot;Just a moment...&quot; and " +
+            "&quot;Checking your browser&quot; pages all day while browsing, and the site asked me " +
+            "to prove I am human before letting me in. Very annoying.</p></div></body></html>"
+        assertTrue(journal.length > 200)
+        assertFalse(isCloudflareChallenge(200, journal))
+    }
+
+    @Test
+    fun `cf challenge platform script alone is not a challenge marker`() {
+        // CF 会在正常页面注入该脚本（Turnstile 等），它是脚本路径而非挑战页判据
+        val normalWithCfScript = "<html><head><title>Browse -- Fur Affinity [dot] net</title>" +
+            "<script src=\"/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1?ray=abc\"></script>" +
+            "</head><body><figure id=\"sid-1\">art</figure></body></html>"
+        assertFalse(isCloudflareChallenge(200, normalWithCfScript))
+    }
+
+    @Test
     fun `short or empty responses are never treated as challenges`() {
         assertFalse(isCloudflareChallenge(403, ""))
         assertFalse(isCloudflareChallenge(403, "<html>403</html>"))

@@ -24,9 +24,18 @@ enum class CloudflareVerdict {
 /**
  * CF 拦截特征判定（纯函数，供单测）。
  *
- * 先判「可人工通过的挑战」：标题 "Just a moment"/"Checking your browser"、
- * 内联挑战变量 _cf_chl_opt、/cdn-cgi/challenge-platform/ 路径脚本——三者任一即成立
- * （FA 首页/浏览页等正常页面实测均不含这些特征，2026-10-15 浏览器复核）。
+ * 只认**挑战页自身**的特征：
+ *  1. 页面标题就是挑战页标题（"Just a moment..." / "Checking your browser" /
+ *     "Attention Required"）；
+ *  2. 或正文含内联挑战配置 `_cf_chl_opt`（正常页面不会出现）。
+ *
+ * 为什么不再扫正文里的 "just a moment" / "checking your browser"：这两个短语会
+ * 出现在**用户内容**里（作品标题、描述、评论、搜索结果页），一扫正文就会把正常
+ * 页面判成挑战——用户侧表现正是"浏览过程中莫名弹出安全检查"，而且弹出来的
+ * WebView 加载的是正常页面，看起来"根本不是真正的 CF 检查"。
+ *
+ * 为什么不再拿 `/cdn-cgi/challenge-platform/` 当特征：CF 会在**正常页面**注入该
+ * 脚本（Turnstile 等），它是脚本路径而非挑战页判据。
  *
  * 再判「封禁/错误页」：cf-error-details 且状态码为 4xx/5xx。这类页面弹验证框无用，
  * 只应作为限流/拒绝错误退避重试；要求非 2xx 是为了避免把正文里偶然提到该词条的
@@ -38,14 +47,20 @@ enum class CloudflareVerdict {
 fun classifyCloudflare(status: Int, html: String): CloudflareVerdict {
     if (html.length < 200) return CloudflareVerdict.NONE
     val lower = html.lowercase()
-    val isChallenge = lower.contains("just a moment") ||
-        lower.contains("checking your browser") ||
-        lower.contains("_cf_chl_opt") ||
-        lower.contains("/cdn-cgi/challenge-platform/")
+    val title = TITLE_REGEX.find(html)?.groupValues?.get(1)?.lowercase().orEmpty()
+    val isChallenge = title.contains("just a moment") ||
+        title.contains("checking your browser") ||
+        title.contains("attention required") ||
+        lower.contains("_cf_chl_opt")
     if (isChallenge) return CloudflareVerdict.CHALLENGE
     if (status >= 400 && lower.contains("cf-error-details")) return CloudflareVerdict.BLOCK
     return CloudflareVerdict.NONE
 }
+
+private val TITLE_REGEX = Regex(
+    "<title[^>]*>(.*?)</title>",
+    setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+)
 
 /** 是否为可人工通过的 CF 挑战（验证对话框只对这种页面弹出）。 */
 fun isCloudflareChallenge(status: Int, html: String): Boolean =
