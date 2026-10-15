@@ -359,6 +359,10 @@ fun AudioHeroContent(
         }
 
         // ── 播放列表：聚合该画师全部音乐 / 加入自定义列表 ──────────────────
+        // 文案一律用 stringResource 在组合上下文取好：context.getString 是
+        // error 级 lint（LocalContextGetResourceValueCall），且不随配置变化刷新
+        val noMusicLabel = stringResource(R.string.playlist_no_music)
+        val addedLabel = stringResource(R.string.playlist_added)
         val scope = rememberCoroutineScope()
         var scanning by remember { mutableStateOf(false) }
         var showListPicker by remember { mutableStateOf(false) }
@@ -374,11 +378,7 @@ fun AudioHeroContent(
                     scope.launch {
                         val list = PlaylistBuilder.artistMusic(context, track.artistUsername)
                         if (list.items.isEmpty()) {
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.playlist_no_music),
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, noMusicLabel, Toast.LENGTH_SHORT).show()
                         } else {
                             PlaybackController.playPlaylist(context, list, 0)
                         }
@@ -401,7 +401,7 @@ fun AudioHeroContent(
         if (showListPicker) {
             PlaylistPickerDialog(
                 onDismiss = { showListPicker = false },
-                onPick = { listId, listName ->
+                onPick = { listId, _ ->
                     val store = CustomPlaylistStore.getInstance(context)
                     scope.launch {
                         store.addItem(
@@ -416,11 +416,7 @@ fun AudioHeroContent(
                             )
                         )
                     }
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.playlist_added, listName),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(context, addedLabel, Toast.LENGTH_SHORT).show()
                     showListPicker = false
                 }
             )

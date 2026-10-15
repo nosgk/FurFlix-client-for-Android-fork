@@ -159,6 +159,7 @@ fun UserProfileScreen(
     // "播放该画师 / 该文件夹全部音乐"：扫描期间显示进度圈
     val activeFolder by viewModel.activeFolder.collectAsState()
     var playlistScanning by remember { mutableStateOf(false) }
+    val noMusicLabel = stringResource(R.string.playlist_no_music)
     // 画廊三视图与列数偏好与画廊全局共用（一处设置全局生效）
     val viewMode by repository.viewModeFlow.collectAsState(initial = GalleryViewMode.GRID)
     val gridColumnsPref by repository.gridColumnsFlow.collectAsState(initial = 2)
@@ -367,7 +368,7 @@ fun UserProfileScreen(
                                     if (list.items.isEmpty()) {
                                         android.widget.Toast.makeText(
                                             context,
-                                            context.getString(R.string.playlist_no_music),
+                                            noMusicLabel,
                                             android.widget.Toast.LENGTH_SHORT
                                         ).show()
                                     } else {

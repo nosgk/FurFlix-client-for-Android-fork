@@ -703,8 +703,7 @@
     <string name="playlist_play_folder">Play all music in this folder</string>
     <string name="playlist_scanning">Collecting music…</string>
     <string name="playlist_empty">No tracks yet</string>
-    <!-- %1$s = playlist name -->
-    <string name="playlist_added">Added to %1$s</string>
+    <string name="playlist_added">Added to playlist</string>
     <string name="playlist_no_music">No audio works found</string>
     <!-- %1$s = playlist / source name -->
     <string name="playlist_now_playing_from">From %1$s</string>

@@ -714,8 +714,7 @@
     <string name="playlist_play_folder">播放该文件夹全部音乐</string>
     <string name="playlist_scanning">正在收集音频作品…</string>
     <string name="playlist_empty">还没有曲目</string>
-    <!-- %1$s = 列表名 -->
-    <string name="playlist_added">已加入 %1$s</string>
+    <string name="playlist_added">已加入播放列表</string>
     <string name="playlist_no_music">没有找到音频作品</string>
     <!-- %1$s = 列表/来源名 -->
     <string name="playlist_now_playing_from">来自 %1$s</string>
