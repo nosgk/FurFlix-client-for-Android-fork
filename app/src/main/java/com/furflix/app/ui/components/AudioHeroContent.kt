@@ -140,6 +140,13 @@ fun AudioHeroContent(
                 .background(DarkSurfaceVariant)
                 .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
         ) {
+            // 占位图标画在底层：无封面或封面加载失败时自然露出，而不是留一个空框
+            Icon(
+                Icons.Default.MusicNote,
+                contentDescription = null,
+                tint = SubtleGray,
+                modifier = Modifier.size(64.dp)
+            )
             if (coverModel != null) {
                 AsyncImage(
                     model = coverModel,
@@ -147,14 +154,15 @@ fun AudioHeroContent(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-            } else {
-                Icon(
-                    Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = SubtleGray,
-                    modifier = Modifier.size(64.dp)
-                )
             }
+        }
+
+        // 封面排查用：logcat -s AudioHero 能看到实际使用的封面地址与候选来源
+        LaunchedEffect(coverModel) {
+            android.util.Log.i(
+                "AudioHero",
+                "cover=$coverModel list=$coverUrl track=${track.coverUrl} url=${track.url}"
+            )
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -427,6 +435,16 @@ fun AudioHeroContent(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.error
                 )
+                // 直接把细节摊在界面上（HTTP 状态码/服务端响应片段/异常信息），
+                // 免得"网络错误"四个字什么也说明不了
+                subtitleState.errorDetail?.let { detail ->
+                    Text(
+                        text = detail,
+                        fontSize = 10.sp,
+                        color = SubtleGray,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 TextButton(onClick = onOpenSubtitleSettings) {
                     Text(text = stringResource(R.string.subtitle_open_settings), fontSize = 12.sp)
                 }
