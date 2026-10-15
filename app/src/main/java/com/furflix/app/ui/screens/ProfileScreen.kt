@@ -69,6 +69,11 @@ import com.furflix.app.ui.components.masonryGridCells
 import com.furflix.app.ui.components.UserNoteDialog
 import com.furflix.app.ui.components.WatchlistGridItem
 import com.furflix.app.ui.components.WatchlistItem
+import com.furflix.app.ui.components.GalleryScrollMemory
+import com.furflix.app.ui.components.buildTimelineNodes
+import com.furflix.app.ui.components.lazyGridHandle
+import com.furflix.app.ui.components.lazyListHandle
+import com.furflix.app.ui.components.lazyStaggeredHandle
 import com.furflix.app.ui.theme.*
 import com.furflix.app.data.local.UserBannerStore
 import com.furflix.app.data.model.GalleryViewMode
@@ -499,6 +504,14 @@ private fun MyFavoritesContent(
                                 }
                             }
                         }
+                        val timelineHandle = remember(staggeredState) { lazyStaggeredHandle(staggeredState) }
+                        val timelineNodes = remember(displaySubmissions) { buildTimelineNodes(displaySubmissions) }
+                        GalleryScrollMemory(
+                            galleryKey = "profile_favorites",
+                            handle = timelineHandle,
+                            nodes = timelineNodes,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
                         LazyVerticalStaggeredGrid(
                             state = staggeredState,
                             modifier = Modifier.fillMaxSize(),
@@ -541,6 +554,7 @@ private fun MyFavoritesContent(
                                 ) { LoadingMoreFooter() }
                             }
                         }
+                        }
                     }
                     GalleryViewMode.GRID -> {
                     val gridState = rememberLazyGridState()
@@ -561,6 +575,14 @@ private fun MyFavoritesContent(
                             }
                         }
                     }
+                    val timelineHandle = remember(gridState) { lazyGridHandle(gridState) }
+                    val timelineNodes = remember(displaySubmissions) { buildTimelineNodes(displaySubmissions) }
+                    GalleryScrollMemory(
+                        galleryKey = "profile_favorites",
+                        handle = timelineHandle,
+                        nodes = timelineNodes,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
                     LazyVerticalGrid(
                         state = gridState,
                         modifier = Modifier.fillMaxSize(),
@@ -595,6 +617,7 @@ private fun MyFavoritesContent(
                         }
                     }
                     }
+                    }
                     GalleryViewMode.LIST -> {
                     val listState = rememberLazyListState()
                     LiveScrollSourceEffect(register = onRegisterScrollSource) {
@@ -614,6 +637,14 @@ private fun MyFavoritesContent(
                             }
                         }
                     }
+                    val timelineHandle = remember(listState) { lazyListHandle(listState) }
+                    val timelineNodes = remember(displaySubmissions) { buildTimelineNodes(displaySubmissions) }
+                    GalleryScrollMemory(
+                        galleryKey = "profile_favorites",
+                        handle = timelineHandle,
+                        nodes = timelineNodes,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -643,6 +674,7 @@ private fun MyFavoritesContent(
                         if (isLoadingMore) {
                             item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                         }
+                    }
                     }
                     }
                 }
@@ -834,6 +866,18 @@ private fun HistorySubmissionsContent(
                 LaunchedEffect(scrollToTopTrigger) {
                     if (scrollToTopTrigger > 0) staggeredState.animateScrollToItem(0)
                 }
+                val timelineHandle = remember(staggeredState) { lazyStaggeredHandle(staggeredState) }
+                // 历史列表的首个 lazy 项是 HistoryHeader（非作品），故时间轴刻度整体 +1，
+                // 否则拖滚动条会错位一件；位置记忆存的是原始 index，不受影响。
+                val timelineNodes = remember(displaySubmissions) {
+                    buildTimelineNodes(displaySubmissions, indexOffset = 1)
+                }
+                GalleryScrollMemory(
+                    galleryKey = "profile_history",
+                    handle = timelineHandle,
+                    nodes = timelineNodes,
+                    modifier = Modifier.fillMaxSize()
+                ) {
                 LazyVerticalStaggeredGrid(
                     state = staggeredState,
                     modifier = Modifier.fillMaxSize(),
@@ -874,6 +918,7 @@ private fun HistorySubmissionsContent(
                         )
                     }
                 }
+                }
             }
             GalleryViewMode.GRID -> {
                 val gridState = rememberLazyGridState()
@@ -883,6 +928,16 @@ private fun HistorySubmissionsContent(
                 LaunchedEffect(scrollToTopTrigger) {
                     if (scrollToTopTrigger > 0) gridState.animateScrollToItem(0)
                 }
+                val timelineHandle = remember(gridState) { lazyGridHandle(gridState) }
+                val timelineNodes = remember(displaySubmissions) {
+                    buildTimelineNodes(displaySubmissions, indexOffset = 1)
+                }
+                GalleryScrollMemory(
+                    galleryKey = "profile_history",
+                    handle = timelineHandle,
+                    nodes = timelineNodes,
+                    modifier = Modifier.fillMaxSize()
+                ) {
                 LazyVerticalGrid(
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
@@ -914,6 +969,7 @@ private fun HistorySubmissionsContent(
                         )
                     }
                 }
+                }
             }
             GalleryViewMode.LIST -> {
                 val listState = rememberLazyListState()
@@ -923,6 +979,16 @@ private fun HistorySubmissionsContent(
                 LaunchedEffect(scrollToTopTrigger) {
                     if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
                 }
+                val timelineHandle = remember(listState) { lazyListHandle(listState) }
+                val timelineNodes = remember(displaySubmissions) {
+                    buildTimelineNodes(displaySubmissions, indexOffset = 1)
+                }
+                GalleryScrollMemory(
+                    galleryKey = "profile_history",
+                    handle = timelineHandle,
+                    nodes = timelineNodes,
+                    modifier = Modifier.fillMaxSize()
+                ) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
@@ -950,6 +1016,7 @@ private fun HistorySubmissionsContent(
                             onAuthorClick = { onNavigateToUser(it) }
                         )
                     }
+                }
                 }
             }
         }

@@ -44,6 +44,11 @@ import com.furflix.app.ui.screens.SearchBar
 import com.furflix.app.ui.components.SubmissionCard
 import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.ui.components.masonryGridCells
+import com.furflix.app.ui.components.GalleryScrollMemory
+import com.furflix.app.ui.components.buildTimelineNodes
+import com.furflix.app.ui.components.lazyGridHandle
+import com.furflix.app.ui.components.lazyListHandle
+import com.furflix.app.ui.components.lazyStaggeredHandle
 import com.furflix.app.viewmodel.MainViewModel
 import com.furflix.app.viewmodel.TagSearchViewModel
 import kotlinx.coroutines.launch
@@ -301,6 +306,14 @@ fun TagSearchScreen(
                     when (mode) {
                         com.furflix.app.data.model.SearchResultView.MASONRY -> {
                             val staggeredState = rememberLazyStaggeredGridState()
+                            val timelineHandle = remember(staggeredState) { lazyStaggeredHandle(staggeredState) }
+                            val timelineNodes = remember(submissions) { buildTimelineNodes(submissions) }
+                            GalleryScrollMemory(
+                                galleryKey = "tag_$tag",
+                                handle = timelineHandle,
+                                nodes = timelineNodes,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
                             LazyVerticalStaggeredGrid(
                                 columns = masonryGridCells(gridColumnsPref),
                                 state = staggeredState,
@@ -322,6 +335,7 @@ fun TagSearchScreen(
                                     ) { LoadingMoreFooter() }
                                 }
                             }
+                            }
                             LaunchedEffect(staggeredState) {
                                 snapshotFlow {
                                     val lastVisibleItem = staggeredState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
@@ -336,6 +350,14 @@ fun TagSearchScreen(
                         }
                         com.furflix.app.data.model.SearchResultView.LIST -> {
                             val listState = rememberLazyListState()
+                            val timelineHandle = remember(listState) { lazyListHandle(listState) }
+                            val timelineNodes = remember(submissions) { buildTimelineNodes(submissions) }
+                            GalleryScrollMemory(
+                                galleryKey = "tag_$tag",
+                                handle = timelineHandle,
+                                nodes = timelineNodes,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
                             LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
@@ -351,6 +373,7 @@ fun TagSearchScreen(
                                     item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                                 }
                             }
+                            }
                             LaunchedEffect(listState) {
                                 snapshotFlow {
                                     val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -365,6 +388,14 @@ fun TagSearchScreen(
                         }
                         else -> {
                             val gridState = rememberLazyGridState()
+                            val timelineHandle = remember(gridState) { lazyGridHandle(gridState) }
+                            val timelineNodes = remember(submissions) { buildTimelineNodes(submissions) }
+                            GalleryScrollMemory(
+                                galleryKey = "tag_$tag",
+                                handle = timelineHandle,
+                                nodes = timelineNodes,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
                             LazyVerticalGrid(
                                 modifier = Modifier.fillMaxSize(),
                                 // 紧凑 = 自适应多列（160dp 下限），大图 = 固定 2 列
@@ -386,6 +417,7 @@ fun TagSearchScreen(
                                 if (isLoadingMore) {
                                     item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                                 }
+                            }
                             }
                             LaunchedEffect(gridState) {
                                 snapshotFlow {

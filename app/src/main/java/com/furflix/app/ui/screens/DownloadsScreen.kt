@@ -52,6 +52,10 @@ import com.furflix.app.ui.components.rememberBarsVisibility
 import com.furflix.app.ui.components.rememberRetryImageState
 import com.furflix.app.ui.components.galleryGridCells
 import com.furflix.app.ui.components.masonryGridCells
+import com.furflix.app.ui.components.GalleryScrollMemory
+import com.furflix.app.ui.components.TimelineNode
+import com.furflix.app.ui.components.lazyGridHandle
+import com.furflix.app.ui.components.lazyStaggeredHandle
 import com.furflix.app.ui.theme.*
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -91,6 +95,16 @@ private fun parseMeta(context: Context, filename: String): DownloadMeta? {
             postId = json.optString("postId", id)
         )
     } catch (_: Exception) { null }
+}
+
+/**
+ * 下载画廊的滚动条刻度：DownloadedItem 只含 uri/文件名/尺寸，没有日期字段，
+ * 无法走 buildTimelineNodes 的按月打点，这里退化为等距刻度，保证滚动条可用。
+ */
+private fun downloadTimelineNodes(count: Int, maxNodes: Int = 12): List<TimelineNode> {
+    if (count < 2) return emptyList()
+    val step = (count / maxNodes).coerceAtLeast(1)
+    return (0 until count step step).take(maxNodes).map { TimelineNode(it, "") }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -288,6 +302,14 @@ fun DownloadsScreen(
                 Crossfade(targetState = viewMode, animationSpec = tween(300), label = "viewMode") { mode ->
                     when (mode) {
                         GalleryViewMode.GRID -> {
+                            val timelineHandle = remember(gridState) { lazyGridHandle(gridState) }
+                            val timelineNodes = remember(images) { downloadTimelineNodes(images.size) }
+                            GalleryScrollMemory(
+                                galleryKey = "downloads",
+                                handle = timelineHandle,
+                                nodes = timelineNodes,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
                             LazyVerticalGrid(
                                 columns = galleryGridCells(gridColumnsPref),
                                 modifier = Modifier.fillMaxSize(),
@@ -309,8 +331,17 @@ fun DownloadsScreen(
                                     )
                                 }
                             }
+                            }
                         }
                         GalleryViewMode.MASONRY -> {
+                            val timelineHandle = remember(staggeredState) { lazyStaggeredHandle(staggeredState) }
+                            val timelineNodes = remember(images) { downloadTimelineNodes(images.size) }
+                            GalleryScrollMemory(
+                                galleryKey = "downloads",
+                                handle = timelineHandle,
+                                nodes = timelineNodes,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
                             LazyVerticalStaggeredGrid(
                                 columns = masonryGridCells(gridColumnsPref),
                                 modifier = Modifier.fillMaxSize(),
@@ -332,8 +363,17 @@ fun DownloadsScreen(
                                     )
                                 }
                             }
+                            }
                         }
                         GalleryViewMode.LIST -> {
+                            val timelineHandle = remember(staggeredState) { lazyStaggeredHandle(staggeredState) }
+                            val timelineNodes = remember(images) { downloadTimelineNodes(images.size) }
+                            GalleryScrollMemory(
+                                galleryKey = "downloads",
+                                handle = timelineHandle,
+                                nodes = timelineNodes,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
                             LazyVerticalStaggeredGrid(
                                 columns = StaggeredGridCells.Fixed(1),
                                 modifier = Modifier.fillMaxSize(),
@@ -353,6 +393,7 @@ fun DownloadsScreen(
                                         onDelete = deleteAction
                                     )
                                 }
+                            }
                             }
                         }
                     }

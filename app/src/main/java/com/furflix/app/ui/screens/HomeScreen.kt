@@ -86,6 +86,10 @@ import com.furflix.app.ui.components.LocalThumbnailQuality
 import com.furflix.app.ui.components.GlassmorphicBottomBar
 import com.furflix.app.ui.components.rememberBarsVisibility
 import com.furflix.app.ui.components.LiveScrollSourceEffect
+import com.furflix.app.ui.components.GalleryScrollMemory
+import com.furflix.app.ui.components.buildTimelineNodes
+import com.furflix.app.ui.components.lazyGridHandle
+import com.furflix.app.ui.components.lazyStaggeredHandle
 import com.furflix.app.data.selection.SelectionStore
 import com.furflix.app.data.download.DownloadManager
 import com.furflix.app.ui.components.GlassBarTab
@@ -559,6 +563,14 @@ fun HomeScreen(
                                     staggeredState.firstVisibleItemIndex to staggeredState.firstVisibleItemScrollOffset
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
+                                val timelineHandle = remember(staggeredState) { lazyStaggeredHandle(staggeredState) }
+                                val timelineNodes = remember(submissions) { buildTimelineNodes(submissions) }
+                                GalleryScrollMemory(
+                                    galleryKey = if (page == 0) "home_browse" else "home_latest",
+                                    handle = timelineHandle,
+                                    nodes = timelineNodes,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
                                 LazyVerticalStaggeredGrid(
                                     columns = masonryGridCells(gridColumnsPref),
                                     state = staggeredState,
@@ -609,6 +621,7 @@ fun HomeScreen(
                                         }
                                     }
                                 }
+                                }
 
                                 LaunchedEffect(staggeredState) {
                                     snapshotFlow {
@@ -636,6 +649,14 @@ fun HomeScreen(
                                     gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(page) } }
+                                val timelineHandle = remember(gridState) { lazyGridHandle(gridState) }
+                                val timelineNodes = remember(submissions) { buildTimelineNodes(submissions) }
+                                GalleryScrollMemory(
+                                    galleryKey = if (page == 0) "home_browse" else "home_latest",
+                                    handle = timelineHandle,
+                                    nodes = timelineNodes,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
                                 LazyVerticalGrid(
                                     modifier = Modifier.fillMaxSize(),
                                     columns = galleryGridCells(gridColumnsPref, isList),
@@ -680,6 +701,7 @@ fun HomeScreen(
                                             LoadingMoreFooter()
                                         }
                                     }
+                                }
                                 }
 
                                 LaunchedEffect(gridState) {
@@ -1109,6 +1131,14 @@ fun HomeScreen(
                                     searchStaggeredState.firstVisibleItemIndex to searchStaggeredState.firstVisibleItemScrollOffset
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
+                                val timelineHandle = remember(searchStaggeredState) { lazyStaggeredHandle(searchStaggeredState) }
+                                val timelineNodes = remember(searchSubmissions) { buildTimelineNodes(searchSubmissions) }
+                                GalleryScrollMemory(
+                                    galleryKey = "home_search",
+                                    handle = timelineHandle,
+                                    nodes = timelineNodes,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
                                 LazyVerticalStaggeredGrid(
                                     columns = masonryGridCells(gridColumnsPref),
                                     state = searchStaggeredState,
@@ -1156,6 +1186,7 @@ fun HomeScreen(
                                         ) { LoadingMoreFooter() }
                                     }
                                 }
+                                }
                                 LaunchedEffect(searchStaggeredState) {
                                     snapshotFlow {
                                         val lastVisibleItem = searchStaggeredState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
@@ -1180,6 +1211,14 @@ fun HomeScreen(
                                     searchGridState.firstVisibleItemIndex to searchGridState.firstVisibleItemScrollOffset
                                 }
                                 DisposableEffect(Unit) { onDispose { scrollers.keys.remove(2) } }
+                                val timelineHandle = remember(searchGridState) { lazyGridHandle(searchGridState) }
+                                val timelineNodes = remember(searchSubmissions) { buildTimelineNodes(searchSubmissions) }
+                                GalleryScrollMemory(
+                                    galleryKey = "home_search",
+                                    handle = timelineHandle,
+                                    nodes = timelineNodes,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
                                 LazyVerticalGrid(
                                     modifier = Modifier.fillMaxSize(),
                                     columns = galleryGridCells(searchColumnsPref, isList),
@@ -1221,6 +1260,7 @@ fun HomeScreen(
                                     if (isLoadingMore) {
                                         item(key = "loading_more", contentType = "footer") { LoadingMoreFooter() }
                                     }
+                                }
                                 }
                                 LaunchedEffect(searchGridState) {
                                     snapshotFlow {
