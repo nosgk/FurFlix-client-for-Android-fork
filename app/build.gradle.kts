@@ -134,6 +134,12 @@ dependencies {
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
+    // 音频播放内核：ExoPlayer 走系统 MediaCodec 硬解、默认按源采样率配置 AudioTrack；
+    // PlaybackParameters 变速走 Sonic，只改时长不改音高（变速不变调）。media3-session
+    // 提供 MediaSessionService：后台保活 + 系统媒体通知栏/锁屏控制。
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation("androidx.media3:media3-session:1.11.1")
+
     // Baseline profile installer: applies the compiled profile at install/first-run
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
