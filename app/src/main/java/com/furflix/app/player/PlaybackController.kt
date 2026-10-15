@@ -11,7 +11,10 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -64,7 +67,14 @@ object PlaybackController {
         exo?.let { return it }
         val app = context.applicationContext
         appContext = app
-        val p = ExoPlayer.Builder(app).build()
+        // 音频走磁盘缓存数据源：首次边下边播并落盘，重播零网络，中断可续传
+        val cacheFactory = CacheDataSource.Factory()
+            .setCache(AudioCache.get(app))
+            .setUpstreamDataSourceFactory(DefaultDataSource.Factory(app))
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        val p = ExoPlayer.Builder(app)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(cacheFactory))
+            .build()
         p.setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
