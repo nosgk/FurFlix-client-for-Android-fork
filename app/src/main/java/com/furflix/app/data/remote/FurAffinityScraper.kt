@@ -123,8 +123,10 @@ object FurAffinityScraper {
                     Log.w("FurScraper", "Redirected to login — session cookie 'a' missing or expired")
                 }
 
-                if (isCloudflareChallenge(response.code, html)) {
-                    throw CloudflareChallengeException(finalUrl)
+                when (classifyCloudflare(response.code, html)) {
+                    CloudflareVerdict.CHALLENGE -> throw CloudflareChallengeException(finalUrl)
+                    CloudflareVerdict.BLOCK -> throw CloudflareBlockedException(finalUrl, response.code)
+                    CloudflareVerdict.NONE -> Unit
                 }
 
                 Jsoup.parse(html, FA_BASE)

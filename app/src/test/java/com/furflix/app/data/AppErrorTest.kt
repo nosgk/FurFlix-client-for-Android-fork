@@ -31,8 +31,18 @@ class AppErrorTest {
     }
 
     @Test
-    fun `guest gate maps to GuestBlocked and is not retryable`() {
-        val e = AppError.from(GuestBlockedException())
+    fun `cloudflare block page maps to Blocked, retryable, no user action`() {
+        val e = AppError.from(
+            com.furflix.app.data.remote.CloudflareBlockedException("https://fa/browse/", 429)
+        )
+        assertTrue(e is AppError.Blocked)
+        assertEquals(429, (e as AppError.Blocked).status)
+        assertTrue("限流/封禁应退避后重试", e.retryable)
+        assertFalse("人工验证通不过,绝不能弹验证框", e.needsUserAction)
+    }
+
+    @Test
+    fun `guest gate maps to GuestBlocked and is not retryable`() {        val e = AppError.from(GuestBlockedException())
         assertTrue(e is AppError.GuestBlocked)
         assertTrue(e.needsUserAction)
         assertFalse("重试不会改变门页结果", e.retryable)

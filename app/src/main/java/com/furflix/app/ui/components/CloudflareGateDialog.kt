@@ -140,13 +140,16 @@ private fun CloudflareGateWebView(url: String) {
                         super.onPageFinished(view, finishedUrl)
                         if (passed > 0) return
                         // 挑战通过判据：页面标题/内容离开挑战态；延迟 800ms
-                        // 躲开挑战骨架的 meta-refresh 中间帧
+                        // 躲开挑战骨架的 meta-refresh 中间帧。注意**不把**
+                        // cf-error-details 当"仍在挑战"——那是封禁/限流错误页
+                        // （1015/1020），人工验证永远通不过，若按挑战处理会让
+                        // 对话框一直挂到超时（用户侧表现即"安全检查误拦"）。
                         Handler(Looper.getMainLooper()).postDelayed({
                             view?.evaluateJavascript(
                                 "(function(){var t=(document.title||'').toLowerCase();" +
                                     "var h=(document.body?document.body.innerHTML:'');" +
                                     "if(t.indexOf('just a moment')>=0||t.indexOf('checking')>=0||" +
-                                    "h.indexOf('_cf_chl_opt')>=0||h.indexOf('cf-error-details')>=0)return'CHALLENGE';" +
+                                    "h.indexOf('_cf_chl_opt')>=0)return'CHALLENGE';" +
                                     "return'OK';})();"
                             ) { result ->
                                 val r = result?.removeSurrounding("\"")?.trim() ?: ""

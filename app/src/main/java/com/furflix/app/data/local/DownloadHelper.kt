@@ -127,6 +127,25 @@ object DownloadHelper {
         }
     }
 
+    /**
+     * 该本地副本是否仍然存在。content Uri 以能否查到行判定，file Uri 以文件是否存在判定。
+     * 供 [DownloadedMediaRegistry] 做完整性自检：用户在文件管理器里删掉的文件必须
+     * 立刻从"已下载"登记里消失。查询本身失败（多为权限/瞬时错误）时保守返回 true，
+     * 宁可多留一条登记，也不要把有效副本误判成已删除。
+     */
+    fun exists(context: Context, uri: Uri): Boolean = try {
+        if (uri.scheme == "content") {
+            context.contentResolver.query(
+                uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null
+            )?.use { it.moveToFirst() } ?: false
+        } else {
+            uri.path?.let { File(it).exists() } ?: false
+        }
+    } catch (e: Exception) {
+        Log.w("DownloadHelper", "exists() query failed, keeping registration", e)
+        true
+    }
+
     fun deleteImage(context: Context, uri: Uri): Boolean {
         return try {
             var deleted = false
@@ -142,6 +161,8 @@ object DownloadHelper {
                 if (id.isNotEmpty()) {
                     context.getSharedPreferences("downloads_meta", Context.MODE_PRIVATE)
                         .edit().remove(id).apply()
+                    // 同步撤销"已下载"登记：否则详情页仍会拿这个已删文件的 Uri 去加载
+                    DownloadedMediaRegistry.unregister(id)
                 }
             }
             deleted

@@ -1,5 +1,6 @@
 package com.furflix.app.data.remote
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,8 +51,14 @@ class CloudflareChallengeTest {
     }
 
     @Test
-    fun `cf error page is detected regardless of status`() {
-        assertTrue(isCloudflareChallenge(403, errorDetailsHtml))
+    fun `cf error page is a block, not a solvable challenge`() {
+        // 1015 限流 / 1020 拒绝这类错误页人工验证通不过：绝不能当挑战弹验证框，
+        // 否则用户被困在永远无法完成的验证界面（"安全检查误拦"）。
+        assertFalse(isCloudflareChallenge(403, errorDetailsHtml))
+        assertTrue(isCloudflareBlock(403, errorDetailsHtml))
+        assertTrue(isCloudflareBlock(503, errorDetailsHtml))
+        // 2xx 且带该词条多为正常页面正文偶然提及，不判为封禁
+        assertEquals(CloudflareVerdict.NONE, classifyCloudflare(200, errorDetailsHtml))
     }
 
     @Test

@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,7 +100,13 @@ fun GlassActionBar(
     shape: Shape = RoundedCornerShape(22.dp),
     blurRadius: Dp = 30.dp
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            // 吃掉落在按钮间隙与分隔线上的点击：否则会冒泡到详情页根手势，
+            // 把整个底栏收起，用户侧看起来同样是"点了没反应"（断触来源之三）。
+            .pointerInput(Unit) { detectTapGestures { } }
+    ) {
         // Drop shadow — keeps the card legible over plain/dark backgrounds,
         // independent of what haze finds to blur behind it.
         Box(
@@ -262,12 +269,16 @@ private fun ActionButton(
         } else emptyList()
     }
 
+    // 手势键必须稳定：item 是数据类，收藏态一翻转 icon/isActive 就变，
+    // 以它为 pointerInput 的键会在按下瞬间重启手势检测、把这次点击吞掉
+    // （"收藏按钮偶发断触"的来源之一）。改为固定键 + rememberUpdatedState。
+    val currentOnClick by rememberUpdatedState(onClick)
     Column(
         modifier = modifier
-            .pointerInput(item) {
+            .pointerInput(Unit) {
                 detectTapGestures {
                     tapTick++
-                    onClick()
+                    currentOnClick()
                     scope.launch {
                         isFlashing = true
                         delay(180)

@@ -2,6 +2,8 @@ package com.furflix.app.data.local
 
 import android.content.Context
 import android.net.Uri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.concurrent.thread
 import java.util.concurrent.ConcurrentHashMap
 
@@ -34,6 +36,10 @@ object DownloadedMediaRegistry {
     @Volatile
     private var warmedUp = false
 
+    /** 全量校验进行中标志：启动预热与回前台刷新同时触发时折叠为一次。 */
+    @Volatile
+    private var revalidating = false
+
     /** 登记单个已下载条目（下载完成时调用，uri 为空则忽略）。 */
     fun register(postId: String, uri: Uri?) {
         if (postId.isBlank() || uri == null) return
@@ -52,6 +58,42 @@ object DownloadedMediaRegistry {
     fun lookup(postId: String?): Uri? =
         postId?.takeIf { it.isNotBlank() }?.let { byPostId[it] }
 
+    /** 撤销登记：删除本地文件后必须立刻调用，否则已删文件仍会被当成"已下载"。 */
+    fun unregister(postId: String?) {
+        postId?.takeIf { it.isNotBlank() }?.let { byPostId.remove(it) }
+    }
+
+    /**
+     * 全量校验（可随时触发，**没有时间窗口限制**——每次调用都实打实核对一遍）：
+     * 1. 剔除本地已不存在的条目：用户在文件管理器里删掉的文件必须立刻不再算"已下载"；
+     * 2. 把 MediaStore 里存在但尚未登记的补进来（含本次改动之前下载的条目）。
+     *
+     * [known] 为调用方已经查好的列表时复用，避免重复查一次 MediaStore。
+     */
+    suspend fun revalidate(context: Context, known: List<DownloadedItem>? = null) {
+        if (revalidating) return
+        revalidating = true
+        try {
+            withContext(Dispatchers.IO) {
+                val gone = byPostId.entries
+                    .filter { !DownloadHelper.exists(context, it.value) }
+                    .map { it.key }
+                gone.forEach { byPostId.remove(it) }
+                registerAll(known ?: DownloadHelper.getDownloadedImages(context))
+            }
+        } finally {
+            revalidating = false
+        }
+    }
+
+    /** 后台线程跑一次全量校验（启动预热与回前台刷新共用，不阻塞调用方）。 */
+    fun refreshInBackground(context: Context) {
+        val appContext = context.applicationContext
+        thread(name = "downloaded-media-registry") {
+            runCatching { kotlinx.coroutines.runBlocking { revalidate(appContext) } }
+        }
+    }
+
     /**
      * 文件名 → postId：下载命名恒为 `<安全标题>_<postId>.<ext>`，
      * 末段下划线之后的前导数字即 postId。取不到返回 null（老命名/手工改名）。
@@ -67,7 +109,7 @@ object DownloadedMediaRegistry {
     /**
      * 一次性预热：把 MediaStore 里**已有**的下载也登记进来（含本次改动之前下载的，
      * 它们没有 URL 元数据但文件名里有 postId）。仿 CacheJanitor 的做法起一个
-     * 后台线程，不在启动路径上阻塞。
+     * 后台线程，不在启动路径上阻塞。预热走的就是 [revalidate] 的全量校验路径。
      */
     fun warmUpOnce(context: Context) {
         if (warmedUp) return
@@ -75,16 +117,7 @@ object DownloadedMediaRegistry {
             if (warmedUp) return
             warmedUp = true
         }
-        val appContext = context.applicationContext
-        thread(name = "downloaded-media-registry") {
-            runCatching {
-                registerAll(
-                    kotlinx.coroutines.runBlocking {
-                        DownloadHelper.getDownloadedImages(appContext)
-                    }
-                )
-            }
-        }
+        refreshInBackground(context)
     }
 
     /** 仅测试/登出场景使用。 */

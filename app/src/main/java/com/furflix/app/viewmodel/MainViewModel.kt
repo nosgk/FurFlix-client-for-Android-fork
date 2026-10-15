@@ -165,18 +165,60 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
 
-    private val _isTogglingFavorite = MutableStateFlow(false)
-    val isTogglingFavorite: StateFlow<Boolean> = _isTogglingFavorite.asStateFlow()
+    // 收藏切换进行中的作品集合：只合并"同一作品"的重复点击（避免 fav/unfav 竞态），
+    // 不再用全局闸门静默丢弃——旧实现下任意一件作品在切换，其它作品的爱心点击
+    // 都会被吞掉，用户侧表现就是"偶发断触"。
+    private val favoritesInFlight = mutableSetOf<String>()
+    private val favoritesLock = Any()
+
+    /** 详情同步时间戳：同一作品进入详情页后的远端对齐有节流，避免翻页时刷屏请求。 */
+    private val detailSyncedAt = mutableMapOf<String, Long>()
+    private val detailSyncLock = Any()
 
     fun toggleFavorite(postId: String) {
-        if (_isTogglingFavorite.value) return
-        val details = _submissionDetails.value[postId] ?: return
-        if (details.favUrl.isEmpty()) return
+        if (postId.isBlank()) return
+        if (!beginFavoriteToggle(postId)) return
+        val cached = _submissionDetails.value[postId]
+        if (cached != null) {
+            if (cached.favUrl.isEmpty()) {
+                // 自己的作品/受限帖子没有 fav 按钮：如实无操作，但仍要释放闸门
+                endFavoriteToggle(postId)
+                return
+            }
+            applyFavoriteToggle(postId, cached)
+            return
+        }
+        // 详情尚未到手（用户抢在加载完成前点了爱心）：先取回再切换，而不是静默无响应。
+        // 底栏收藏按钮本就不依赖详情已加载，这里补齐这一条路径。
+        viewModelScope.launch {
+            val fetched = try {
+                repository.getSubmission(postId)
+            } catch (_: Exception) {
+                null
+            }
+            if (fetched != null) {
+                _submissionDetails.update { it + (postId to fetched) }
+                if (fetched.favUrl.isNotEmpty()) {
+                    applyFavoriteToggle(postId, fetched)
+                    return@launch
+                }
+            }
+            endFavoriteToggle(postId)
+        }
+    }
+
+    private fun beginFavoriteToggle(postId: String): Boolean =
+        synchronized(favoritesLock) { favoritesInFlight.add(postId) }
+
+    private fun endFavoriteToggle(postId: String) {
+        synchronized(favoritesLock) { favoritesInFlight.remove(postId) }
+    }
+
+    private fun applyFavoriteToggle(postId: String, details: Submission) {
         val addToFavorites = !details.isFavorited
         val currentFavUrl = details.favUrl
         // 收藏动作不改变“是否到访”的语义：真实浏览过的仍是历史，批量收藏不产生历史
         val wasVisited = _cardStats.value[postId]?.visited ?: false
-        _isTogglingFavorite.value = true
         // Optimistic update — toggle state + swap the fav/unfav URL
         _submissionDetails.update { current ->
             val newMap = current.toMutableMap()
@@ -215,7 +257,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 cardStatsCache.put(postId, cardStatsOf(details, visited = wasVisited))
             }
-            _isTogglingFavorite.value = false
+            endFavoriteToggle(postId)
+        }
+    }
+
+    /**
+     * 进入作品详情页时与网页端对齐收藏状态：后台重抓一次详情，只把收藏相关字段
+     * （isFavorited / favUrl / favorites）并回内存，不动正文与其它字段——避免把
+     * 用户正在切换的乐观状态或已取到的正文覆盖掉。
+     *
+     * 按作品节流 [DETAIL_SYNC_TTL_MS]：翻页浏览时相邻页会被反复进入，不节流会刷屏请求。
+     */
+    fun syncSubmissionFromRemote(postId: String) {
+        if (postId.isBlank()) return
+        val now = System.currentTimeMillis()
+        synchronized(detailSyncLock) {
+            val last = detailSyncedAt[postId] ?: 0L
+            if (now - last < DETAIL_SYNC_TTL_MS) return
+            detailSyncedAt[postId] = now
+        }
+        viewModelScope.launch {
+            val fresh = try {
+                repository.getSubmission(postId, loadStoryText = false)
+            } catch (_: Exception) {
+                null
+            } ?: return@launch
+            // 正在切换收藏时不回写，避免把乐观状态顶回旧值
+            if (synchronized(favoritesLock) { postId in favoritesInFlight }) return@launch
+            _submissionDetails.update { current ->
+                val existing = current[postId] ?: return@update current + (postId to fresh)
+                current + (postId to existing.copy(
+                    isFavorited = fresh.isFavorited,
+                    favUrl = fresh.favUrl,
+                    favorites = fresh.favorites
+                ))
+            }
         }
     }
 
@@ -312,6 +388,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         /** 筛选连续调整的防抖窗口：最后一次调整后 450ms 才真正发请求。 */
         private const val SEARCH_RELOAD_DEBOUNCE_MS = 450L
+
+        /** 同一作品进入详情页后的收藏状态远端对齐节流窗口：窗口内不重复抓取。 */
+        private const val DETAIL_SYNC_TTL_MS = 30_000L
     }
 
     init {
@@ -824,8 +903,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _errorMessage.value = getApplication<Application>().getString(R.string.error_load_details)
                 }
             } catch (e: Exception) {
-                _errorMessage.value = e.message
-                    ?: getApplication<Application>().getString(R.string.error_unknown)
+                _errorMessage.value = when (e) {
+                    // CF 封禁/限流错误页：本地化文案，别把技术性异常消息直接甩给用户
+                    is com.furflix.app.data.remote.CloudflareBlockedException ->
+                        getApplication<Application>().getString(R.string.error_cloudflare_blocked, e.status)
+                    else -> e.message
+                        ?: getApplication<Application>().getString(R.string.error_unknown)
+                }
             } finally {
                 _isLoading.value = false
             }

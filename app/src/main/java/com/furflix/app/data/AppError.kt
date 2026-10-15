@@ -29,6 +29,13 @@ sealed class AppError(
     data class Cloudflare(val pageUrl: String, override val cause: Throwable? = null) :
         AppError(cause)
 
+    /**
+     * Cloudflare 封禁/限流错误页(1015/1020 等)。人工验证通不过,
+     * 故 [needsUserAction] 为 false——只应退避重试,绝不弹验证框。
+     */
+    data class Blocked(val status: Int, override val cause: Throwable? = null) :
+        AppError(cause)
+
     /** 访客被门页拦截(仅注册用户可见)。 */
     data class GuestBlocked(override val cause: Throwable? = null) : AppError(cause)
 
@@ -53,6 +60,7 @@ sealed class AppError(
             is Network -> true
             is Http -> code >= 500 || code == 429
             is Cloudflare -> true      // 用户完成验证后重试一次
+            is Blocked -> true         // 限流/封禁多为暂时性,退避后重试
             is GuestBlocked -> false
             is Unauthorized -> false
             is Parse -> false
@@ -76,6 +84,8 @@ sealed class AppError(
         fun from(t: Throwable): AppError = when {
             t is com.furflix.app.data.remote.CloudflareChallengeException ->
                 Cloudflare(t.pageUrl, t)
+            t is com.furflix.app.data.remote.CloudflareBlockedException ->
+                Blocked(t.status, t)
             t is com.furflix.app.data.remote.GuestBlockedException -> GuestBlocked(t)
             t is java.net.SocketTimeoutException -> Network(t)
             t is java.net.UnknownHostException -> Network(t)

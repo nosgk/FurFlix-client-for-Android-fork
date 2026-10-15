@@ -200,6 +200,9 @@ fun PostDetailScreen(
 
         LaunchedEffect(currentPostId) {
             viewModel.loadSubmission(currentPostId)
+            // 与网页端对齐收藏状态：内存里的详情可能来自若干分钟前的预取，
+            // 收藏在站点/其它设备上改过时本地会滞后，进入详情页时后台重抓一次
+            viewModel.syncSubmissionFromRemote(currentPostId)
         }
 
         val submission = submissionDetailsMap[currentPostId]
@@ -657,10 +660,10 @@ fun PostDetailScreen(
                         items = bottomBarItems,
                         hazeState = hazeState,
                         onItemClick = { index ->
-                            val sub = submission ?: return@GlassActionBar
                             when (index) {
                                 0 -> onBack()
                                 1 -> {
+                                    val sub = submission ?: return@GlassActionBar
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_TEXT, "https://www.furaffinity.net/view/${currentPostId}/")
@@ -668,10 +671,11 @@ fun PostDetailScreen(
                                     }
                                     context.startActivity(Intent.createChooser(shareIntent, shareViaText))
                                 }
-                                2 -> {
-                                    viewModel.toggleFavorite(currentPostId)
-                                }
+                                // 收藏不依赖详情已加载：详情还没到手时 ViewModel 会先取回再切换，
+                                // 这里不能因为 submission == null 就把点击吞掉（旧实现的断触来源之一）
+                                2 -> viewModel.toggleFavorite(currentPostId)
                                 3 -> {
+                                    val sub = submission ?: return@GlassActionBar
                                     // 下载方式决定实际 URL（复制展示文件/下载原图），任务已按
                                     // submissionId 归属本页；失败任务直接重试，不比 URL
                                     if (sub.fullImageUrl.isNotEmpty() || sub.fileUrl.isNotEmpty()) {

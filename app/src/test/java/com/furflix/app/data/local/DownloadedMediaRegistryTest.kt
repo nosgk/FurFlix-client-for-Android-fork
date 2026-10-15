@@ -51,4 +51,18 @@ class DownloadedMediaRegistryTest {
         assertFalse(DownloadedMediaRegistry.isImageFileName("x_1.docx"))
         assertFalse(DownloadedMediaRegistry.isImageFileName("x_1"))
     }
+
+    /** 未登记/已撤销的作品不应查到本地副本，空白 id 也不该被登记成键。 */
+    @Test
+    fun `lookup and unregister are blank-safe and unregister clears the entry`() {
+        DownloadedMediaRegistry.clear()
+        assertNull(DownloadedMediaRegistry.lookup(null))
+        assertNull(DownloadedMediaRegistry.lookup(""))
+        assertNull(DownloadedMediaRegistry.lookup("62284932"))
+        // 撤销一个从未登记的 id / 空白 id 都不应抛异常
+        DownloadedMediaRegistry.unregister("62284932")
+        DownloadedMediaRegistry.unregister(null)
+        DownloadedMediaRegistry.unregister("")
+        assertNull(DownloadedMediaRegistry.lookup("62284932"))
+    }
 }

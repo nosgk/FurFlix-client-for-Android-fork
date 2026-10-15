@@ -34,6 +34,9 @@ object AppLifecycleTracker {
                     synchronized(foregroundLock) {
                         foregroundLock.notifyAll()
                     }
+                    // 回前台即重查"已下载"登记：用户可能在文件管理器里删掉了文件，
+                    // 下载状态必须随时准确（无时间窗口限制，每次回前台都实打实核对）
+                    com.furflix.app.data.local.DownloadedMediaRegistry.refreshInBackground(app)
                 }
 
                 override fun onStop(owner: LifecycleOwner) {

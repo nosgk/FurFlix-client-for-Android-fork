@@ -42,6 +42,8 @@
     <string name="error_watchlist_empty">Watchlist is empty or login required.</string>
     <string name="error_login_required">Error: %s. You may need to log in.</string>
     <string name="error_load_details">Failed to load submission details.</string>
+    <!-- Cloudflare block/rate-limit page (HTTP %d) — NOT a solvable verification challenge -->
+    <string name="error_cloudflare_blocked">Blocked by the site\'s security service (HTTP %d). Please wait a moment and try again.</string>
 
     <!-- Species picker -->
 

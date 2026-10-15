@@ -134,14 +134,15 @@ fun DownloadsScreen(
 
     LaunchedEffect(Unit) {
         images = DownloadHelper.getDownloadedImages(context)
-        // 登记本地副本：点"软件内查看"进详情页时直接读这份文件，不再重新下载
-        DownloadedMediaRegistry.registerAll(images)
+        // 全量校验登记表：既补齐新条目，也剔除已被外部删除的旧条目——点"软件内查看"
+        // 进详情页时读到的本地副本始终与实际文件一致，不再受"只在启动时校验一次"限制
+        DownloadedMediaRegistry.revalidate(context, images)
         isLoading = false
     }
     LaunchedEffect(Unit) {
         DownloadManager.refreshSignal.collect {
             images = DownloadHelper.getDownloadedImages(context)
-            DownloadedMediaRegistry.registerAll(images)
+            DownloadedMediaRegistry.revalidate(context, images)
         }
     }
 
