@@ -156,8 +156,7 @@ fun UserProfileScreen(
     val userNotes by repository.userNotesFlow.collectAsState(initial = emptyMap())
     var noteEditingUser by remember { mutableStateOf<WatchlistUser?>(null) }
     val screenScope = rememberCoroutineScope()
-    // "播放该画师 / 该文件夹全部音乐"：扫描期间显示进度圈
-    val activeFolder by viewModel.activeFolder.collectAsState()
+    // "播放该画师 / 该文件夹全部音乐"：扫描期间显示进度圈（activeFolder 见上）
     var playlistScanning by remember { mutableStateOf(false) }
     val noMusicLabel = stringResource(R.string.playlist_no_music)
     // 画廊三视图与列数偏好与画廊全局共用（一处设置全局生效）
