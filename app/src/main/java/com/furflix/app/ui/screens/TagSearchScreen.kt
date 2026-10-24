@@ -62,6 +62,8 @@ fun TagSearchScreen(
     onBack: () -> Unit,
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
+    /** 带页内 tab 的用户直达（如粘贴 /favorites/{user}/ 时直接落收藏 tab）。 */
+    onOpenUserTab: (String, String) -> Unit = { username, _ -> onNavigateToUser(username) },
     cardStats: Map<String, com.furflix.app.data.model.CardStats> = emptyMap()
 ) {
     val submissions by viewModel.submissions.collectAsState()
@@ -128,7 +130,11 @@ fun TagSearchScreen(
                                 // 粘贴 FA 链接直达：作品/用户/搜索页，搜索链不进普通搜索
                                 when (val link = com.furflix.app.data.remote.parseFaLink(query)) {
                                     is com.furflix.app.data.remote.FaLink.Submission -> onNavigateToPost(link.id)
-                                    is com.furflix.app.data.remote.FaLink.User -> onNavigateToUser(link.username)
+                                    is com.furflix.app.data.remote.FaLink.User -> {
+                                        val tab = link.tab
+                                        if (tab != null) onOpenUserTab(link.username, tab)
+                                        else onNavigateToUser(link.username)
+                                    }
                                     is com.furflix.app.data.remote.FaLink.Search -> {
                                         viewModel.updateSearchFilters(draftFilters)
                                         viewModel.loadSearch(link.query, link.filters)

@@ -20,7 +20,14 @@ import kotlinx.coroutines.launch
 
 class UserViewModel(
     application: Application,
-    private val username: String
+    private val username: String,
+    /** 进入用户页时选中的 tab：深链/“别人的收藏夹”可直达收藏，默认画廊。 */
+    initialTab: Int = TAB_GALLERY,
+    /**
+     * 是否自动加载首屏。文件夹直达传 false：由 [openFolder] 接管加载，
+     * 避免先发出的画廊请求晚到后覆盖文件夹列表。
+     */
+    autoLoadInitial: Boolean = true
 ) : AndroidViewModel(application) {
 
     private val repository = FurRepository.getInstance(application)
@@ -70,7 +77,7 @@ class UserViewModel(
     private var watchersMore = true
     private var contentMore = true
 
-    private val _currentTab = MutableStateFlow(TAB_GALLERY)
+    private val _currentTab = MutableStateFlow(initialTab)
     val currentTab: StateFlow<Int> = _currentTab.asStateFlow()
 
     /** 画廊文件夹浏览模式：非空 = 正在该文件夹内浏览。 */
@@ -99,6 +106,11 @@ class UserViewModel(
 
     init {
         loadProfile()
+        // 首屏按构造时指定的 tab 加载，不再等 NSFW 首帧后无条件 loadGallery：
+        // 旧路径会与 NavGraph 的“收藏 tab 直达”竞争，把收藏页覆盖回画廊
+        // （表现为“别人的收藏夹”点进去停在用户主页默认 tab）。
+        // 列表内部 currentNsfw() 自己会 first() 等开关就绪，无需延后加载。
+        if (autoLoadInitial) loadInitialTab()
         viewModelScope.launch {
             repository.nsfwEnabledFlow.collect { nsfw ->
                 if (_lastNsfwEnabled != null && _lastNsfwEnabled != nsfw) {
@@ -115,11 +127,20 @@ class UserViewModel(
                     } else if (_currentTab.value == TAB_FAVORITES) {
                         loadFavorites()
                     }
-                } else if (_lastNsfwEnabled == null) {
-                    loadGallery()
                 }
                 _lastNsfwEnabled = nsfw
             }
+        }
+    }
+
+    /** 按进入时选中的 tab 加载首屏内容（收藏/关注等直达入口用）。 */
+    private fun loadInitialTab() {
+        when (_currentTab.value) {
+            TAB_FAVORITES -> loadFavorites()
+            TAB_WATCHING -> loadWatching()
+            TAB_WATCHERS -> loadWatchers()
+            TAB_JOURNALS -> loadJournals()
+            else -> loadGallery()
         }
     }
 
@@ -488,11 +509,13 @@ class UserViewModel(
 
     class Factory(
         private val application: Application,
-        private val username: String
+        private val username: String,
+        private val initialTab: Int = UserViewModel.TAB_GALLERY,
+        private val autoLoadInitial: Boolean = true
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return UserViewModel(application, username) as T
+            return UserViewModel(application, username, initialTab, autoLoadInitial) as T
         }
     }
 }

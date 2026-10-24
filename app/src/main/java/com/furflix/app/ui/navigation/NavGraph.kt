@@ -90,7 +90,7 @@ fun FurFlixNavGraph(
         val uri = pendingDeepLink ?: return@LaunchedEffect
         when (val link = parseFaLink(uri.toString())) {
             is FaLink.Submission -> navController.navigate(Routes.postDetail(link.id, "main"))
-            is FaLink.User -> navController.navigate(Routes.userProfile(link.username))
+            is FaLink.User -> navController.navigate(Routes.userProfile(link.username, tab = link.tab))
             is FaLink.Search -> {
                 // URL→状态双向同步的一半：深链筛选参数已白名单钳制，
                 // 原子替换 (查询词, 筛选) 并切到搜索 tab 执行
@@ -172,6 +172,9 @@ fun FurFlixNavGraph(
             HomeScreen(
                 onNavigateToPost = { postId -> navController.navigate(Routes.postDetail(postId, "main")) },
                 onNavigateToUser = { username -> navController.navigate(Routes.userProfile(username)) },
+                onOpenUserTab = { username, tab ->
+                    navController.navigate(Routes.userProfile(username, tab = tab))
+                },
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToDownloads = { navController.navigate(Routes.DOWNLOADS) },
                 onNavigateToFavoritesPost = { postId -> navController.navigate(Routes.postDetail(postId, "favorites")) },
@@ -387,15 +390,32 @@ fun FurFlixNavGraph(
             )
         ) { backStackEntry ->
             val username = backStackEntry.arguments?.getString("username") ?: return@composable
+            // 详情页 Folders 直达：带参进入时直接在该用户的文件夹内浏览
+            val folderId = backStackEntry.arguments?.getString("folderId") ?: ""
+            // tab 参数在 VM 构造时定死首屏 tab：不能再靠进页后的 LaunchedEffect
+            // 补调 loadFavorites——VM init 的 NSFW 首帧会无条件 loadGallery，
+            // 两个协程竞争后收藏 tab 会被覆盖回画廊。
+            val initialTab = if (folderId.isNotEmpty()) {
+                com.furflix.app.viewmodel.UserViewModel.TAB_GALLERY
+            } else {
+                when (backStackEntry.arguments?.getString("tab")) {
+                    "favorites" -> com.furflix.app.viewmodel.UserViewModel.TAB_FAVORITES
+                    "watching" -> com.furflix.app.viewmodel.UserViewModel.TAB_WATCHING
+                    "watchers" -> com.furflix.app.viewmodel.UserViewModel.TAB_WATCHERS
+                    "journals" -> com.furflix.app.viewmodel.UserViewModel.TAB_JOURNALS
+                    else -> com.furflix.app.viewmodel.UserViewModel.TAB_GALLERY
+                }
+            }
             val userViewModel: com.furflix.app.viewmodel.UserViewModel = viewModel(
                 viewModelStoreOwner = backStackEntry,
                 factory = com.furflix.app.viewmodel.UserViewModel.Factory(
                     androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application,
-                    username
+                    username,
+                    initialTab,
+                    // 文件夹直达由 openFolder 加载，避免画廊请求晚到覆盖文件夹
+                    autoLoadInitial = folderId.isEmpty()
                 )
             )
-            // 详情页 Folders 直达：带参进入时直接在该用户的文件夹内浏览
-            val folderId = backStackEntry.arguments?.getString("folderId") ?: ""
             if (folderId.isNotEmpty()) {
                 val initialFolder = remember(folderId, backStackEntry) {
                     com.furflix.app.data.model.GalleryFolder(
@@ -408,11 +428,6 @@ fun FurFlixNavGraph(
                 }
                 androidx.compose.runtime.LaunchedEffect(initialFolder) {
                     userViewModel.openFolder(initialFolder)
-                }
-            } else if (backStackEntry.arguments?.getString("tab") == "favorites") {
-                // 别人的收藏夹直达：进入用户页即选中收藏 tab
-                androidx.compose.runtime.LaunchedEffect(backStackEntry) {
-                    userViewModel.loadFavorites()
                 }
             }
             UserProfileScreen(
@@ -465,6 +480,9 @@ fun FurFlixNavGraph(
                 onBack = { navController.popBackStack() },
                 onNavigateToPost = { postId -> navController.navigate(Routes.postDetail(postId, "tag_${tag.replace("@keywords ", "")}")) },
                 onNavigateToUser = { user -> navController.navigate(Routes.userProfile(user)) },
+                onOpenUserTab = { user, tab ->
+                    navController.navigate(Routes.userProfile(user, tab = tab))
+                },
                 cardStats = mainViewModel.cardStats.collectAsState().value
             )
         }

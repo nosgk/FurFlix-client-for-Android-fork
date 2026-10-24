@@ -16,10 +16,12 @@ sealed class FaLink {
 
     /**
      * 用户主页：/user/{name}/；/gallery/{name}/、/favorites/{name}/、
-     * /scraps/{name}/ 等用户维度子页首页同样视作用户页直达（站内路由到
-     * 对应 profile，用户可在页内切 tab）。
+     * /scraps/{name}/ 等用户维度子页首页同样视作用户页直达。
+     *
+     * [tab] 保留网页版语义：/favorites/{name}/ 在站点上就是“该用户的收藏页”，
+     * 深链因此直接落到收藏 tab，而不是先停在用户主页默认的画廊 tab。
      */
-    data class User(val username: String) : FaLink()
+    data class User(val username: String, val tab: String? = null) : FaLink()
 
     /**
      * 搜索页：/search/?q=...（2026-10 表单 method=get，query 即 URL 状态）。
@@ -92,7 +94,11 @@ private fun parseFaUrl(url: String): FaLink? {
             segments[1].toLongOrNull() != null ->
             FaLink.Submission(segments[1])
         segments.size >= 2 && segments[0] in USER_SEGMENTS && segments[1].isNotBlank() ->
-            FaLink.User(segments[1])
+            FaLink.User(
+                segments[1],
+                // 只有收藏子页有对应的页内 tab；其余子页沿用用户主页默认 tab
+                tab = if (segments[0] == "favorites") "favorites" else null
+            )
         segments.isNotEmpty() && segments[0] == "search" -> {
             // FA 现代搜索两种形态：/search/?q=...（标准 query）与
             // /search/@q=...（@ 后内嵌同构参数串）；后者取 @ 后按 query 解析

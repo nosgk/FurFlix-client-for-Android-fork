@@ -86,6 +86,16 @@ class FaLinksTest {
     }
 
     @Test
+    fun `favorites sub-page opens the favorites tab`() {
+        // 网页版 /favorites/{user}/ 就是收藏页：深链必须直达收藏 tab，
+        // 与“我的收藏夹 → 别人的收藏夹”的站内入口行为一致。
+        assertEquals("favorites", user("https://www.furaffinity.net/favorites/foxie/").tab)
+        assertEquals("favorites", user("furaffinity.net/favorites/foxie").tab)
+        assertNull(user("https://www.furaffinity.net/gallery/foxie/").tab)
+        assertNull(user("https://www.furaffinity.net/user/foxie/").tab)
+    }
+
+    @Test
     fun `search deep link carries query and clamped filters`() {
         val link = parseFaLink("https://www.furaffinity.net/search/?q=red+fox&order-by=date&perpage=100&rating-general=1")
             as? FaLink.Search ?: error("expected Search")

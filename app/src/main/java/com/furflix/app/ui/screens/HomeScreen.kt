@@ -117,6 +117,8 @@ import com.furflix.app.data.repository.FurRepository
 fun HomeScreen(
     onNavigateToPost: (String) -> Unit,
     onNavigateToUser: (String) -> Unit,
+    /** 带页内 tab 的用户直达（如粘贴 /favorites/{user}/ 时直接落收藏 tab）。 */
+    onOpenUserTab: (String, String) -> Unit = { username, _ -> onNavigateToUser(username) },
     onNavigateToSettings: () -> Unit,
     onNavigateToDownloads: () -> Unit,
     onNavigateToFavoritesPost: (String) -> Unit = onNavigateToPost,
@@ -861,7 +863,9 @@ fun HomeScreen(
                                             }
                                             is com.furflix.app.data.remote.FaLink.User -> {
                                                 focusManager.clearFocus()
-                                                onNavigateToUser(link.username)
+                                                val tab = link.tab
+                                                if (tab != null) onOpenUserTab(link.username, tab)
+                                                else onNavigateToUser(link.username)
                                             }
                                             is com.furflix.app.data.remote.FaLink.Search -> {
                                                 focusManager.clearFocus()
